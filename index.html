@@ -1,11 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>SmartFlow PRO v6.0 | SmartEngp</title>
+    <title>SmartFlow PRO v3.0 | SmartEngp</title>
     
-    <!-- Three.js 0.160.0 por import map (sin CDN de 0.128) -->
+    <!-- Three.js 0.160.0 por import map -->
     <script type="importmap">
     {
         "imports": {
@@ -220,9 +221,6 @@
         body.fullscreen-mode .canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
         body.fullscreen-mode #fullscreen-controls { display: flex !important; }
 
-        .label-3d { transition: opacity 0.3s ease; user-select: none; }
-        .label-3d:hover { transform: scale(1.08); z-index: 30 !important; }
-
         #toastContainer {
             position: fixed; top: 16px; right: 16px;
             display: flex; flex-direction: column; gap: 8px;
@@ -253,7 +251,7 @@
                 <img src="img/logo.PNG" alt="Logo" onerror="this.style.display='none'">
             </div>
             <h1 class="splash-title">SmartFlow</h1>
-            <p class="splash-subtitle">INGENIERÍA INTELIGENTE v6.0</p>
+            <p class="splash-subtitle">INGENIERÍA INTELIGENTE v3.0</p>
             <div class="loading-bar-container"><div class="loading-bar-fill"></div></div>
             <div class="splash-status" id="splash-status">Inicializando protocolos SmartEngp...</div>
             <div class="author-footer">
@@ -361,7 +359,7 @@
 
     <div id="notification" class="notification"></div>
 
-    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartFlow v6.0</div>
+    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartFlow v3.0</div>
 
     <div class="tools-panel" id="toolsPanel">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
@@ -391,20 +389,22 @@
 
     <div id="toastContainer"></div>
 
-    <!-- SERVICIOS (deben cargar PRIMERO) -->
+    <!-- SERVICIOS (se cargan primero, son scripts normales) -->
     <script src="js/services/voice.js"></script>
     <script src="js/services/notification.js"></script>
     
-    <!-- MÓDULOS PRINCIPALES -->
-    <script src="js/ThreeJsEngine.js"></script>
+    <!-- MÓDULOS PRINCIPALES (scripts normales) -->
     <script src="js/core.js"></script>
     <script src="js/catalog.js"></script>
     <script src="js/router.js"></script>
     <script src="js/renderer.js"></script>
-    <script src="js/render.js"></script>
     <script src="js/commands.js"></script>
-    <script src="js/SmartFlowLabels3D.js"></script>
     <script src="js/main.js"></script>
+    
+    <!-- MÓDULOS 3D (type="module" para usar imports de Three.js) -->
+    <script type="module" src="js/ThreeJsEngine.js"></script>
+    <script type="module" src="js/render.js"></script>
+    <script type="module" src="js/SmartFlowLabels3D.js"></script>
 
     <script>
         window.voiceEnabled = true;
