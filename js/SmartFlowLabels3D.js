@@ -484,21 +484,3 @@ const SmartFlowLabels3D = (function() {
 })();
 
 window.SmartFlowLabels3D = SmartFlowLabels3D;
-```
-
----
-
-Cambios en index.html
-
-Los 3 archivos 3D ahora se cargan como módulos:
-
-```html
-<!-- QUITAR los <script> normales -->
-<!-- <script src="js/ThreeJsEngine.js"></script> -->
-<!-- <script src="js/render.js"></script> -->
-<!-- <script src="js/SmartFlowLabels3D.js"></script> -->
-
-<!-- PONER como módulos -->
-<script type="module" src="js/ThreeJsEngine.js"></script>
-<script type="module" src="js/render.js"></script>
-<script type="module" src="js/SmartFlowLabels3D.js"></script>
