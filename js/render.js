@@ -1,10 +1,9 @@
 
 // ============================================================
-// SMARTFLOW RENDER 3D v3.0 - Motor de Meshes 3D
+// SMARTFLOW RENDER 3D v3.0 - Three.js 0.160.0
 // Archivo: js/render.js
-// Mejoras: createEquipmentMesh unificado, 100% equipos,
-//          createPlataforma concreto/metal, getEquipmentColor ampliado
 // ============================================================
+import * as THREE from 'three';
 
 const SmartFlowRender = (function() {
     let _composer = null;
@@ -84,22 +83,6 @@ const SmartFlowRender = (function() {
         targetMatrix.lookAt(new THREE.Vector3(0, 0, 0), dirVec.clone().normalize(), upVec);
         group.quaternion.setFromRotationMatrix(targetMatrix);
         group.rotateY(Math.PI / 2);
-    }
-    
-    // ============ EFECTOS ============
-    function setupEffects(scene, camera, renderer) {
-        if (!scene || !camera || !renderer) return;
-        if (typeof THREE.EffectComposer !== 'undefined') {
-            _composer = new THREE.EffectComposer(renderer);
-            _composer.addPass(new THREE.RenderPass(scene, camera));
-            if (typeof THREE.OutlinePass !== 'undefined') {
-                _outlinePass = new THREE.OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
-                _outlinePass.edgeStrength = 3; _outlinePass.edgeGlow = 0.6; _outlinePass.edgeThickness = 1.5;
-                _outlinePass.pulsePeriod = 2;
-                _outlinePass.visibleEdgeColor.setHex(0x00f2ff); _outlinePass.hiddenEdgeColor.setHex(0x1e293b);
-                _composer.addPass(_outlinePass);
-            }
-        }
     }
     
     function deepDisposeGroup(group) {
@@ -305,7 +288,6 @@ const SmartFlowRender = (function() {
         if (!eq || !eq.tipo) return null;
         var tipo = (eq.tipo||'').toLowerCase();
         
-        // Tanques verticales y equipos cilíndricos
         if (tipo==='tanque_v'||tipo==='tanque_acero'||tipo==='torre'||tipo==='reactor'||
             tipo==='desgasificador'||tipo==='desmineralizador'||tipo==='suavizador'||
             tipo==='filtro_carbon'||tipo==='filtro_arena'||tipo==='clarificador'||
@@ -316,27 +298,16 @@ const SmartFlowRender = (function() {
             return createTankVertical(eq);
         }
         
-        // Tanques horizontales
         if (tipo==='tanque_h'||tipo==='separador_trifasico'||tipo==='slug_catcher'||
             tipo==='calentador_fuego_directo'||tipo==='secador_rotativo'||
             tipo==='centrifuga'||tipo==='filtro_tambor'||tipo==='molino') {
             return createTankHorizontal(eq);
         }
         
-        // Bombas
         if (tipo.includes('bomba')||tipo==='skid_inyeccion') return createBomba(eq);
-        
-        // Compresor
         if (tipo==='compresor') return createCompresor(eq);
-        
-        // Intercambiadores y térmicos
-        if (tipo==='intercambiador'||tipo==='caldera'||tipo==='condensador'||
-            tipo==='pasteurizador'||tipo==='esterilizador_uht') return createExchanger(eq);
-        
-        // Plataforma
+        if (tipo==='intercambiador'||tipo==='caldera'||tipo==='condensador'||tipo==='pasteurizador'||tipo==='esterilizador_uht') return createExchanger(eq);
         if (tipo==='plataforma') return createPlataforma(eq);
-        
-        // Genérico
         return createBoxEquip(eq);
     }
     
@@ -495,7 +466,7 @@ const SmartFlowRender = (function() {
         return group;
     }
     
-    // ============ VÁLVULAS E INSTRUMENTOS ============
+    // ============ VÁLVULAS ============
     function createValve(comp, pos3D, dirVec, size, compType, spec) {
         var type = (compType || comp.type || '').toUpperCase(), s = size;
         var color = getPipeColor(spec);
@@ -646,7 +617,6 @@ const SmartFlowRender = (function() {
                 }
             }
         }
-        if (_outlinePass) _outlinePass.enabled = _totalObjects <= 30;
     }
     
     function refreshAllFlowArrows() {
@@ -701,7 +671,20 @@ const SmartFlowRender = (function() {
         if (!_engine){ console.error('SmartFlowRender: engineInstance requerido'); return; }
         _sceneRef=_engine.getScene(); _cameraRef=_engine.getCamera(); _rendererRef=_engine.getRenderer();
         if (!_sceneRef||!_cameraRef||!_rendererRef){ console.error('SmartFlowRender: Engine no inicializado'); return; }
-        setupEffects(_sceneRef,_cameraRef,_rendererRef);
+        
+        // Los efectos (EffectComposer, OutlinePass) requieren imports adicionales.
+        // Si no están disponibles, se omite el setup de efectos.
+        if (typeof THREE.EffectComposer !== 'undefined') {
+            _composer = new THREE.EffectComposer(_rendererRef);
+            _composer.addPass(new THREE.RenderPass(_sceneRef, _cameraRef));
+            if (typeof THREE.OutlinePass !== 'undefined') {
+                _outlinePass = new THREE.OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), _sceneRef, _cameraRef);
+                _outlinePass.edgeStrength = 3; _outlinePass.edgeGlow = 0.6; _outlinePass.edgeThickness = 1.5;
+                _outlinePass.pulsePeriod = 2;
+                _outlinePass.visibleEdgeColor.setHex(0x00f2ff); _outlinePass.hiddenEdgeColor.setHex(0x1e293b);
+                _composer.addPass(_outlinePass);
+            }
+        }
         
         _symbolGroup.userData={isSymbolGroup:true}; 
         _symbolGroup.renderOrder = 1;
@@ -715,7 +698,7 @@ const SmartFlowRender = (function() {
         if (typeof _core.on==='function') _core.on('modelChanged',function(){ scheduleRefresh(); });
         window.set3DView=function(type){ _engine.setView(type); };
         scheduleRefresh();
-        console.log("✔ SmartFlowRender v3.0 - 100% equipos");
+        console.log("✔ SmartFlowRender v3.0 - Three.js 0.160.0 con imports");
     }
     
     return {
@@ -730,3 +713,5 @@ const SmartFlowRender = (function() {
         setLabelRenderer:function(lr){_labelRenderer=lr;}
     };
 })();
+
+window.SmartFlowRender = SmartFlowRender;
