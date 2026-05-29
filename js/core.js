@@ -2,7 +2,7 @@
 // ============================================================
 // SMARTFLOW CORE v5.6 - Motor de Datos de Ingeniería
 // Archivo: js/core.js
-// Mejoras: injectFittingAtPoint, NotificationService, VoiceService
+// Mejoras: injectFittingAtPoint, VoiceService en notificaciones
 // ============================================================
 
 const SmartFlowCore = (function() {
@@ -97,13 +97,24 @@ const SmartFlowCore = (function() {
         }
     }
 
+    // ═══════════════════════════════════════════════════════
+    // CORREGIDO: _notifyUI ahora usa VoiceService directamente
+    // ═══════════════════════════════════════════════════════
     let _notifyUI = function(msg, isErr) {
         console.log(msg);
-        // Usar NotificationService si está disponible
+        // Voz directa
+        if (typeof VoiceService !== 'undefined' && VoiceService.isEnabled()) {
+            try {
+                VoiceService.speak(msg);
+            } catch(e) {
+                console.warn('Error de voz en Core:', e);
+            }
+        }
+        // Notificación visual
         if (typeof NotificationService !== 'undefined') {
             NotificationService.notify(msg, {
                 isError: isErr || false,
-                voice: isErr || false,
+                voice: false,
                 statusBar: true,
                 toast: false
             });
@@ -298,7 +309,6 @@ const SmartFlowCore = (function() {
         const pts = getLinePoints(line);
         if (!pts || pts.length < 2) return null;
 
-        // Calcular longitudes
         let totalLen = 0;
         const lengths = [];
         for (let i = 0; i < pts.length - 1; i++) {
@@ -307,7 +317,6 @@ const SmartFlowCore = (function() {
             totalLen += d;
         }
 
-        // Encontrar segmento más cercano
         let minDist = Infinity, bestSegIdx = 0, bestT = 0;
         for (let i = 0; i < lengths.length; i++) {
             const proj = _projectPointOnSegment(point, pts[i], pts[i + 1]);
@@ -318,17 +327,14 @@ const SmartFlowCore = (function() {
             }
         }
 
-        // Calcular param
         let accumBefore = 0;
         for (let i = 0; i < bestSegIdx; i++) accumBefore += lengths[i];
         const param = (accumBefore + bestT * lengths[bestSegIdx]) / totalLen;
 
-        // Insertar el punto en la geometría
         const newPts = pts.slice();
         newPts.splice(bestSegIdx + 1, 0, point);
         line._cachedPoints = newPts;
 
-        // Crear componente
         const fittingTag = (fitting.type || 'TEE_EQUAL') + '-' + lineTag + '-' + Date.now().toString(36).slice(-4);
         const comp = {
             type: fitting.type || 'TEE_EQUAL',
@@ -341,7 +347,6 @@ const SmartFlowCore = (function() {
         if (!line.components) line.components = [];
         line.components.push(comp);
 
-        // Generar puertos
         const branchPortId = fittingTag + '_BRANCH';
         const run1PortId = fittingTag + '_RUN1';
         const run2PortId = fittingTag + '_RUN2';
@@ -353,7 +358,6 @@ const SmartFlowCore = (function() {
             { id: run2PortId, status: 'connected', diametro: fitting.diameter || 4, flow: 'out', relX: 0, relY: 0, relZ: 0 }
         );
 
-        // Persistir
         this._saveState();
         emit('modelChanged', { type: 'injectAccessory', lineTag: lineTag });
         _renderUI();
@@ -559,7 +563,7 @@ const SmartFlowCore = (function() {
     }
 
     // ================================================================
-    // API PÚBLICA (mismos métodos + injectFittingAtPoint)
+    // API PÚBLICA
     // ================================================================
     return {
         init: function(notifyFn, renderFn, propertyPanelFn) {
@@ -805,7 +809,6 @@ const SmartFlowCore = (function() {
             return result;
         },
         
-        // ═══ NUEVO MÉTODO ═══
         injectFittingAtPoint: injectFittingAtPoint,
         
         splitLine: function(lineTag, point, config) {
@@ -939,6 +942,7 @@ const SmartFlowCore = (function() {
         getElevation: function() { return _currentElevation; },
         setVoice: function(enabled) { 
             _voiceEnabled = enabled; 
+            if (typeof VoiceService !== 'undefined') VoiceService.setEnabled(enabled);
             if (typeof NotificationService !== 'undefined') NotificationService.setVoiceEnabled(enabled);
         },
         isVoiceEnabled: function() { return _voiceEnabled; },
