@@ -190,7 +190,6 @@
             if (canvas) canvas.style.display = 'block';
             
             if (typeof SmartFlowRenderer !== 'undefined') {
-                // CORREGIDO: 4 parámetros (canvas, core, catalog, notifyFn)
                 SmartFlowRenderer.init(canvas, SmartFlowCore, SmartFlowCatalog, notify);
                 _is2DInitialized = true;
             }
@@ -215,6 +214,7 @@
         
         SmartFlowCommands.init(SmartFlowCore, SmartFlowCatalog, SmartFlowRenderer, notify, scheduleRender, voiceFn);
         
+        // Inicializar el Exportador para PDF, PCF, MTO
         if (typeof SmartFlowExporter !== 'undefined') {
             SmartFlowExporter.init(
                 SmartFlowCore, 
@@ -249,7 +249,6 @@
             
             if (typeof SmartFlowRenderer !== 'undefined' && canvas) {
                 if (!_is2DInitialized) {
-                    // CORREGIDO: 4 parámetros
                     SmartFlowRenderer.init(canvas, SmartFlowCore, SmartFlowCatalog, notify);
                     _is2DInitialized = true;
                 }
@@ -316,7 +315,62 @@
         }
     }
     
-    // -------------------- 6. GESTIÓN DE PROYECTOS --------------------
+    // -------------------- 6. GESTIÓN DE PROYECTOS (DIRECTO, sin Exporter) --------------------
+    function guardarProyecto() {
+        const state = SmartFlowCore.exportProject();
+        localStorage.setItem('smartflow_v3_project', state);
+        notify("✅ Proyecto guardado en el navegador.", false);
+    }
+    
+    function cargarProyecto() {
+        const data = localStorage.getItem('smartflow_v3_project');
+        if (data) {
+            try {
+                const state = JSON.parse(data);
+                SmartFlowCore.importState(state.data || state);
+                autoCenter();
+                notify("✅ Proyecto cargado correctamente.", false);
+            } catch (e) {
+                notify("Error al cargar el proyecto: archivo corrupto.", true);
+            }
+        } else {
+            notify("No hay proyecto guardado.", true);
+        }
+    }
+    
+    function exportarProyectoArchivo() {
+        const state = SmartFlowCore.exportProject();
+        const blob = new Blob([state], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (window.currentProjectName || 'Proyecto') + '_SmartFlow.json';
+        a.click();
+        notify("✅ Proyecto exportado como archivo JSON.", false);
+    }
+    
+    function importarProyectoArchivo() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    const state = JSON.parse(ev.target.result);
+                    SmartFlowCore.importState(state.data || state);
+                    autoCenter();
+                    notify("✅ Proyecto importado correctamente.", false);
+                } catch (err) {
+                    notify("Error al importar el proyecto: archivo corrupto.", true);
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+    
     function iniciarNuevoProyecto() {
         const name = projectInput ? projectInput.value.trim() : '';
         if (name) window.currentProjectName = name;
@@ -333,7 +387,35 @@
         if (statusMsgEl) statusMsgEl.textContent = 'Proyecto: ' + window.currentProjectName + ' | Listo';
     }
     
-    // -------------------- 7. RESUMEN --------------------
+    // -------------------- 7. MTO Y RESUMEN --------------------
+    function exportarMTO() {
+        if (typeof SmartFlowExporter !== 'undefined') {
+            SmartFlowExporter.exportMTO();
+            return;
+        }
+        const equipos = SmartFlowCore.getEquipos();
+        const lines = SmartFlowCore.getLines();
+        let items = [];
+        equipos.forEach(function(eq) { if (eq.tipo !== 'colector') items.push([eq.tag, eq.tipo, "Und", 1]); });
+        lines.forEach(function(line) {
+            let length = 0;
+            const pts = SmartFlowCore.getLinePoints(line);
+            if (pts) for (let i = 0; i < pts.length - 1; i++) length += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z);
+            items.push([line.tag, 'Tubería ' + (line.material || 'PPR') + ' ' + line.diameter + '"', "m", (length / 1000).toFixed(2)]);
+            if (line.components) {
+                line.components.forEach(function(comp) {
+                    items.push([comp.tag || 'ACC-' + line.tag, comp.type, "Und", 1]);
+                });
+            }
+        });
+        if (items.length === 0) { notify("No hay elementos para exportar.", true); return; }
+        const ws = XLSX.utils.aoa_to_sheet([["Tag", "Descripción", "Unidad", "Cantidad"], ...items]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "MTO");
+        XLSX.writeFile(wb, 'MTO_' + Date.now() + '.xlsx');
+        notify("✅ MTO exportado correctamente.", false);
+    }
+    
     function resumenProyecto() {
         const equipos = SmartFlowCore.getEquipos();
         const lines = SmartFlowCore.getLines();
@@ -399,10 +481,10 @@
                     case 'V': e.preventDefault(); autoCenter(); break;
                     case 'U': e.preventDefault(); SmartFlowCore.undo(); scheduleRender(); notify("✅ Acción deshecha.", false); break;
                     case 'Y': e.preventDefault(); SmartFlowCore.redo(); scheduleRender(); notify("✅ Acción rehecha.", false); break;
-                    case 'M': e.preventDefault(); if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportMTO(); break;
+                    case 'M': e.preventDefault(); exportarMTO(); break;
                     case 'P': e.preventDefault(); if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPDF(); break;
                     case 'E': e.preventDefault(); if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPCF(); break;
-                    case 'S': e.preventDefault(); if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.guardarProyecto(); break;
+                    case 'S': e.preventDefault(); guardarProyecto(); break;
                 }
             }
         });
@@ -582,16 +664,27 @@
         
         vincular('welcome-new-project', function() { if (projectModal) projectModal.style.display = 'flex'; });
         vincular('welcome-open-project', function() {
-            if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.cargarProyecto();
+            cargarProyecto();
             if (welcomePanel) welcomePanel.classList.add('welcome-hidden');
         });
         vincular('modal-accept', iniciarNuevoProyecto);
         vincular('modal-skip', saltarNombreProyecto);
         
-        vincular('btnOpen', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.cargarProyecto(); });
-        vincular('btnSave', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.guardarProyecto(); });
-        vincular('btnExportProject', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportJSON(); });
-        vincular('btnImportProject', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.importJSONFromFile(); });
+        // ═══════════════════════════════════════════════════════
+        // BOTONES DE ARCHIVO - FUNCIONES DIRECTAS (CORREGIDO)
+        // ═══════════════════════════════════════════════════════
+        vincular('btnOpen', function() {
+            cargarProyecto();
+        });
+        vincular('btnSave', function() {
+            guardarProyecto();
+        });
+        vincular('btnExportProject', function() {
+            exportarProyectoArchivo();
+        });
+        vincular('btnImportProject', function() {
+            importarProyectoArchivo();
+        });
         
         vincular('btnReset', autoCenter);
         vincular('btnFullscreen', toggleFullscreen);
@@ -641,10 +734,20 @@
             }
         });
         
-        vincular('btnMTO', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportMTO(); });
-        vincular('btnPDF', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPDF(); });
-        vincular('btnExportPCF', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPCF(); });
-        vincular('btnImportPCF', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.importPCFFromFile(); });
+        // ═══════════════════════════════════════════════════════
+        // BOTONES DE EXPORTACIÓN (usan Exporter si existe)
+        // ═══════════════════════════════════════════════════════
+        vincular('btnMTO', function() { exportarMTO(); });
+        vincular('btnPDF', function() { 
+            if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPDF(); 
+            else if (typeof SmartFlowRenderer !== 'undefined' && SmartFlowRenderer.exportPDF) SmartFlowRenderer.exportPDF();
+        });
+        vincular('btnExportPCF', function() { 
+            if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPCF(); 
+        });
+        vincular('btnImportPCF', function() { 
+            if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.importPCFFromFile(); 
+        });
         
         vincular('btnUndo', function() { SmartFlowCore.undo(); scheduleRender(); notify("✅ Acción deshecha.", false); });
         vincular('btnRedo', function() { SmartFlowCore.redo(); scheduleRender(); notify("✅ Acción rehecha.", false); });
