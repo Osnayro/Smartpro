@@ -1,7 +1,6 @@
-
 // ============================================================
 // SMARTFLOW RENDER 3D v4.1 - Motor de Visualización Industrial
-// Archivo: js/render3d.js
+// Archivo: js/render.js
 // Three.js 0.160.0 + Materiales PBR + Texturas procedurales
 // Compatible 100% con SmartFlowCatalog v4.1
 // ============================================================
@@ -31,14 +30,11 @@ const SmartFlowRender = (function() {
     // 1. CATÁLOGO DE MATERIALES INDUSTRIALES v4.1 (COMPLETO)
     // ================================================================
     const IndustrialMaterials = {
-        // Aceros y metales
         'CS': { name: 'Carbon Steel', color: 0x8a9aaa, roughness: 0.55, metalness: 0.85, pattern: 'brushed', envMapIntensity: 0.8, rust: true, weldMarks: true, clearcoat: 0.1 },
         'CS_PAINTED': { name: 'Painted Carbon Steel', color: 0x5c8a6a, roughness: 0.65, metalness: 0.12, pattern: 'none', envMapIntensity: 0.4, rust: false, weldMarks: false, clearcoat: 0.25 },
         'SS304': { name: 'Stainless Steel 304', color: 0xc8d0d8, roughness: 0.32, metalness: 0.92, pattern: 'brushed', envMapIntensity: 1.2, rust: false, weldMarks: true, clearcoat: 0.4 },
         'SS316': { name: 'Stainless Steel 316', color: 0xd8e0e8, roughness: 0.25, metalness: 0.95, pattern: 'brushed', envMapIntensity: 1.4, rust: false, weldMarks: false, clearcoat: 0.5 },
         'CS_GALVANIZED': { name: 'Galvanized Steel', color: 0x9aaaba, roughness: 0.48, metalness: 0.88, pattern: 'spangled', envMapIntensity: 0.9, rust: false, weldMarks: true },
-        
-        // Materiales estructurales (NUEVO v4.1)
         'CONCRETE': { name: 'Concrete', color: 0x9ca3af, roughness: 0.85, metalness: 0.05, pattern: 'matte', envMapIntensity: 0.15, bumpScale: 0.3 },
         'ALUMINUM': { name: 'Aluminum', color: 0xd1d5db, roughness: 0.45, metalness: 0.72, pattern: 'brushed', envMapIntensity: 0.9, clearcoat: 0.35 },
         'WOOD': { name: 'Wood', color: 0x8b6914, roughness: 0.78, metalness: 0.02, pattern: 'wood', envMapIntensity: 0.2 },
@@ -46,15 +42,11 @@ const SmartFlowRender = (function() {
         'MONEL': { name: 'Monel', color: 0x9aa8b0, roughness: 0.35, metalness: 0.88, pattern: 'brushed', envMapIntensity: 1.0 },
         'INCONEL': { name: 'Inconel', color: 0x8a9aaa, roughness: 0.38, metalness: 0.9, pattern: 'brushed', envMapIntensity: 1.1 },
         'BRONZE': { name: 'Bronze', color: 0xcd7f32, roughness: 0.42, metalness: 0.82, pattern: 'brushed', envMapIntensity: 0.85 },
-        
-        // Plásticos
         'PPR': { name: 'PPR (Polypropylene)', color: 0x8b5cf6, roughness: 0.55, metalness: 0.05, pattern: 'plastic', envMapIntensity: 0.25, plasticGloss: 0.4, clearcoat: 0.15 },
         'PVC': { name: 'PVC', color: 0xeab308, roughness: 0.6, metalness: 0.03, pattern: 'plastic', envMapIntensity: 0.2, plasticGloss: 0.35 },
         'CPVC': { name: 'CPVC', color: 0xcbd5e1, roughness: 0.58, metalness: 0.04, pattern: 'plastic', envMapIntensity: 0.25 },
         'HDPE': { name: 'HDPE', color: 0x3b82f6, roughness: 0.58, metalness: 0.02, pattern: 'plastic', envMapIntensity: 0.25 },
         'FRP': { name: 'FRP (Fiberglass)', color: 0x8b5cf6, roughness: 0.52, metalness: 0.08, pattern: 'woven', envMapIntensity: 0.35 },
-        
-        // Especiales
         'BRASS': { name: 'Brass', color: 0xd4a574, roughness: 0.32, metalness: 0.88, pattern: 'brushed', envMapIntensity: 1.0 },
         'RUBBER': { name: 'Rubber', color: 0x333333, roughness: 0.85, metalness: 0.02, pattern: 'matte', envMapIntensity: 0.15 },
         'GLASS': { name: 'Glass', color: 0xaaddff, roughness: 0.08, metalness: 0.05, transparent: true, opacity: 0.65, envMapIntensity: 1.5 },
@@ -62,18 +54,14 @@ const SmartFlowRender = (function() {
     };
 
     const SpecMaterialMap = {
-        // Aceros
         'PPR_PN12_5': 'PPR', 'HDPE_PE100': 'HDPE', 'PVC_SCH80': 'PVC', 'PVC_SCH40': 'PVC',
         'CPVC_SCH80': 'CPVC', 'PVDF_PN16': 'PVC', 'FRP': 'FRP',
         'ACERO_150_RF': 'CS', 'ACERO_SCH80': 'CS', 'A1A': 'CS',
         'CS_300_RF': 'CS', 'CS_600_RF': 'CS', 'CS_900_RF': 'CS', 'CS_1500_RTJ': 'CS',
         'CS_CRYO': 'CS',
-        // Aceros Inoxidables
         'SS_150_RF': 'SS304', 'SS_300_RF': 'SS304', 'SS_600_RF': 'SS316',
         'SS_SANITARY': 'SS316', 'A3B': 'SS304', 'DUPLEX_150_RF': 'SS304',
-        // Revestidos y especiales
         'PTFE_LINED': 'CS_PAINTED', 'RUBBER_LINED': 'RUBBER', 'GLASS_LINED': 'GLASS',
-        // Materiales estructurales (NUEVO)
         'HORMIGON_ESTRUCTURAL': 'CONCRETE',
         'ALUMINIO_ESTRUCTURAL': 'ALUMINUM',
         'MADERA_ESTRUCTURAL': 'WOOD',
@@ -96,8 +84,6 @@ const SmartFlowRender = (function() {
         const r = ((baseColor >> 16) & 255) / 255, g = ((baseColor >> 8) & 255) / 255, b = (baseColor & 255) / 255;
         ctx.fillStyle = 'rgb(' + (r*255) + ',' + (g*255) + ',' + (b*255) + ')';
         ctx.fillRect(0, 0, 1024, 1024);
-        
-        // Ruido base
         for (let i = 0; i < 12000; i++) {
             const x = Math.random() * 1024, y = Math.random() * 1024;
             const intensity = (Math.random() - 0.5) * 0.12;
@@ -105,8 +91,6 @@ const SmartFlowRender = (function() {
             ctx.fillStyle = 'rgb(' + val + ',' + (val*0.95) + ',' + (val*0.9) + ')';
             ctx.fillRect(x, y, Math.random()*2+1, Math.random()*2+1);
         }
-        
-        // Patrón cepillado
         if (pattern === 'brushed' || options.brushed) {
             ctx.strokeStyle = 'rgba(220,220,240,0.05)'; ctx.lineWidth = 1.2;
             for (let y = 0; y < 1024; y += 3) {
@@ -114,8 +98,6 @@ const SmartFlowRender = (function() {
                 ctx.moveTo(0, y+offset); ctx.lineTo(1024, y+offset+(Math.random()-0.5)*1.5); ctx.stroke();
             }
         }
-        
-        // Óxido
         if (options.rust) {
             for (let i = 0; i < 400; i++) {
                 const x = Math.random()*1024, y = Math.random()*1024, radius = Math.random()*18+4;
@@ -126,8 +108,6 @@ const SmartFlowRender = (function() {
                 ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2); ctx.fill();
             }
         }
-        
-        // Desgaste
         if (options.wear) {
             ctx.strokeStyle = 'rgba(80,80,100,0.06)'; ctx.lineWidth = 0.8;
             for (let i = 0; i < 800; i++) {
@@ -135,8 +115,6 @@ const SmartFlowRender = (function() {
                 ctx.moveTo(sx, sy); ctx.lineTo(sx+(Math.random()-0.5)*15, sy+(Math.random()-0.5)*15); ctx.stroke();
             }
         }
-        
-        // Plástico
         if (pattern === 'plastic') {
             for (let i = 0; i < 8000; i++) {
                 const brightness = 20+Math.random()*30;
@@ -144,25 +122,18 @@ const SmartFlowRender = (function() {
                 ctx.fillRect(Math.random()*1024, Math.random()*1024, 1, 1);
             }
         }
-        
-        // Tejido (FRP)
         if (pattern === 'woven') {
             ctx.strokeStyle = 'rgba(100,100,120,0.1)'; ctx.lineWidth = 1.5;
             for (let x = 0; x < 1024; x += 24) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,1024); ctx.stroke(); }
             for (let y = 0; y < 1024; y += 24) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(1024,y); ctx.stroke(); }
         }
-        
-        // Madera (NUEVO)
         if (pattern === 'wood') {
             for (let i = 0; i < 800; i++) {
-                const x = Math.random() * 1024;
-                const y = Math.random() * 1024;
-                const width = 2 + Math.random() * 8;
-                ctx.fillStyle = `rgba(60, 40, 20, ${0.1 + Math.random() * 0.3})`;
+                const x = Math.random() * 1024, y = Math.random() * 1024, width = 2 + Math.random() * 8;
+                ctx.fillStyle = 'rgba(60, 40, 20, ' + (0.1 + Math.random() * 0.3) + ')';
                 ctx.fillRect(x, y, width, 1);
             }
         }
-        
         const texture = new THREE.CanvasTexture(canvas);
         texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
         texture.repeat.set(options.repeatX || 2, options.repeatY || 2);
@@ -178,35 +149,26 @@ const SmartFlowRender = (function() {
         const materialKey = SpecMaterialMap[specCode] || 'CS';
         const materialDef = IndustrialMaterials[materialKey] || IndustrialMaterials.CS;
         let finalDef = Object.assign({}, materialDef);
-        
         switch(componentType) {
             case 'pipe': finalDef.roughness = Math.min(finalDef.roughness + 0.12, 0.92); break;
             case 'flange': finalDef.metalness = Math.min(finalDef.metalness + 0.03, 0.98); finalDef.roughness = Math.max(finalDef.roughness - 0.05, 0.2); break;
             case 'valve': finalDef.clearcoat = 0.35; finalDef.roughness = Math.max(finalDef.roughness - 0.05, 0.25); break;
             case 'tank': finalDef.roughness = Math.min(finalDef.roughness + 0.08, 0.85); break;
         }
-        
         const cacheKey = materialKey + '_' + componentType;
         if (_materialCache.has(cacheKey)) return _materialCache.get(cacheKey).clone();
-        
         const material = new THREE.MeshStandardMaterial({
             color: finalDef.color, roughness: finalDef.roughness, metalness: finalDef.metalness,
             envMapIntensity: finalDef.envMapIntensity || 0.8
         });
-        
         if (finalDef.pattern && finalDef.pattern !== 'none') {
             material.map = createMetalTexture(finalDef.color, finalDef.roughness, finalDef.metalness, finalDef.pattern, {
-                brushed: finalDef.pattern === 'brushed',
-                rust: finalDef.rust || false,
-                wear: true,
-                repeatX: componentType === 'pipe' ? 4 : 2,
-                repeatY: componentType === 'pipe' ? 2 : 2
+                brushed: finalDef.pattern === 'brushed', rust: finalDef.rust || false,
+                wear: true, repeatX: componentType === 'pipe' ? 4 : 2, repeatY: componentType === 'pipe' ? 2 : 2
             });
         }
-        
         if (finalDef.clearcoat !== undefined) { material.clearcoat = finalDef.clearcoat; material.clearcoatRoughness = 0.25; }
         if (finalDef.transparent) { material.transparent = true; material.opacity = finalDef.opacity || 0.65; }
-        
         _materialCache.set(cacheKey, material);
         return material.clone();
     }
@@ -219,7 +181,6 @@ const SmartFlowRender = (function() {
         const canvas = document.createElement('canvas');
         canvas.width = 512; canvas.height = 256;
         const ctx = canvas.getContext('2d');
-        
         ctx.fillStyle = '#c8d0d8'; ctx.fillRect(0, 0, 512, 256);
         ctx.strokeStyle = '#334455'; ctx.lineWidth = 3; ctx.strokeRect(5, 5, 502, 246);
         ctx.strokeStyle = '#8899aa'; ctx.lineWidth = 1; ctx.strokeRect(10, 10, 492, 236);
@@ -229,7 +190,6 @@ const SmartFlowRender = (function() {
         ctx.fillText('SPEC: ' + (specCode || 'STD'), 256, 110);
         ctx.font = '18px Arial'; ctx.fillStyle = '#445566';
         ctx.fillText('SIZE: ' + (diameter || '?') + '"', 256, 155);
-        
         const texture = new THREE.CanvasTexture(canvas);
         const plateMat = new THREE.MeshStandardMaterial({ color: 0xc8d0d8, roughness: 0.25, metalness: 0.85 });
         const textMat = new THREE.MeshStandardMaterial({ map: texture, metalness: 0.1, roughness: 0.4 });
@@ -279,7 +239,7 @@ const SmartFlowRender = (function() {
     }
 
     // ================================================================
-    // 5. EQUIPOS 3D (100% del catálogo v4.1)
+    // 5. EQUIPOS 3D (100% del catálogo v4.1) - CORREGIDO
     // ================================================================
     function createTankVertical(eq) {
         const spec = eq.spec || 'ACERO_150_RF';
@@ -287,25 +247,20 @@ const SmartFlowRender = (function() {
         const matRing = getMaterialBySpec(spec, 'flange');
         const r = toM((eq.diametro || 3000) / 2), h = toM(eq.altura || 6000);
         const group = new THREE.Group();
-        
         const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 32), mat);
         body.position.y = h / 2; body.castShadow = true; body.receiveShadow = true;
         group.add(body);
-        
         const dome = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 16, 0, Math.PI*2, 0, Math.PI/2), mat);
         dome.position.y = h; dome.rotation.x = -Math.PI/2; dome.castShadow = true;
         group.add(dome);
-        
         const step = h / 4;
         for (let y = step; y < h; y += step) {
             const ring = new THREE.Mesh(new THREE.TorusGeometry(r+0.02, 0.03, 8, 32), matRing);
             ring.position.y = y; ring.rotation.x = Math.PI/2; group.add(ring);
         }
-        
         const nameplate = createNameplate(eq.tag, spec, eq.diametro ? (eq.diametro/25.4).toFixed(1) : '?');
         nameplate.position.set(0, h * 0.6, r + 0.15);
         group.add(nameplate);
-        
         group.position.set(toM(eq.posX), toM(eq.posY), toM(eq.posZ));
         group.userData = { tag: eq.tag, tipo: 'equipo' };
         return group;
@@ -316,22 +271,17 @@ const SmartFlowRender = (function() {
         const mat = getMaterialBySpec(spec, 'tank');
         const r = toM((eq.diametro||3000)/2), l = toM(eq.largo||6000);
         const group = new THREE.Group();
-        
         const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 32), mat);
         body.rotation.z = Math.PI/2; body.position.set(l/2, r, 0); body.castShadow = true; body.receiveShadow = true;
         group.add(body);
-        
         const capGeo = new THREE.SphereGeometry(r, 32, 16, 0, Math.PI*2, 0, Math.PI/2);
         const cap1 = new THREE.Mesh(capGeo, mat); cap1.position.set(0, r, 0); cap1.rotation.z = -Math.PI/2; group.add(cap1);
         const cap2 = new THREE.Mesh(capGeo, mat); cap2.position.set(l, r, 0); cap2.rotation.z = Math.PI/2; group.add(cap2);
-        
         const legGeo = new THREE.BoxGeometry(r*0.3, r*1.5, r*0.5);
         for (let i=0; i<2; i++) { const leg = new THREE.Mesh(legGeo, matSupport.clone()); leg.position.set(l*0.25+i*l*0.5, -r*0.5, 0); group.add(leg); }
-        
         const nameplate = createNameplate(eq.tag, spec, eq.diametro ? (eq.diametro/25.4).toFixed(1) : '?');
         nameplate.position.set(l/2, r + 0.3, 0);
         group.add(nameplate);
-        
         group.position.set(toM(eq.posX), toM(eq.posY), toM(eq.posZ));
         group.userData = { tag: eq.tag, tipo: 'equipo' };
         return group;
@@ -342,32 +292,24 @@ const SmartFlowRender = (function() {
         const mat = getMaterialBySpec(spec, 'tank');
         const l = toM(eq.largo || 5000), r = toM((eq.diametro || 1200) / 2);
         const group = new THREE.Group();
-        
         const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 32), mat);
         body.rotation.z = Math.PI/2; body.position.set(l/2, r, 0); body.castShadow = true;
         group.add(body);
-        
         const capGeo = new THREE.SphereGeometry(r, 32, 16, 0, Math.PI*2, 0, Math.PI/2);
         const capLeft = new THREE.Mesh(capGeo, mat); capLeft.position.set(0, r, 0); capLeft.rotation.z = -Math.PI/2; group.add(capLeft);
         const capRight = new THREE.Mesh(capGeo, mat); capRight.position.set(l, r, 0); capRight.rotation.z = Math.PI/2; group.add(capRight);
-        
         const saddle = new THREE.Mesh(new THREE.BoxGeometry(r*2.2, 0.15, r*1.5), matSupport.clone());
         saddle.position.set(l/2, -r*0.6, 0); group.add(saddle);
-        
         const nozzleMat = getMaterialBySpec('SS304', 'flange');
         const inletNozzle = new THREE.Mesh(new THREE.CylinderGeometry(r*0.25, r*0.25, 0.4, 16), nozzleMat);
         inletNozzle.position.set(-0.3, r*0.5, 0); inletNozzle.rotation.z = Math.PI/2; group.add(inletNozzle);
-        
         const gasNozzle = new THREE.Mesh(new THREE.CylinderGeometry(r*0.2, r*0.2, 0.35, 16), nozzleMat);
         gasNozzle.position.set(l/2, r*1.1, 0); group.add(gasNozzle);
-        
         const oilNozzle = new THREE.Mesh(new THREE.CylinderGeometry(r*0.18, r*0.18, 0.35, 16), nozzleMat);
         oilNozzle.position.set(l*0.7, r*0.2, r*0.8); oilNozzle.rotation.x = Math.PI/2; group.add(oilNozzle);
-        
         const nameplate = createNameplate(eq.tag, spec, eq.diametro ? (eq.diametro/25.4).toFixed(1) : '?');
         nameplate.position.set(l/2, r + 0.3, r*0.9);
         group.add(nameplate);
-        
         group.position.set(toM(eq.posX), toM(eq.posY), toM(eq.posZ));
         group.userData = { tag: eq.tag, tipo: 'separador_trifasico' };
         return group;
@@ -378,35 +320,28 @@ const SmartFlowRender = (function() {
         const mat = getMaterialBySpec(spec, 'body');
         const r = toM((eq.diametro || 1000) / 2), h = toM(eq.altura || 10000);
         const group = new THREE.Group();
-        
         const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r*1.2, h, 32), mat);
         body.position.y = h/2; body.castShadow = true;
         group.add(body);
-        
         const nozzleMat = getMaterialBySpec('SS304', 'body');
         const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(r*1.5, r*1.8, 0.3, 16), nozzleMat);
         nozzle.position.y = h; nozzle.castShadow = true;
         group.add(nozzle);
-        
         const flameMat = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: 0xff3300, emissiveIntensity: 0.8, transparent: true, opacity: 0.7 });
         const flame = new THREE.Mesh(new THREE.ConeGeometry(r*1.2, 1.5, 8), flameMat);
         flame.position.y = h + 0.25; flame.castShadow = false;
         group.add(flame);
-        
         const innerFlameMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff4400, emissiveIntensity: 1.2, transparent: true, opacity: 0.9 });
         const innerFlame = new THREE.Mesh(new THREE.ConeGeometry(r*0.7, 0.8, 8), innerFlameMat);
         innerFlame.position.y = h + 0.3;
         group.add(innerFlame);
-        
         const platformMat = getMaterialBySpec('CS_GALVANIZED', 'flange');
         const platform = new THREE.Mesh(new THREE.CylinderGeometry(r*1.3, r*1.3, 0.1, 24), platformMat);
         platform.position.y = h * 0.7; platform.castShadow = true;
         group.add(platform);
-        
         const nameplate = createNameplate(eq.tag, spec, eq.diametro ? (eq.diametro/25.4).toFixed(1) : '?');
         nameplate.position.set(r*1.5, h*0.6, 0);
         group.add(nameplate);
-        
         group.position.set(toM(eq.posX), toM(eq.posY), toM(eq.posZ));
         group.userData = { tag: eq.tag, tipo: 'antorcha' };
         return group;
@@ -416,39 +351,31 @@ const SmartFlowRender = (function() {
         const l = toM(eq.largo || 2500), w = toM(eq.ancho || 1500), h = toM(eq.altura || 200);
         const group = new THREE.Group();
         const skidMat = getMaterialBySpec('CS_GALVANIZED', 'body');
-        
         const base = new THREE.Mesh(new THREE.BoxGeometry(l, h, w), skidMat);
         base.position.y = h/2; base.castShadow = true; base.receiveShadow = true;
         group.add(base);
-        
         const pumpMat = getMaterialBySpec('SS304', 'body');
         const pump1 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.4), pumpMat);
         pump1.position.set(-l*0.3, h + 0.3, w*0.3); pump1.castShadow = true;
         group.add(pump1);
-        
         const pump2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.4), pumpMat);
         pump2.position.set(-l*0.3, h + 0.3, -w*0.3); pump2.castShadow = true;
         group.add(pump2);
-        
         const pipeMat = getMaterialBySpec('SS304', 'pipe');
         const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, l*0.5, 8), pipeMat);
         pipe.position.set(l*0.2, h + 0.4, 0); pipe.rotation.z = Math.PI/2;
         group.add(pipe);
-        
         const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.1, roughness: 0.4 });
         const panel = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.1), panelMat);
         panel.position.set(l*0.4, h + 0.25, w*0.4);
         group.add(panel);
-        
         const displayMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, emissive: 0x0ea5e9, emissiveIntensity: 0.3 });
         const display = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.02), displayMat);
         display.position.set(l*0.4, h + 0.3, w*0.41);
         group.add(display);
-        
         const nameplate = createNameplate(eq.tag, eq.spec || 'CS', '');
         nameplate.position.set(0, h + 0.5, w*0.5);
         group.add(nameplate);
-        
         group.position.set(toM(eq.posX), toM(eq.posY), toM(eq.posZ));
         group.userData = { tag: eq.tag, tipo: 'skid_inyeccion' };
         return group;
@@ -459,18 +386,14 @@ const SmartFlowRender = (function() {
         const mat = getMaterialBySpec(spec, 'body');
         const s = toM(eq.diametro||800);
         const group = new THREE.Group();
-        
         group.add(new THREE.Mesh(new THREE.BoxGeometry(s*1.2, s*0.1, s*0.8), matSupport.clone()));
         const casing = new THREE.Mesh(new THREE.CylinderGeometry(s*0.4, s*0.45, s*0.7, 16), mat);
         casing.position.set(0, s*0.4, 0); casing.castShadow = true; group.add(casing);
-        
         const motor = new THREE.Mesh(new THREE.CylinderGeometry(s*0.3, s*0.3, s*0.6, 16), getMaterialBySpec('SS304', 'body'));
         motor.position.set(s*0.5, s*0.5, 0); motor.castShadow = true; group.add(motor);
-        
         const nameplate = createNameplate(eq.tag, spec, eq.diametro ? (eq.diametro/25.4).toFixed(1) : '?');
         nameplate.position.set(0, s*0.2, s*0.5);
         group.add(nameplate);
-        
         group.position.set(toM(eq.posX), toM(eq.posY), toM(eq.posZ));
         group.userData = { tag: eq.tag, tipo: 'equipo' };
         return group;
@@ -481,11 +404,9 @@ const SmartFlowRender = (function() {
         const mat = getMaterialBySpec(spec, 'body');
         const s = toM(eq.diametro||1000);
         const group = new THREE.Group();
-        
         const body = new THREE.Mesh(new THREE.BoxGeometry(s*1.2, s*0.9, s*0.7), mat);
         body.position.y = s*0.45; body.castShadow = true; group.add(body);
         group.add(new THREE.Mesh(new THREE.CylinderGeometry(s*0.3, s*0.35, s*0.5, 16), matSupport.clone())).position.set(0, s*0.9, 0);
-        
         group.position.set(toM(eq.posX), toM(eq.posY), toM(eq.posZ));
         group.userData = { tag: eq.tag, tipo: 'equipo' };
         return group;
@@ -496,11 +417,9 @@ const SmartFlowRender = (function() {
         const mat = getMaterialBySpec(spec, 'tank');
         const l = toM(eq.largo||4000), r = toM((eq.diametro||800)/2);
         const group = new THREE.Group();
-        
         const shell = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 24), mat);
         shell.rotation.z = Math.PI/2; shell.position.set(l/2, r*1.5, 0); shell.castShadow = true;
         group.add(shell);
-        
         group.position.set(toM(eq.posX), toM(eq.posY), toM(eq.posZ));
         group.userData = { tag: eq.tag, tipo: 'equipo' };
         return group;
@@ -511,11 +430,9 @@ const SmartFlowRender = (function() {
         const mat = getMaterialBySpec(spec, 'body');
         const xl = toM(eq.largo||eq.diametro||800), yh = toM(eq.altura||800), zw = toM(eq.ancho||eq.diametro||800);
         const group = new THREE.Group();
-        
         const body = new THREE.Mesh(new THREE.BoxGeometry(xl, yh, zw), mat);
         body.position.y = yh/2; body.castShadow = true; body.receiveShadow = true;
         group.add(body);
-        
         group.position.set(toM(eq.posX), toM(eq.posY), toM(eq.posZ));
         group.userData = { tag: eq.tag, tipo: 'equipo' };
         return group;
@@ -527,42 +444,51 @@ const SmartFlowRender = (function() {
         const esAluminio = material.includes('ALUMINIO') || material.includes('ALUMINUM');
         const w = toM(eq.largo || 6000), d = toM(eq.ancho || 3000), h = toM(eq.altura || 400);
         const group = new THREE.Group();
-        
         let mat;
         if (esConcreto) mat = getMaterialBySpec('HORMIGON_ESTRUCTURAL', 'tank');
         else if (esAluminio) mat = getMaterialBySpec('ALUMINIO_ESTRUCTURAL', 'body');
         else mat = getMaterialBySpec('ACERO_150_RF', 'flange');
-        
         const losa = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
         losa.position.y = h/2; losa.castShadow = true; losa.receiveShadow = true;
         group.add(losa);
-        
         const pilarGeo = new THREE.BoxGeometry(0.25, h*3, 0.25);
         const pilarMat = esConcreto ? getMaterialBySpec('HORMIGON_ESTRUCTURAL', 'body') : matSupport.clone();
         const posiciones = [{x:-w/2+0.2,z:-d/2+0.2},{x:w/2-0.2,z:-d/2+0.2},{x:w/2-0.2,z:d/2-0.2},{x:-w/2+0.2,z:d/2-0.2}];
         posiciones.forEach(function(pos){const p=new THREE.Mesh(pilarGeo,pilarMat);p.position.set(pos.x,-h*1.2,pos.z);p.castShadow=true;group.add(p);});
-        
         if (eq.baranda !== false && !esConcreto) {
             const bMat = new THREE.MeshStandardMaterial({color:0xf59e0b,metalness:0.7,roughness:0.3});
             const posteGeo = new THREE.CylinderGeometry(0.015,0.015,1.1,8);
             for (let px=-w/2+0.3; px<=w/2-0.3; px+=1.5){[-1,1].forEach(function(side){const po=new THREE.Mesh(posteGeo,bMat);po.position.set(px,h+0.55,side*(d/2-0.05));group.add(po);});}
         }
-        
         group.position.set(toM(eq.posX), toM(eq.posY), toM(eq.posZ));
         group.userData = { tag: eq.tag, tipo: 'equipo' };
         return group;
     }
 
+    // ═══════════════════════════════════════════════════════
+    // CORREGIDO: Separación correcta de equipos
+    // ═══════════════════════════════════════════════════════
     function createEquipmentMesh(eq) {
         if (!eq || !eq.tipo) return null;
         const tipo = (eq.tipo||'').toLowerCase();
         
         // Tanques verticales y torres
-        if (tipo==='tanque_v'||tipo==='tanque_acero'||tipo==='torre'||tipo==='reactor'||tipo==='desgasificador'||tipo==='desmineralizador'||tipo==='suavizador'||tipo==='filtro_carbon'||tipo==='filtro_arena'||tipo==='clarificador'||tipo==='columna_fraccionadora'||tipo==='evaporador'||tipo==='cristalizador'||tipo==='absorbedor'||tipo==='stripper'||tipo==='reactor_encamisado'||tipo==='autoclave'||tipo==='agitador'||tipo==='centrifuga_discos'||tipo==='tanque_aseptico'||tipo==='espesador'||tipo==='separador')
+        if (tipo==='tanque_v'||tipo==='tanque_acero'||tipo==='torre'||tipo==='reactor'||
+            tipo==='desgasificador'||tipo==='desmineralizador'||tipo==='suavizador'||
+            tipo==='filtro_carbon'||tipo==='filtro_arena'||tipo==='clarificador'||
+            tipo==='columna_fraccionadora'||tipo==='evaporador'||tipo==='cristalizador'||
+            tipo==='absorbedor'||tipo==='stripper'||tipo==='reactor_encamisado'||
+            tipo==='autoclave'||tipo==='agitador'||tipo==='centrifuga_discos'||
+            tipo==='tanque_aseptico'||tipo==='espesador'||tipo==='separador')
             return createTankVertical(eq);
         
-        // Tanques horizontales
-        if (tipo==='tanque_h'||tipo==='separador_trifasico'||tipo==='slug_catcher'||tipo==='calentador_fuego_directo'||tipo==='secador_rotativo'||tipo==='centrifuga'||tipo==='filtro_tambor'||tipo==='molino')
+        // Tanques horizontales simples
+        if (tipo==='tanque_h'||tipo==='slug_catcher'||tipo==='calentador_fuego_directo'||
+            tipo==='secador_rotativo'||tipo==='centrifuga'||tipo==='filtro_tambor'||tipo==='molino')
+            return createTankHorizontal(eq);
+        
+        // Separador trifásico (geometría especial)
+        if (tipo==='separador_trifasico')
             return createThreePhaseSeparator(eq);
         
         // Antorcha
@@ -574,7 +500,7 @@ const SmartFlowRender = (function() {
             return createChemicalSkid(eq);
         
         // Bombas
-        if (tipo.includes('bomba')||tipo==='skid_inyeccion')
+        if (tipo.includes('bomba'))
             return createBomba(eq);
         
         // Compresor
@@ -582,7 +508,8 @@ const SmartFlowRender = (function() {
             return createCompresor(eq);
         
         // Intercambiadores
-        if (tipo==='intercambiador'||tipo==='caldera'||tipo==='condensador'||tipo==='pasteurizador'||tipo==='esterilizador_uht')
+        if (tipo==='intercambiador'||tipo==='caldera'||tipo==='condensador'||
+            tipo==='pasteurizador'||tipo==='esterilizador_uht')
             return createExchanger(eq);
         
         // Plataformas
@@ -610,7 +537,6 @@ const SmartFlowRender = (function() {
         pipe.castShadow = true; pipe.receiveShadow = true;
         pipe.userData = { tag: line.tag, tipo: 'linea' };
         if (_engine) _engine.registerVisualMesh(line.tag, pipe);
-        
         if (isPPR) {
             const totalLength = curve.getLength(), spacing = 1.5, numRings = Math.floor(totalLength/spacing);
             for (let i=1; i<numRings; i++) {
@@ -1049,10 +975,14 @@ const SmartFlowRender = (function() {
         _debounceTimer = setTimeout(function() { refreshAllSymbols(); refreshAllFlowArrows(); }, 200);
     }
 
+    // ═══════════════════════════════════════════════════════
+    // CORREGIDO: Render de labels 3D restaurado
+    // ═══════════════════════════════════════════════════════
     function renderFrame() {
         if (!_rendererRef || !_sceneRef || !_cameraRef) return;
         if (_composer && _outlinePass && _outlinePass.enabled) _composer.render();
         else _rendererRef.render(_sceneRef, _cameraRef);
+        if (_labelRenderer && _sceneRef && _cameraRef) _labelRenderer.render(_sceneRef, _cameraRef);
     }
 
     function init(coreInstance, engineInstance) {
@@ -1071,11 +1001,6 @@ const SmartFlowRender = (function() {
         
         scheduleRefresh();
         console.log("✔ SmartFlowRender v4.1 - Motor 3D Industrial (100% catálogo)");
-        console.log("  - Materiales: CS, SS, PPR, HDPE, PVC, CONCRETE, ALUMINUM, WOOD, TITANIUM, MONEL, INCONEL");
-        console.log("  - Equipos: Tanques, bombas, torres, reactores, separadores, antorchas, skids");
-        console.log("  - Válvulas: Gate, Globe, Ball, Butterfly, Check, Diaphragm, Control, Relief");
-        console.log("  - Fittings: Tees, codos, reductores, bridas, uniones, soportes, especiales");
-        console.log("  - Instrumentos: PG, TG, FM, LS, pH, Conductividad, Rotámetro, Coriolis");
     }
 
     function dispose() {
@@ -1106,11 +1031,9 @@ const SmartFlowRender = (function() {
         getComposer: function() { return _composer; },
         getOutlinePass: function() { return _outlinePass; },
         setLabelRenderer: function(lr) { _labelRenderer = lr; },
-        // Métodos para nuevos equipos
         createFlare: createFlare,
         createThreePhaseSeparator: createThreePhaseSeparator,
         createChemicalSkid: createChemicalSkid,
-        // Métodos de texturas
         createMetalTexture: createMetalTexture,
         createWoodTexture: function() {
             const canvas = document.createElement('canvas');
@@ -1118,10 +1041,8 @@ const SmartFlowRender = (function() {
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = '#8b6914'; ctx.fillRect(0, 0, 1024, 1024);
             for (let i = 0; i < 800; i++) {
-                const x = Math.random() * 1024;
-                const y = Math.random() * 1024;
-                const width = 2 + Math.random() * 8;
-                ctx.fillStyle = `rgba(60, 40, 20, ${0.1 + Math.random() * 0.3})`;
+                const x = Math.random() * 1024, y = Math.random() * 1024, width = 2 + Math.random() * 8;
+                ctx.fillStyle = 'rgba(60, 40, 20, ' + (0.1 + Math.random() * 0.3) + ')';
                 ctx.fillRect(x, y, width, 1);
             }
             const texture = new THREE.CanvasTexture(canvas);
@@ -1132,7 +1053,6 @@ const SmartFlowRender = (function() {
     };
 })();
 
-// Exponer globalmente
 if (typeof window !== 'undefined') {
     window.SmartFlowRender = SmartFlowRender;
 }
