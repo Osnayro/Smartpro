@@ -1,6 +1,8 @@
 
 // ============================================================
-// ARCHIVO: js/ThreeJsEngine.js - v3.0 (Three.js 0.160.0)
+// ARCHIVO: js/ThreeJsEngine.js - v3.1 (Three.js 0.160.0)
+// MEJORAS: Optimización de cámara 3D, bounding box real,
+//          límites de órbita, Z-fighting eliminado
 // ============================================================
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -64,10 +66,18 @@ const ThreeJsEngine = (function() {
             _controls = new OrbitControls(_camera, _renderer.domElement);
             _controls.target.set(0, 0, 0);
             _controls.enableDamping = true;
-            _controls.dampingFactor = 0.08;
-            _controls.rotateSpeed = 0.6;
-            _controls.zoomSpeed = 1.0;
-            _controls.panSpeed = 0.6;
+            _controls.dampingFactor = 0.05;
+            _controls.rotateSpeed = 0.8;
+            _controls.zoomSpeed = 1.2;
+            _controls.panSpeed = 0.8;
+            
+            // === MEJORAS DE OPTIMIZACIÓN DE CÁMARA ===
+            _controls.maxPolarAngle = Math.PI / 2 - 0.05; // Bloquea cámara bajo el suelo
+            _controls.minDistance = 50;                   // Zoom mínimo (evita traspasar equipos)
+            _controls.maxDistance = 50000;                // Zoom máximo
+            _controls.enableZoom = true;
+            _controls.enablePan = true;
+            
             _controls.update();
         } catch (e) {
             console.warn('ThreeJsEngine: OrbitControls no disponible');
@@ -91,7 +101,7 @@ const ThreeJsEngine = (function() {
         
         resumeLoop();
         
-        console.log('✔ ThreeJsEngine v3.0 (Three.js 0.160.0 con imports)');
+        console.log('✔ ThreeJsEngine v3.1 - Cámara optimizada (Three.js 0.160.0)');
         return true;
     }
     
@@ -99,16 +109,18 @@ const ThreeJsEngine = (function() {
         var aspect = (_container.clientWidth / _container.clientHeight) || 1;
         var frustumSize = BASE_FRUSTUM_SIZE;
         
+        // Planos de corte mejorados para evitar Z-fighting
         var camera = new THREE.OrthographicCamera(
             frustumSize * aspect / -2,
             frustumSize * aspect / 2,
             frustumSize / 2,
             frustumSize / -2,
-            0.01,
-            2000
+            0.5,      // near - aumentado para mejor rendimiento
+            20000     // far - aumentado para capturar equipos grandes
         );
         
         camera.position.set(15, 12, 15);
+        camera.zoom = 1.0;
         camera.lookAt(0, 0, 0);
         
         return camera;
@@ -140,9 +152,19 @@ const ThreeJsEngine = (function() {
     }
     
     function setupGrid() {
-        var gridHelper = new THREE.GridHelper(40, 40, 0x2a3a5a, 0x1a2a3a);
+        // Cuadrícula principal
+        var gridHelper = new THREE.GridHelper(100, 40, 0x3b82f6, 0x1e293b);
         gridHelper.position.y = -0.01;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.35;
         _scene.add(gridHelper);
+        
+        // Cuadrícula secundaria más densa
+        var fineGrid = new THREE.GridHelper(50, 20, 0x64748b, 0x334155);
+        fineGrid.position.y = -0.009;
+        fineGrid.material.transparent = true;
+        fineGrid.material.opacity = 0.15;
+        _scene.add(fineGrid);
     }
     
     let _axesGroup = null;
@@ -205,7 +227,7 @@ const ThreeJsEngine = (function() {
                     var tag = root.userData.tag;
                     var dbObj = _core.findObjectByTag(tag);
                     if (dbObj) {
-                        var isLine = _core.linesMap.has(tag);
+                        var isLine = _core.linesMap && _core.linesMap.has(tag);
                         _core.setSelected({ obj: dbObj, type: isLine ? 'line' : 'equipment' });
                         return;
                     }
@@ -289,15 +311,138 @@ const ThreeJsEngine = (function() {
         if (!_loopActive) { _loopActive = true; animate(); }
     }
     
+    // ================================================================
+    // OPTIMIZACIÓN DE CÁMARA 3D - Bounding Box + FOV Calculation
+    // ================================================================
+    function getAllSceneObjects() {
+        const objects = [];
+        if (!_scene) return objects;
+        
+        _scene.traverse(obj => {
+            // Excluir helpers, luces, grupos de anotaciones
+            if (obj.isMesh && obj.visible && obj.geometry) {
+                // Excluir GridHelper y ArrowHelper
+                if (obj instanceof THREE.GridHelper) return;
+                if (obj instanceof THREE.ArrowHelper) return;
+                // Excluir elementos de UI/anotaciones
+                if (obj.userData && (obj.userData.isLabel || obj.userData.isLabelAnchor || 
+                    obj.userData.isLineLabel || obj.userData.isDimensionText)) return;
+                objects.push(obj);
+            } else if (obj.isGroup && obj.children.length > 0) {
+                // Excluir grupos de anotaciones y ejes
+                if (obj.userData?.isSymbolGroup === true) return;
+                if (obj.userData?.isAxesGroup === true) return;
+                if (obj.userData?.isLabelGroup === true) return;
+                if (obj.userData?.isDimensionGroup === true) return;
+                if (obj.userData?.isDimensionGroup3D === true) return;
+                if (obj.userData?.isFlowArrowGroup === true) return;
+                
+                // Verificar si el grupo contiene geometría
+                let hasGeometry = false;
+                obj.traverse(child => {
+                    if (child.isMesh && child.geometry && child.visible) hasGeometry = true;
+                });
+                if (hasGeometry) objects.push(obj);
+            }
+        });
+        
+        return objects;
+    }
+    
+    function fitCameraToScene(camera, controls, sceneObjects, offset = 1.2) {
+        if (!sceneObjects || sceneObjects.length === 0) return;
+
+        const boundingBox = new THREE.Box3();
+        
+        sceneObjects.forEach(object => {
+            if (object && object.isObject3D) {
+                boundingBox.expandByObject(object);
+            }
+        });
+
+        if (boundingBox.isEmpty()) return;
+
+        const center = new THREE.Vector3();
+        const size = new THREE.Vector3();
+        boundingBox.getCenter(center);
+        boundingBox.getSize(size);
+
+        const maxDim = Math.max(size.x, size.y, size.z);
+        
+        // Calcular distancia óptima basada en FOV (cámara ortográfica)
+        const frustumSize = BASE_FRUSTUM_SIZE;
+        let optimalZoom = frustumSize / (maxDim * offset);
+        optimalZoom = Math.min(Math.max(optimalZoom, 0.3), 8.0);
+        
+        // Posicionar cámara en diagonal isométrica manteniendo el centro
+        const distance = Math.max(maxDim * 1.2, 5);
+        camera.position.set(
+            center.x + distance * 0.7,
+            center.y + distance * 0.55,
+            center.z + distance * 0.7
+        );
+        
+        camera.zoom = optimalZoom;
+        camera.updateProjectionMatrix();
+        
+        controls.target.copy(center);
+        controls.update();
+        
+        console.log(`📐 Camera optimized: center=(${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)}) | maxDim=${maxDim.toFixed(1)} | zoom=${optimalZoom.toFixed(3)}`);
+    }
+    
+    function fitCameraToEquipments() {
+        if (!_scene || !_camera || !_controls) return;
+        
+        const allObjects = getAllSceneObjects();
+        
+        if (allObjects.length === 0) {
+            // Fallback: posición por defecto
+            _camera.position.set(15, 12, 15);
+            _camera.zoom = 1.0;
+            _camera.updateProjectionMatrix();
+            _controls.target.set(0, 0, 0);
+            _controls.update();
+            return;
+        }
+        
+        fitCameraToScene(_camera, _controls, allObjects, 1.3);
+    }
+    
+    function setView(type) {
+        if (!_camera || !_controls) return;
+        var center = new THREE.Vector3();
+        if (_controls.target) center.copy(_controls.target);
+        var dist = 30;
+        switch(type) {
+            case 'iso': _camera.position.set(center.x + dist*0.7, center.y + dist*0.55, center.z + dist*0.7); break;
+            case 'top': _camera.position.set(center.x, center.y + dist, center.z); break;
+            case 'front': _camera.position.set(center.x, center.y, center.z + dist); break;
+            case 'side': _camera.position.set(center.x + dist, center.y, center.z); break;
+        }
+        _camera.lookAt(center);
+        _camera.zoom = 1.0;
+        _camera.updateProjectionMatrix();
+        _controls.update();
+    }
+    
     function animate() {
         if (!_loopActive) return;
         _animationId = requestAnimationFrame(animate);
-        if (_controls && _controls.update) _controls.update();
+        
+        // Actualizar controles (necesario para damping suave)
+        if (_controls && _controls.update) {
+            _controls.update();
+        }
+        
+        // Renderizado principal
         if (typeof SmartFlowRender !== 'undefined' && SmartFlowRender.renderFrame) {
             SmartFlowRender.renderFrame();
         } else if (_renderer && _scene && _camera) {
             _renderer.render(_scene, _camera);
         }
+        
+        // Renderizado de etiquetas CSS2D
         if (typeof SmartFlowLabels3D !== 'undefined' && SmartFlowLabels3D.render) {
             SmartFlowLabels3D.render();
         }
@@ -316,72 +461,6 @@ const ThreeJsEngine = (function() {
         _camera.bottom = frustumSize / -2;
         _camera.updateProjectionMatrix();
         _renderer.setSize(width, height);
-    }
-    
-    function fitCameraToEquipments() {
-        if (!_scene || !_camera || !_controls) return;
-        
-        var bounds = new THREE.Box3();
-        var hasValidObject = false;
-        
-        _scene.traverse(function(child) {
-            if (child.isMesh && child.visible && child.geometry) {
-                if (child instanceof THREE.GridHelper) return;
-                if (child instanceof THREE.ArrowHelper) return;
-                if (child.userData && (child.userData.isLabel || child.userData.isLabelAnchor || 
-                    child.userData.isLineLabel || child.userData.isDimensionText)) return;
-                bounds.expandByObject(child);
-                hasValidObject = true;
-            }
-        });
-        
-        if (!hasValidObject) {
-            _camera.position.set(15, 12, 15);
-            _camera.zoom = 1.0;
-            _camera.updateProjectionMatrix();
-            _controls.target.set(0, 0, 0);
-            _controls.update();
-            return;
-        }
-        
-        var center = bounds.getCenter(new THREE.Vector3());
-        var size = bounds.getSize(new THREE.Vector3());
-        var maxDim = Math.max(size.x, size.y, size.z, 1);
-        
-        var padding = 1.2;
-        var requiredZoom = BASE_FRUSTUM_SIZE / (maxDim * padding);
-        
-        var distance = maxDim * 2.5;
-        distance = Math.max(distance, 5);
-        
-        _camera.position.set(
-            center.x + distance * 0.7,
-            center.y + distance * 0.55,
-            center.z + distance * 0.7
-        );
-        
-        _camera.zoom = Math.min(Math.max(requiredZoom, 0.3), 10.0);
-        _camera.updateProjectionMatrix();
-        
-        _controls.target.copy(center);
-        _controls.update();
-    }
-    
-    function setView(type) {
-        if (!_camera || !_controls) return;
-        var center = new THREE.Vector3();
-        if (_controls.target) center.copy(_controls.target);
-        var dist = 30;
-        switch(type) {
-            case 'iso': _camera.position.set(center.x + dist*0.7, center.y + dist*0.55, center.z + dist*0.7); break;
-            case 'top': _camera.position.set(center.x, center.y + dist, center.z); break;
-            case 'front': _camera.position.set(center.x, center.y, center.z + dist); break;
-            case 'side': _camera.position.set(center.x + dist, center.y, center.z); break;
-        }
-        _camera.lookAt(center);
-        _camera.zoom = 1.0;
-        _camera.updateProjectionMatrix();
-        _controls.update();
     }
     
     function exportToDataURL() {
@@ -412,6 +491,10 @@ const ThreeJsEngine = (function() {
         _raycastTargets = [];
     }
     
+    function refreshCamera() {
+        setTimeout(function() { fitCameraToEquipments(); }, 100);
+    }
+    
     return {
         init: init,
         getScene: function() { return _scene; },
@@ -430,8 +513,13 @@ const ThreeJsEngine = (function() {
         setView: setView,
         exportToDataURL: exportToDataURL,
         onResize: onResize,
-        dispose: dispose
+        dispose: dispose,
+        refreshCamera: refreshCamera
     };
 })();
 
-window.ThreeJsEngine = ThreeJsEngine;
+if (typeof window !== 'undefined') {
+    window.ThreeJsEngine = ThreeJsEngine;
+}
+
+export default ThreeJsEngine;
