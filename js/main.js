@@ -1,9 +1,7 @@
 
 // ============================================================
-// SMARTFLOW MAIN - Punto de Entrada Principal v3.0
+// SMARTFLOW MAIN v3.2 - Punto de Entrada Principal
 // Archivo: js/main.js
-// Mejoras: NotificationService, VoiceService, comando branch,
-//          autoCenter 3D, Fullscreen 3D, Resize estable
 // ============================================================
 
 (function() {
@@ -46,17 +44,19 @@
     function notify(msg, isErr) {
         if (isErr === undefined) isErr = false;
         
-        // Notificación visual (el elemento #notification del HTML)
         if (notificationEl) {
             notificationEl.textContent = msg;
             notificationEl.style.backgroundColor = isErr ? '#da3633' : '#238636';
             notificationEl.style.display = 'block';
         }
         
-        // Usar el servicio unificado
+        if (voiceEnabled && typeof VoiceService !== 'undefined' && VoiceService.isAvailable()) {
+            try { VoiceService.speak(msg); } catch(e) { console.warn('Error de voz:', e); }
+        }
+        
         NotificationService.notify(msg, {
             isError: isErr,
-            voice: !isErr,
+            voice: false,
             statusBar: true,
             toast: false
         });
@@ -163,6 +163,23 @@
     }
     
     // -------------------- 5. INICIALIZACIÓN DE MÓDULOS --------------------
+    function waitFor3DModules(callback) {
+        var maxAttempts = 50;
+        var attempts = 0;
+        function check() {
+            if (window.ThreeJsEngine && window.SmartFlowRender && window.SmartFlowLabels3D) {
+                callback();
+            } else if (attempts < maxAttempts) {
+                attempts++;
+                setTimeout(check, 200);
+            } else {
+                console.warn('Módulos 3D no disponibles');
+                callback();
+            }
+        }
+        check();
+    }
+    
     function initModules() {
         SmartFlowCore.init(notify, scheduleRender, updatePropertyPanel);
         
@@ -173,20 +190,23 @@
             if (canvas) canvas.style.display = 'block';
             
             if (typeof SmartFlowRenderer !== 'undefined') {
-                SmartFlowRenderer.init(canvas, SmartFlowCore, notify);
+                // CORREGIDO: 4 parámetros (canvas, core, catalog, notifyFn)
+                SmartFlowRenderer.init(canvas, SmartFlowCore, SmartFlowCatalog, notify);
                 _is2DInitialized = true;
             }
         } else {
             if (canvas) canvas.style.display = 'none';
             if (container3D) container3D.style.display = 'block';
             
-            if (typeof ThreeJsEngine !== 'undefined' && container3D) {
-                ThreeJsEngine.init(container3D, SmartFlowCore);
-                _is3DInitialized = true;
-                if (typeof SmartFlowRender !== 'undefined') {
-                    SmartFlowRender.init(SmartFlowCore, ThreeJsEngine);
+            waitFor3DModules(function() {
+                if (typeof ThreeJsEngine !== 'undefined' && container3D) {
+                    ThreeJsEngine.init(container3D, SmartFlowCore);
+                    _is3DInitialized = true;
+                    if (typeof SmartFlowRender !== 'undefined') {
+                        SmartFlowRender.init(SmartFlowCore, ThreeJsEngine);
+                    }
                 }
-            }
+            });
         }
         
         if (typeof SmartFlowRouter !== 'undefined') {
@@ -195,11 +215,21 @@
         
         SmartFlowCommands.init(SmartFlowCore, SmartFlowCatalog, SmartFlowRenderer, notify, scheduleRender, voiceFn);
         
+        if (typeof SmartFlowExporter !== 'undefined') {
+            SmartFlowExporter.init(
+                SmartFlowCore, 
+                SmartFlowRenderer, 
+                typeof ThreeJsEngine !== 'undefined' ? ThreeJsEngine : null, 
+                SmartFlowCatalog
+            );
+        }
+        
         SmartFlowCore.setVoice(voiceEnabled);
         NotificationService.setVoiceEnabled(voiceEnabled);
+        VoiceService.setEnabled(voiceEnabled);
         
         updateViewModeButtons();
-        notify('SmartFlow v3.0 listo (' + currentViewMode.toUpperCase() + ')', false);
+        notify('SmartFlow v3.2 listo (' + currentViewMode.toUpperCase() + ')', false);
     }
     
     function switchViewMode(mode) {
@@ -219,7 +249,8 @@
             
             if (typeof SmartFlowRenderer !== 'undefined' && canvas) {
                 if (!_is2DInitialized) {
-                    SmartFlowRenderer.init(canvas, SmartFlowCore, notify);
+                    // CORREGIDO: 4 parámetros
+                    SmartFlowRenderer.init(canvas, SmartFlowCore, SmartFlowCatalog, notify);
                     _is2DInitialized = true;
                 }
                 SmartFlowRenderer.autoCenter();
@@ -232,24 +263,26 @@
                 container3D.style.height = '100%';
             }
             
-            if (typeof ThreeJsEngine !== 'undefined' && container3D) {
-                if (!_is3DInitialized) {
-                    ThreeJsEngine.init(container3D, SmartFlowCore);
-                    _is3DInitialized = true;
-                } else {
-                    if (ThreeJsEngine.resumeLoop) ThreeJsEngine.resumeLoop();
-                }
-                
-                if (typeof SmartFlowRender !== 'undefined') {
-                    SmartFlowRender.init(SmartFlowCore, ThreeJsEngine);
-                }
-                
-                setTimeout(function() {
-                    if (ThreeJsEngine && ThreeJsEngine.fitCameraToEquipments) {
-                        ThreeJsEngine.fitCameraToEquipments();
+            waitFor3DModules(function() {
+                if (typeof ThreeJsEngine !== 'undefined' && container3D) {
+                    if (!_is3DInitialized) {
+                        ThreeJsEngine.init(container3D, SmartFlowCore);
+                        _is3DInitialized = true;
+                    } else {
+                        if (ThreeJsEngine.resumeLoop) ThreeJsEngine.resumeLoop();
                     }
-                }, 500);
-            }
+                    
+                    if (typeof SmartFlowRender !== 'undefined') {
+                        SmartFlowRender.init(SmartFlowCore, ThreeJsEngine);
+                    }
+                    
+                    setTimeout(function() {
+                        if (ThreeJsEngine && ThreeJsEngine.fitCameraToEquipments) {
+                            ThreeJsEngine.fitCameraToEquipments();
+                        }
+                    }, 800);
+                }
+            });
         }
         
         if (typeof SmartFlowRouter !== 'undefined') {
@@ -284,68 +317,6 @@
     }
     
     // -------------------- 6. GESTIÓN DE PROYECTOS --------------------
-    function guardarProyecto() {
-        const state = SmartFlowCore.exportProject();
-        localStorage.setItem('smartflow_v3_project', state);
-        notify("✅ Proyecto guardado en el navegador.", false);
-    }
-    
-    function cargarProyecto() {
-        const data = localStorage.getItem('smartflow_v3_project');
-        if (data) {
-            try {
-                const state = JSON.parse(data);
-                SmartFlowCore.importState(state.data || state);
-                autoCenter();
-                notify("✅ Proyecto cargado correctamente.", false);
-            } catch (e) {
-                notify("Error al cargar el proyecto: archivo corrupto.", true);
-            }
-        } else {
-            notify("No hay proyecto guardado.", true);
-        }
-    }
-    
-    function exportarProyectoArchivo() {
-        const state = SmartFlowCore.exportProject();
-        const blob = new Blob([state], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = (window.currentProjectName || 'Proyecto') + '_SmartFlow.json';
-        a.click();
-        notify("✅ Proyecto exportado como archivo JSON.", false);
-    }
-    
-    function importarProyectoArchivo() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.onchange = function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                try {
-                    const state = JSON.parse(ev.target.result);
-                    SmartFlowCore.importState(state.data || state);
-                    autoCenter();
-                    notify("✅ Proyecto importado correctamente.", false);
-                } catch (err) {
-                    notify("Error al importar el proyecto: archivo corrupto.", true);
-                }
-            };
-            reader.readAsText(file);
-        };
-        input.click();
-    }
-    
-    function nuevoProyecto() {
-        if (confirm("¿Desea crear un nuevo proyecto? Se perderán los cambios no guardados.")) {
-            SmartFlowCore.nuevoProyecto();
-            autoCenter();
-        }
-    }
-    
     function iniciarNuevoProyecto() {
         const name = projectInput ? projectInput.value.trim() : '';
         if (name) window.currentProjectName = name;
@@ -362,31 +333,7 @@
         if (statusMsgEl) statusMsgEl.textContent = 'Proyecto: ' + window.currentProjectName + ' | Listo';
     }
     
-    // -------------------- 7. MTO Y RESUMEN --------------------
-    function exportarMTO() {
-        const equipos = SmartFlowCore.getEquipos();
-        const lines = SmartFlowCore.getLines();
-        let items = [];
-        equipos.forEach(function(eq) { if (eq.tipo !== 'colector') items.push([eq.tag, eq.tipo, "Und", 1]); });
-        lines.forEach(function(line) {
-            let length = 0;
-            const pts = SmartFlowCore.getLinePoints(line);
-            if (pts) for (let i = 0; i < pts.length - 1; i++) length += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z);
-            items.push([line.tag, 'Tubería ' + (line.material || 'PPR') + ' ' + line.diameter + '"', "m", (length / 1000).toFixed(2)]);
-            if (line.components) {
-                line.components.forEach(function(comp) {
-                    items.push([comp.tag || 'ACC-' + line.tag, comp.type, "Und", 1]);
-                });
-            }
-        });
-        if (items.length === 0) { notify("No hay elementos para exportar.", true); return; }
-        const ws = XLSX.utils.aoa_to_sheet([["Tag", "Descripción", "Unidad", "Cantidad"], ...items]);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "MTO");
-        XLSX.writeFile(wb, 'MTO_' + Date.now() + '.xlsx');
-        notify("✅ MTO exportado correctamente.", false);
-    }
-    
+    // -------------------- 7. RESUMEN --------------------
     function resumenProyecto() {
         const equipos = SmartFlowCore.getEquipos();
         const lines = SmartFlowCore.getLines();
@@ -433,6 +380,7 @@
         voiceEnabled = !voiceEnabled;
         SmartFlowCore.setVoice(voiceEnabled);
         NotificationService.setVoiceEnabled(voiceEnabled);
+        VoiceService.setEnabled(voiceEnabled);
         const btnVoice = document.getElementById('btnVoice');
         if (btnVoice) btnVoice.textContent = voiceEnabled ? '🔊 Voz ON' : '🔇 Voz OFF';
         notify(voiceEnabled ? "✅ Voz activada" : "🔇 Voz desactivada", false);
@@ -451,10 +399,10 @@
                     case 'V': e.preventDefault(); autoCenter(); break;
                     case 'U': e.preventDefault(); SmartFlowCore.undo(); scheduleRender(); notify("✅ Acción deshecha.", false); break;
                     case 'Y': e.preventDefault(); SmartFlowCore.redo(); scheduleRender(); notify("✅ Acción rehecha.", false); break;
-                    case 'M': e.preventDefault(); exportarMTO(); break;
-                    case 'P': e.preventDefault(); if (SmartFlowRenderer && SmartFlowRenderer.exportPDF) { SmartFlowRenderer.exportPDF(); notify("✅ PDF generado correctamente.", false); } break;
-                    case 'E': e.preventDefault(); if (SmartFlowRenderer && SmartFlowRenderer.exportPCF) { SmartFlowRenderer.exportPCF(); notify("✅ Archivo PCF exportado correctamente.", false); } break;
-                    case 'S': e.preventDefault(); guardarProyecto(); break;
+                    case 'M': e.preventDefault(); if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportMTO(); break;
+                    case 'P': e.preventDefault(); if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPDF(); break;
+                    case 'E': e.preventDefault(); if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPCF(); break;
+                    case 'S': e.preventDefault(); if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.guardarProyecto(); break;
                 }
             }
         });
@@ -566,9 +514,7 @@
             success = ejecutados > 0;
         }
         
-        if (success) {
-            addToHistory(textoCompleto);
-        }
+        if (success) addToHistory(textoCompleto);
         
         commandText.value = '';
         
@@ -615,9 +561,7 @@
         if (_isNavigatingHistory) return;
         _isNavigatingHistory = true;
         
-        if (_historyIndex === _commandHistory.length) {
-            _tempCommand = commandText.value;
-        }
+        if (_historyIndex === _commandHistory.length) _tempCommand = commandText.value;
         
         if (direction === 'up') {
             if (_historyIndex > 0) { _historyIndex--; commandText.value = _commandHistory[_historyIndex]; }
@@ -638,16 +582,16 @@
         
         vincular('welcome-new-project', function() { if (projectModal) projectModal.style.display = 'flex'; });
         vincular('welcome-open-project', function() {
-            cargarProyecto();
+            if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.cargarProyecto();
             if (welcomePanel) welcomePanel.classList.add('welcome-hidden');
         });
         vincular('modal-accept', iniciarNuevoProyecto);
         vincular('modal-skip', saltarNombreProyecto);
         
-        vincular('btnOpen', cargarProyecto);
-        vincular('btnSave', guardarProyecto);
-        vincular('btnExportProject', exportarProyectoArchivo);
-        vincular('btnImportProject', importarProyectoArchivo);
+        vincular('btnOpen', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.cargarProyecto(); });
+        vincular('btnSave', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.guardarProyecto(); });
+        vincular('btnExportProject', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportJSON(); });
+        vincular('btnImportProject', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.importJSONFromFile(); });
         
         vincular('btnReset', autoCenter);
         vincular('btnFullscreen', toggleFullscreen);
@@ -697,34 +641,10 @@
             }
         });
         
-        vincular('btnMTO', exportarMTO);
-        vincular('btnPDF', function() { 
-            if (currentViewMode === '2d' && SmartFlowRenderer && SmartFlowRenderer.exportPDF) {
-                SmartFlowRenderer.exportPDF(); notify("✅ PDF generado correctamente.", false);
-            } else if (currentViewMode === '3d' && ThreeJsEngine) {
-                var dataURL = ThreeJsEngine.exportToDataURL();
-                if (dataURL && typeof window.jspdf !== 'undefined') {
-                    var doc = new window.jspdf.jsPDF({ orientation: 'landscape' });
-                    doc.addImage(dataURL, 'PNG', 10, 10, 277, 150);
-                    doc.save('SmartFlow_3D_' + Date.now() + '.pdf');
-                    notify("✅ PDF 3D generado correctamente.", false);
-                } else { notify("jsPDF no disponible para exportar en 3D.", true); }
-            }
-        });
-        vincular('btnExportPCF', function() { 
-            if (SmartFlowRenderer && SmartFlowRenderer.exportPCF) {
-                SmartFlowRenderer.exportPCF(); notify("✅ Archivo PCF exportado correctamente.", false);
-            }
-        });
-        vincular('btnImportPCF', function() {
-            const input = document.createElement('input');
-            input.type = 'file'; input.accept = '.pcf,.txt';
-            input.onchange = function(e) {
-                const file = e.target.files[0];
-                if (file) { const reader = new FileReader(); reader.onload = function(ev) { SmartFlowCommands.importPCF(ev.target.result); }; reader.readAsText(file); }
-            };
-            input.click();
-        });
+        vincular('btnMTO', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportMTO(); });
+        vincular('btnPDF', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPDF(); });
+        vincular('btnExportPCF', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPCF(); });
+        vincular('btnImportPCF', function() { if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.importPCFFromFile(); });
         
         vincular('btnUndo', function() { SmartFlowCore.undo(); scheduleRender(); notify("✅ Acción deshecha.", false); });
         vincular('btnRedo', function() { SmartFlowCore.redo(); scheduleRender(); notify("✅ Acción rehecha.", false); });
@@ -824,9 +744,7 @@
         
         setTimeout(bootstrapWhenReady, 3000);
         
-        if (window.innerWidth < 768) {
-            togglePanel(false);
-        }
+        if (window.innerWidth < 768) togglePanel(false);
         
         setTimeout(function() {
             if (currentViewMode === '2d' && window.SmartFlowRenderer) {
