@@ -10,14 +10,9 @@ const NotificationService = (function() {
   var _toastEnabled = true;
   var _statusBarEnabled = true;
 
-  // ============================================================
-  // INICIALIZACIÓN
-  // ============================================================
-
   function init(options) {
     options = options || {};
     
-    // Barra de estado
     var statusId = options.statusBarId || 'statusMsg';
     _statusBarElement = document.getElementById(statusId);
     if (!_statusBarElement) {
@@ -32,7 +27,6 @@ const NotificationService = (function() {
       document.body.appendChild(_statusBarElement);
     }
 
-    // Contenedor de toasts
     var toastId = options.toastContainerId || 'toastContainer';
     _toastContainer = document.getElementById(toastId);
     if (!_toastContainer) {
@@ -46,7 +40,6 @@ const NotificationService = (function() {
       document.body.appendChild(_toastContainer);
     }
 
-    // Inyectar estilos de animación
     if (!document.getElementById('toastStyles')) {
       var style = document.createElement('style');
       style.id = 'toastStyles';
@@ -55,21 +48,21 @@ const NotificationService = (function() {
     }
   }
 
-  // ============================================================
-  // FUNCIÓN PRINCIPAL
-  // ============================================================
-
   function notify(message, options) {
     options = options || {};
-    var voice = options.voice !== undefined ? options.voice : !options.isError;
+    var voice = options.voice !== undefined ? options.voice : true;
     var toast = options.toast || false;
     var statusBar = options.statusBar !== undefined ? options.statusBar : true;
     var isError = options.isError || false;
     var duration = options.duration || 4000;
 
     // 1. Voz
-    if (voice && _voiceEnabled && typeof VoiceService !== 'undefined') {
-      VoiceService.speak(message);
+    if (voice && _voiceEnabled && typeof VoiceService !== 'undefined' && VoiceService.isAvailable()) {
+      try {
+        VoiceService.speak(message);
+      } catch(e) {
+        console.warn('VoiceService error:', e);
+      }
     }
 
     // 2. Barra de estado
@@ -83,10 +76,6 @@ const NotificationService = (function() {
       showToast(message, isError, duration);
     }
   }
-
-  // ============================================================
-  // TOAST
-  // ============================================================
 
   function showToast(message, isError, duration) {
     if (!_toastContainer) return;
@@ -117,10 +106,6 @@ const NotificationService = (function() {
     }, duration);
   }
 
-  // ============================================================
-  // CONTROL
-  // ============================================================
-
   function setVoiceEnabled(enabled) {
     _voiceEnabled = enabled;
     if (typeof VoiceService !== 'undefined') VoiceService.setEnabled(enabled);
@@ -140,10 +125,6 @@ const NotificationService = (function() {
       _statusBarElement.style.display = enabled ? 'block' : 'none';
     }
   }
-
-  // ============================================================
-  // API
-  // ============================================================
 
   return {
     init: init,
