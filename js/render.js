@@ -1,8 +1,10 @@
+
 // ============================================================
 // SMARTFLOW RENDER 3D v4.1 - Motor de Visualización Industrial
 // Archivo: js/render.js
 // Three.js 0.160.0 + Materiales PBR + Texturas procedurales
 // Compatible 100% con SmartFlowCatalog v4.1
+// MEJORAS: fitCameraToEquipments optimizada (bounding box real + planos de corte)
 // ============================================================
 
 import * as THREE from 'three';
@@ -952,17 +954,80 @@ const SmartFlowRender = (function() {
         });
     }
 
+    // ================================================================
+    // OPTIMIZACIÓN DE CÁMARA 3D - Bounding Box + Planos de corte
+    // ================================================================
+    function getAllSceneObjects() {
+        const objects = [];
+        if (!_sceneRef) return objects;
+        
+        _sceneRef.traverse(obj => {
+            // Incluir mallas visibles con geometría
+            if (obj.isMesh && obj.visible && obj.geometry) {
+                // Excluir helpers y elementos de UI
+                if (obj instanceof THREE.GridHelper) return;
+                if (obj instanceof THREE.ArrowHelper) return;
+                if (obj.userData && (obj.userData.isLabel || obj.userData.isLabelAnchor || 
+                    obj.userData.isLineLabel || obj.userData.isDimensionText)) return;
+                objects.push(obj);
+            }
+        });
+        
+        return objects;
+    }
+    
     function fitCameraToEquipments() {
         if (!_engine) return;
-        const scene = _engine.getScene(), camera = _engine.getCamera(), controls = _engine.getControls();
+        const scene = _engine.getScene();
+        const camera = _engine.getCamera();
+        const controls = _engine.getControls();
+        
         if (!scene || !camera || !controls) return;
-        const bounds = new THREE.Box3(); let has = false;
-        scene.traverse(function(c) { if (c.isMesh && c.visible && c.geometry && !(c instanceof THREE.GridHelper || c instanceof THREE.ArrowHelper)) { bounds.expandByObject(c); has = true; } });
-        if (!has) { camera.position.set(12, 8, 12); controls.target.set(0, 0, 0); controls.update(); return; }
-        const center = bounds.getCenter(new THREE.Vector3()), size = bounds.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z, 1), dist = Math.min(maxDim * 1.3, 80);
-        camera.position.set(center.x + dist * 0.8, center.y + dist * 0.6, center.z + dist * 0.8);
-        controls.target.copy(center); controls.update();
+        
+        // Obtener todos los objetos 3D relevantes
+        const allObjects = getAllSceneObjects();
+        
+        if (allObjects.length === 0) {
+            // Fallback: posición por defecto
+            camera.position.set(15, 12, 15);
+            controls.target.set(0, 0, 0);
+            controls.update();
+            return;
+        }
+        
+        // Calcular bounding box real
+        const boundingBox = new THREE.Box3();
+        allObjects.forEach(obj => {
+            boundingBox.expandByObject(obj);
+        });
+        
+        if (boundingBox.isEmpty()) return;
+        
+        const center = boundingBox.getCenter(new THREE.Vector3());
+        const size = boundingBox.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        
+        // Calcular distancia óptima basada en FOV (cámara perspectiva)
+        const fovRad = camera.fov * (Math.PI / 180);
+        let distance = Math.abs(maxDim / (2 * Math.tan(fovRad / 2)));
+        distance *= 1.3; // Factor de seguridad (padding)
+        
+        // Posicionar cámara en diagonal isométrica
+        camera.position.set(
+            center.x + distance * 0.7,
+            center.y + distance * 0.5,
+            center.z + distance * 0.7
+        );
+        
+        // Ajustar planos de corte para eliminar Z-fighting
+        camera.near = Math.max(0.1, maxDim / 2000);
+        camera.far = Math.max(1000, maxDim * 10);
+        camera.updateProjectionMatrix();
+        
+        controls.target.copy(center);
+        controls.update();
+        
+        console.log(`📐 Camera optimized: center=(${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)}) | maxDim=${maxDim.toFixed(1)} | distance=${distance.toFixed(1)} | near=${camera.near.toFixed(3)} | far=${camera.far.toFixed(0)}`);
     }
 
     function updateSelectionHighlight() {
@@ -972,7 +1037,12 @@ const SmartFlowRender = (function() {
 
     function scheduleRefresh() {
         if (_debounceTimer) clearTimeout(_debounceTimer);
-        _debounceTimer = setTimeout(function() { refreshAllSymbols(); refreshAllFlowArrows(); }, 200);
+        _debounceTimer = setTimeout(function() { 
+            refreshAllSymbols(); 
+            refreshAllFlowArrows();
+            // Reajustar cámara después de cargar los elementos
+            setTimeout(function() { fitCameraToEquipments(); }, 100);
+        }, 200);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -1000,7 +1070,7 @@ const SmartFlowRender = (function() {
         if (typeof _core.on === 'function') _core.on('modelChanged', function() { scheduleRefresh(); });
         
         scheduleRefresh();
-        console.log("✔ SmartFlowRender v4.1 - Motor 3D Industrial (100% catálogo)");
+        console.log("✔ SmartFlowRender v4.1 - Motor 3D Industrial (100% catálogo + cámara optimizada)");
     }
 
     function dispose() {
