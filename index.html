@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>SmartFlow PRO v3.0 | SmartEngp</title>
+    <title>SmartFlow PRO v3.1 | SmartEngp</title>
     
     <!-- Three.js 0.160.0 por import map -->
     <script type="importmap">
@@ -241,6 +241,7 @@
 </head>
 <body>
 
+    <!-- ═══════════════ SPLASH SCREEN ═══════════════ -->
     <div id="splash-screen">
         <div class="splash-content">
             <div class="corporate-header">
@@ -251,7 +252,7 @@
                 <img src="img/logo.PNG" alt="Logo" onerror="this.style.display='none'">
             </div>
             <h1 class="splash-title">SmartFlow</h1>
-            <p class="splash-subtitle">INGENIERÍA INTELIGENTE v3.0</p>
+            <p class="splash-subtitle">INGENIERÍA INTELIGENTE v3.1</p>
             <div class="loading-bar-container"><div class="loading-bar-fill"></div></div>
             <div class="splash-status" id="splash-status">Inicializando protocolos SmartEngp...</div>
             <div class="author-footer">
@@ -261,6 +262,7 @@
         </div>
     </div>
 
+    <!-- ═══════════════ WELCOME PANEL ═══════════════ -->
     <div id="welcome-panel">
         <div class="welcome-container">
             <div class="home-logo-wrapper">
@@ -277,6 +279,7 @@
         </div>
     </div>
 
+    <!-- ═══════════════ PROJECT MODAL ═══════════════ -->
     <div id="project-name-modal">
         <div class="modal-content">
             <h3>Nuevo Proyecto</h3>
@@ -288,6 +291,7 @@
         </div>
     </div>
 
+    <!-- ═══════════════ TOOLBAR ═══════════════ -->
     <div class="toolbar" role="toolbar">
         <div class="toolbar-logo">
             <img src="img/logo.PNG" alt="Logo" style="height: 24px;" onerror="this.style.display='none'">
@@ -332,6 +336,7 @@
         </div>
     </div>
 
+    <!-- ═══════════════ VISOR ═══════════════ -->
     <div class="canvas-container" id="canvas-container">
         <canvas id="isoCanvas"></canvas>
         <div id="viewer-3d"></div>
@@ -344,6 +349,7 @@
         </div>
     </div>
 
+    <!-- ═══════════════ COMMAND PANEL ═══════════════ -->
     <div id="commandPanel" class="command-panel">
         <div class="command-header">
             <strong>🤖 Comandos IA</strong>
@@ -357,10 +363,11 @@
         </div>
     </div>
 
+    <!-- ═══════════════ NOTIFICACIONES ═══════════════ -->
     <div id="notification" class="notification"></div>
+    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartFlow v3.1</div>
 
-    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartFlow v3.0</div>
-
+    <!-- ═══════════════ TOOLS PANEL ═══════════════ -->
     <div class="tools-panel" id="toolsPanel">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
             <span style="font-size:10px; color:var(--accent-cyan);">HERRAMIENTAS</span>
@@ -382,26 +389,30 @@
         </div>
     </div>
 
+    <!-- ═══════════════ FULLSCREEN CONTROLS ═══════════════ -->
     <div id="fullscreen-controls">
         <button id="btnFullscreenCenter" style="padding:12px 20px; border-radius:30px; background:var(--accent-cyan); color:#000; font-weight:bold; border:none;">🔄 Centrar</button>
         <button id="btnFullscreenExit" style="padding:12px 20px; border-radius:30px; background:#ef4444; color:white; font-weight:bold; border:none;">✕ Salir</button>
     </div>
 
+    <!-- ═══════════════ TOAST CONTAINER ═══════════════ -->
     <div id="toastContainer"></div>
 
-    <!-- SERVICIOS (se cargan primero, son scripts normales) -->
+    <!-- ═══════════════ SCRIPTS ═══════════════ -->
+    <!-- Servicios -->
     <script src="js/services/voice.js"></script>
     <script src="js/services/notification.js"></script>
     
-    <!-- MÓDULOS PRINCIPALES (scripts normales) -->
+    <!-- Módulos principales -->
     <script src="js/core.js"></script>
     <script src="js/catalog.js"></script>
     <script src="js/router.js"></script>
     <script src="js/renderer.js"></script>
     <script src="js/commands.js"></script>
+    <script src="js/exporter.js"></script>
     <script src="js/main.js"></script>
     
-    <!-- MÓDULOS 3D (type="module" para usar imports de Three.js) -->
+    <!-- Módulos 3D (type="module") -->
     <script type="module" src="js/ThreeJsEngine.js"></script>
     <script type="module" src="js/render.js"></script>
     <script type="module" src="js/SmartFlowLabels3D.js"></script>
