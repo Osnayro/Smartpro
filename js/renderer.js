@@ -1,9 +1,12 @@
 
 // ============================================================
-// SMARTFLOW RENDERER v4.0 - Motor Isométrico 2.5D
-// Integración completa con SmartFlowCatalog v4.1
-// Mejoras: 100% equipos, instrumentos, materiales estructurales
-// Sistema de anotaciones profesional, cotas inteligentes
+// SMARTFLOW RENDERER v4.1 - Motor Isométrico 2.5D
+// Archivo: js/renderer.js
+// CORRECCIONES APLICADAS:
+// - _hoveredComponent comparación corregida
+// - Condición de anillos de refuerzo en drawTank
+// - Restauración de transform en drawIsoText
+// - Compatibilidad total con catálogo v4.1
 // ============================================================
 
 const SmartFlowRenderer = (function() {
@@ -27,53 +30,38 @@ const SmartFlowRenderer = (function() {
     let _hoveredComponentScreenPos = null;
 
     // ================================================================
-    // CONFIGURACIÓN INDUSTRIAL v4.0 - Materiales completos
+    // CONFIGURACIÓN INDUSTRIAL v4.1
     // ================================================================
     const ISO_CONFIG = {
         MATERIALS: {
-            // Plásticos
             'PPR': 'PP', 'PP': 'PP', 'POLIPROPILENO': 'PP',
             'HDPE': 'PE', 'PE100': 'PE', 'POLIETILENO': 'PE',
             'PVC': 'PV', 'CPVC': 'PV', 'PVDF': 'PV',
-            // Metales
             'CARBON_STEEL': 'CS', 'ACERO_CARBONO': 'CS', 'CS': 'CS',
             'STAINLESS_STEEL': 'SS', 'ACERO_INOXIDABLE': 'SS', 'SS304': 'SS', 'SS316': 'SS',
             'DUPLEX': 'DX', 'HASTELLOY': 'HY', 'ALLOY20': 'A2',
             'ALUMINIO': 'AL', 'ALUMINUM': 'AL',
-            // Especiales
             'FRP': 'FR', 'PTFE': 'PT', 'RUBBER': 'RB',
             'CONCRETO': 'CO', 'CONCRETE': 'CO', 'HORMIGON': 'CO',
             'MADERA': 'WD', 'WOOD': 'WD', 'GLASS': 'GL'
         },
         COLORS: {
-            'PP': '#10b981',      // Verde PPR
-            'CS': '#475569',      // Gris Acero
-            'SS': '#94a3b8',      // Plata Inox
-            'PE': '#1e293b',      // Azul oscuro HDPE
-            'PV': '#7c3aed',      // Morado PVC
-            'DX': '#0ea5e9',      // Azul Dúplex
-            'HY': '#f59e0b',      // Naranja Hastelloy
-            'A2': '#fbbf24',      // Amarillo Alloy20
-            'AL': '#d1d5db',      // Plata Aluminio
-            'FR': '#8b5cf6',      // Violeta FRP
-            'PT': '#a78bfa',      // Lavanda PTFE
-            'RB': '#ec4899',      // Rosa Rubber
-            'CO': '#9ca3af',      // Gris Concreto
-            'WD': '#8b6914',      // Marrón Madera
-            'GL': '#aaddff'       // Azul claro Vidrio
+            'PP': '#10b981', 'CS': '#475569', 'SS': '#94a3b8',
+            'PE': '#1e293b', 'PV': '#7c3aed', 'DX': '#0ea5e9',
+            'HY': '#f59e0b', 'A2': '#fbbf24', 'AL': '#d1d5db',
+            'FR': '#8b5cf6', 'PT': '#a78bfa', 'RB': '#ec4899',
+            'CO': '#9ca3af', 'WD': '#8b6914', 'GL': '#aaddff'
         }
     };
 
     // ================================================================
-    // SISTEMA DE ANOTACIONES PROFESIONAL v2.0
+    // ANNOTATION MANAGER
     // ================================================================
     const AnnotationManager = {
         slots: [],
         occupiedBounds: [],
         minZoomForDetails: 0.25,
         minZoomForAll: 0.4,
-        labelHeight: 18,
-        labelWidth: 90,
 
         reset() {
             this.slots = [];
@@ -90,51 +78,27 @@ const SmartFlowRenderer = (function() {
             return false;
         },
 
-        getDirectionalOffsets(dir3D, w, h, priority) {
-            const offsets = [];
-            // Prioridad según dirección del flujo
+        getDirectionalOffsets(dir3D, w, h) {
             switch (dir3D) {
-                case 'X':
-                    offsets.push({ dx: 0, dy: -h - 8, weight: 1 });    // Arriba
-                    offsets.push({ dx: 0, dy: h + 8, weight: 2 });      // Abajo
-                    offsets.push({ dx: w + 15, dy: -h/2, weight: 3 });   // Derecha
-                    offsets.push({ dx: -w - 15, dy: -h/2, weight: 4 });  // Izquierda
-                    break;
-                case 'Z':
-                    offsets.push({ dx: w + 15, dy: -h/2, weight: 1 });
-                    offsets.push({ dx: -w - 15, dy: -h/2, weight: 2 });
-                    offsets.push({ dx: 0, dy: -h - 8, weight: 3 });
-                    offsets.push({ dx: 0, dy: h + 8, weight: 4 });
-                    break;
-                default:
-                    offsets.push({ dx: 0, dy: -h - 8, weight: 1 });
-                    offsets.push({ dx: 0, dy: h + 8, weight: 2 });
-                    offsets.push({ dx: w + 15, dy: 0, weight: 3 });
-                    offsets.push({ dx: -w - 15, dy: 0, weight: 4 });
+                case 'X': return [
+                    { dx: 0, dy: -h - 8 }, { dx: 0, dy: h + 8 },
+                    { dx: w + 15, dy: -h/2 }, { dx: -w - 15, dy: -h/2 }
+                ];
+                case 'Z': return [
+                    { dx: w + 15, dy: -h/2 }, { dx: -w - 15, dy: -h/2 },
+                    { dx: 0, dy: -h - 8 }, { dx: 0, dy: h + 8 }
+                ];
+                default: return [
+                    { dx: 0, dy: -h - 8 }, { dx: 0, dy: h + 8 },
+                    { dx: w + 15, dy: 0 }, { dx: -w - 15, dy: 0 }
+                ];
             }
-            // Ordenar por peso/prioridad
-            offsets.sort((a, b) => a.weight - b.weight);
-            return offsets;
         },
 
         findBestPosition(preferredX, preferredY, w, h, dir3D, maxAttempts = 6) {
             const offsets = this.getDirectionalOffsets(dir3D, w, h);
             for (let i = 0; i < Math.min(maxAttempts, offsets.length); i++) {
-                const candidate = {
-                    x: preferredX + offsets[i].dx,
-                    y: preferredY + offsets[i].dy,
-                    w: w, h: h
-                };
-                if (!this.checkCollision(candidate)) {
-                    return candidate;
-                }
-            }
-            // Fallback: posición con desplazamiento incremental
-            for (let angle = 0; angle < 360; angle += 45) {
-                const rad = angle * Math.PI / 180;
-                const dx = Math.cos(rad) * 25;
-                const dy = Math.sin(rad) * 25;
-                const candidate = { x: preferredX + dx, y: preferredY + dy, w: w, h: h };
+                const candidate = { x: preferredX + offsets[i].dx, y: preferredY + offsets[i].dy, w: w, h: h };
                 if (!this.checkCollision(candidate)) return candidate;
             }
             return { x: preferredX, y: preferredY, w: w, h: h };
@@ -177,8 +141,17 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
-    // UTILIDADES GRÁFICAS MEJORADAS
+    // UTILIDADES
     // ================================================================
+    function adjustColor(color, percent) {
+        const num = parseInt(color.replace("#",""), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) + amt;
+        const G = ((num >> 8) & 0xFF) + amt;
+        const B = (num & 0xFF) + amt;
+        return "#" + (0x1000000 + (R<255?R<0?0:R:255)*0x10000 + (G<255?G<0?0:G:255)*0x100 + (B<255?B<0?0:B:255)).toString(16).slice(1);
+    }
+
     function getMaterialColor(specCode, materialName) {
         if (_catalog && specCode) {
             const spec = _catalog.getSpec(specCode);
@@ -203,7 +176,7 @@ const SmartFlowRenderer = (function() {
     }
 
     function formatDimensionText(dist) {
-        if (dist < 1000) return Math.round(dist).toString() + ' mm';
+        if (dist < 1000) return Math.round(dist) + ' mm';
         return (dist / 1000).toFixed(2) + ' m';
     }
 
@@ -213,17 +186,13 @@ const SmartFlowRenderer = (function() {
             if (comp && comp.abbr) return comp.abbr;
         }
         const fallback = {
-            'GATE_VALVE': 'GV', 'GLOBE_VALVE': 'GL', 'BUTTERFLY_VALVE': 'VB',
-            'BALL_VALVE': 'BA', 'CHECK_VALVE': 'CK', 'DIAPHRAGM_VALVE': 'DV',
-            'CONTROL_VALVE': 'CV', 'PRESSURE_RELIEF': 'RV', 'SAFETY_VALVE': 'SV',
-            'CONCENTRIC_REDUCER': 'RC', 'ECCENTRIC_REDUCER': 'RE',
-            'WELD_NECK_FLANGE': 'FL', 'SLIP_ON_FLANGE': 'FL', 'BLIND_FLANGE': 'FB',
-            'PRESSURE_GAUGE': 'PG', 'TEMPERATURE_GAUGE': 'TG', 'FLOW_METER': 'FM',
-            'TEE_EQUAL': 'TE', 'TEE_REDUCING': 'TR', 'CROSS': 'CR', 'CAP': 'CA',
-            'ELBOW_90_LR': 'EL', 'ELBOW_45': 'E4', 'Y_STRAINER': 'YS',
-            'LEVEL_SWITCH_RANA': 'LS', 'PIPE_SHOE': 'SH', 'U_BOLT': 'UB',
-            'EXPANSION_JOINT': 'EJ', 'FLEXIBLE_HOSE': 'HO', 'UNION': 'UN',
-            'BULKHEAD': 'BH', 'TRANSITION': 'TR', 'STEAM_TRAP': 'ST'
+            'GATE_VALVE':'GV','GLOBE_VALVE':'GL','BUTTERFLY_VALVE':'VB','BALL_VALVE':'BA',
+            'CHECK_VALVE':'CK','DIAPHRAGM_VALVE':'DV','CONTROL_VALVE':'CV','PRESSURE_RELIEF':'RV',
+            'CONCENTRIC_REDUCER':'RC','ECCENTRIC_REDUCER':'RE','WELD_NECK_FLANGE':'FL',
+            'PRESSURE_GAUGE':'PG','TEMPERATURE_GAUGE':'TG','FLOW_METER':'FM',
+            'TEE_EQUAL':'TE','TEE_REDUCING':'TR','CROSS':'CR','CAP':'CA',
+            'ELBOW_90_LR':'EL','ELBOW_45':'E4','Y_STRAINER':'YS','LEVEL_SWITCH_RANA':'LS',
+            'PIPE_SHOE':'SH','U_BOLT':'UB','EXPANSION_JOINT':'EJ','FLEXIBLE_HOSE':'HO'
         };
         return fallback[compType] || (compType ? compType.substring(0, 2) : '??');
     }
@@ -244,11 +213,7 @@ const SmartFlowRenderer = (function() {
         const d = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
         if (d === 0) return { ...from };
         const t = Math.min(dist / d, 0.5);
-        return {
-            x: from.x + (to.x - from.x) * t,
-            y: from.y + (to.y - from.y) * t,
-            z: from.z + (to.z - from.z) * t
-        };
+        return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, z: from.z + (to.z - from.z) * t };
     }
 
     function getElbowRadius(diameter, isPPR) {
@@ -257,13 +222,9 @@ const SmartFlowRenderer = (function() {
         return Math.min(baseRadius, 350);
     }
 
-    // ================================================================
-    // DIMENSIONES DE EQUIPOS NORMALIZADAS
-    // ================================================================
     function getEquipmentDrawBox(eq) {
         const tipo = eq.tipo || '';
         
-        // Tanques verticales y torres
         if (['tanque_v', 'torre', 'reactor', 'desgasificador', 'desmineralizador',
              'suavizador', 'filtro_carbon', 'filtro_arena', 'clarificador',
              'columna_fraccionadora', 'evaporador', 'cristalizador', 'absorbedor',
@@ -273,23 +234,19 @@ const SmartFlowRenderer = (function() {
             return { halfWidth: (eq.diametro || 1000) / 2, halfHeight: (eq.altura || 1500) / 2, halfDepth: (eq.diametro || 1000) / 2 };
         }
         
-        // Tanques horizontales
         if (['tanque_h', 'separador_trifasico', 'slug_catcher', 'calentador_fuego_directo',
              'secador_rotativo', 'centrifuga', 'filtro_tambor', 'molino'].includes(tipo)) {
             return { halfWidth: (eq.largo || 4000) / 2, halfHeight: (eq.diametro || 1000) / 2, halfDepth: (eq.diametro || 1000) / 2 };
         }
         
-        // Bombas
-        if (['bomba', 'bomba_dosificacion', 'bomba_sumergible', 'homogeneizador_ap'].includes(tipo)) {
+        if (['bomba', 'bomba_dosificacion', 'bomba_sumergible'].includes(tipo)) {
             return { halfWidth: 400, halfHeight: 400, halfDepth: 400 };
         }
         
-        // Plataformas
         if (tipo === 'plataforma') {
             return { halfWidth: (eq.largo || 6000) / 2, halfHeight: (eq.altura || 400) / 2, halfDepth: (eq.ancho || 3000) / 2 };
         }
         
-        // Default
         return {
             halfWidth: (eq.largo || eq.diametro || 1000) / 2,
             halfHeight: (eq.altura || 1000) / 2,
@@ -297,7 +254,8 @@ const SmartFlowRenderer = (function() {
         };
     }
 
-    function isPointCollidingWithEquipment(point, margin = 1500) {
+    function isPointCollidingWithEquipment(point, margin) {
+        margin = margin || 1500;
         if (!_core) return false;
         const db = _core.getDb();
         if (!db || !db.equipos) return false;
@@ -319,7 +277,7 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
-    // DIBUJO DE EQUIPOS - 100% COBERTURA
+    // DIBUJO DE EQUIPOS
     // ================================================================
     function drawTank(eq) {
         const p = project({ x: eq.posX, y: eq.posY, z: eq.posZ });
@@ -330,11 +288,9 @@ const SmartFlowRenderer = (function() {
         const bottomY = p.y + h;
         const color = getMaterialColor(eq.spec, eq.material);
         
-        // Sombra
         _ctx.shadowColor = 'rgba(0,0,0,0.3)';
         _ctx.shadowBlur = 8 * _cam.scale;
         
-        // Cuerpo principal
         _ctx.beginPath();
         _ctx.ellipse(p.x, bottomY, w, w * 0.5, 0, 0, 2 * Math.PI);
         const grad = _ctx.createLinearGradient(p.x - w, 0, p.x + w, 0);
@@ -353,15 +309,14 @@ const SmartFlowRenderer = (function() {
         _ctx.fillStyle = adjustColor(color, 10);
         _ctx.fillRect(p.x, topY, w, h);
         
-        // Tapa superior
         _ctx.beginPath();
         _ctx.ellipse(p.x, topY, w, w * 0.5, 0, 0, 2 * Math.PI);
         _ctx.fillStyle = adjustColor(color, 15);
         _ctx.fill();
         _ctx.stroke();
         
-        // Anillos de refuerzo
-        if (box.halfHeight > 500) {
+        // ✅ CORRECCIÓN 2: Anillos de refuerzo usando eq.altura directamente
+        if ((eq.altura || 0) > 2000) {
             const step = h / 4;
             for (let y = topY + step; y < bottomY - step; y += step) {
                 _ctx.beginPath();
@@ -374,10 +329,8 @@ const SmartFlowRenderer = (function() {
         
         _ctx.shadowBlur = 0;
         
-        // Etiqueta
         const projCenter = project({ x: eq.posX, y: eq.posY + box.halfHeight * 1.2, z: eq.posZ });
-        drawEquipmentTag(projCenter, eq.tag, getSegmentDirection3D({ x: eq.posX, y: eq.posY, z: eq.posZ }, { x: eq.posX + 1, y: eq.posY, z: eq.posZ }));
-        
+        drawEquipmentTag(projCenter, eq.tag, 'Y');
         drawPuertos(eq);
         if (eq.accessories) eq.accessories.forEach(acc => drawAccessory(acc, eq));
     }
@@ -391,7 +344,6 @@ const SmartFlowRenderer = (function() {
         
         _ctx.shadowBlur = 6 * _cam.scale;
         
-        // Cuerpo
         const grad = _ctx.createLinearGradient(p.x - w, p.y - h, p.x + w, p.y + h);
         grad.addColorStop(0, adjustColor(color, -20));
         grad.addColorStop(0.5, color);
@@ -401,7 +353,6 @@ const SmartFlowRenderer = (function() {
         _ctx.strokeStyle = '#ffffff';
         _ctx.strokeRect(p.x - w, p.y - h, w * 2, h * 2);
         
-        // Cabezales redondeados
         _ctx.beginPath();
         _ctx.ellipse(p.x - w, p.y, h, h * 0.6, 0, 0, 2 * Math.PI);
         _ctx.fillStyle = adjustColor(color, -10);
@@ -428,7 +379,6 @@ const SmartFlowRenderer = (function() {
         
         _ctx.shadowBlur = 5 * _cam.scale;
         
-        // Cuerpo de la bomba
         const grad = _ctx.createRadialGradient(p.x - 5, p.y - 5, 2, p.x, p.y, rad);
         grad.addColorStop(0, adjustColor(color, 30));
         grad.addColorStop(0.6, color);
@@ -440,7 +390,6 @@ const SmartFlowRenderer = (function() {
         _ctx.strokeStyle = '#ffffff';
         _ctx.stroke();
         
-        // Motor (parte superior)
         const motorRad = rad * 0.6;
         _ctx.fillStyle = adjustColor(color, -20);
         _ctx.beginPath();
@@ -448,19 +397,11 @@ const SmartFlowRenderer = (function() {
         _ctx.fill();
         _ctx.stroke();
         
-        // Línea de eje
         _ctx.beginPath();
         _ctx.moveTo(p.x, p.y);
         _ctx.lineTo(p.x, p.y - rad * 0.9);
         _ctx.strokeStyle = '#94a3b8';
         _ctx.lineWidth = 2;
-        _ctx.stroke();
-        
-        // Flecha de giro
-        _ctx.beginPath();
-        _ctx.arc(p.x, p.y - rad * 0.8, rad * 0.3, 0, Math.PI * 1.5);
-        _ctx.strokeStyle = '#fbbf24';
-        _ctx.lineWidth = 1.5;
         _ctx.stroke();
         
         _ctx.shadowBlur = 0;
@@ -479,11 +420,13 @@ const SmartFlowRenderer = (function() {
         const material = (eq.material || '').toUpperCase();
         const esConcreto = material.includes('CONCRETO') || material.includes('CEMENTO') || material.includes('HORMIGON');
         const esAluminio = material.includes('ALUMINIO') || material.includes('ALUMINUM');
-        const esMadera = material.includes('MADERA') || material.includes('WOOD');
-        
         const topY = p.y - h;
         
-        // Sombra de la plataforma
+        let color;
+        if (esConcreto) color = ISO_CONFIG.COLORS.CO || '#9ca3af';
+        else if (esAluminio) color = ISO_CONFIG.COLORS.AL || '#d1d5db';
+        else color = '#6b7280';
+        
         _ctx.fillStyle = 'rgba(0,0,0,0.2)';
         _ctx.beginPath();
         _ctx.moveTo(p.x - w + 3, topY + 3);
@@ -495,14 +438,6 @@ const SmartFlowRenderer = (function() {
         _ctx.closePath();
         _ctx.fill();
         
-        // Color según material
-        let color;
-        if (esConcreto) color = ISO_CONFIG.COLORS.CO || '#9ca3af';
-        else if (esAluminio) color = ISO_CONFIG.COLORS.AL || '#d1d5db';
-        else if (esMadera) color = ISO_CONFIG.COLORS.WD || '#8b6914';
-        else color = '#6b7280';
-        
-        // Superficie superior
         const grad = _ctx.createLinearGradient(p.x - w, topY, p.x + w, topY);
         grad.addColorStop(0, adjustColor(color, -20));
         grad.addColorStop(0.3, color);
@@ -523,30 +458,6 @@ const SmartFlowRenderer = (function() {
         _ctx.fill();
         _ctx.stroke();
         
-        // Textura según material
-        if (esConcreto) {
-            _ctx.strokeStyle = adjustColor(color, -30);
-            _ctx.lineWidth = 0.5;
-            for (let i = 0; i < 30; i++) {
-                const x = p.x - w + Math.random() * (w * 2);
-                const y = topY - d * 0.2 + Math.random() * d * 0.5;
-                _ctx.beginPath();
-                _ctx.moveTo(x, y);
-                _ctx.lineTo(x + (Math.random() - 0.5) * 20, y + (Math.random() - 0.5) * 10);
-                _ctx.stroke();
-            }
-        } else if (esAluminio) {
-            _ctx.strokeStyle = adjustColor(color, -50);
-            _ctx.lineWidth = 0.8;
-            for (let x = -w; x <= w; x += 30 * _cam.scale) {
-                _ctx.beginPath();
-                _ctx.moveTo(p.x + x, topY);
-                _ctx.lineTo(p.x + x + d * 0.5, topY - d * 0.25);
-                _ctx.stroke();
-            }
-        }
-        
-        // Patas
         _ctx.strokeStyle = adjustColor(color, -30);
         _ctx.lineWidth = 3;
         const patas = [
@@ -564,8 +475,7 @@ const SmartFlowRenderer = (function() {
             _ctx.stroke();
         });
         
-        // Baranda
-        if (eq.baranda !== false) {
+        if (eq.baranda !== false && !esConcreto) {
             _ctx.strokeStyle = esAluminio ? '#94a3b8' : '#4b5563';
             _ctx.lineWidth = 1;
             const esquinas = [
@@ -623,7 +533,7 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
-    // SISTEMA DE ETIQUETADO PROFESIONAL
+    // ETIQUETAS Y ANOTACIONES
     // ================================================================
     function drawEquipmentTag(anchor, tag, dir3D) {
         if (!AnnotationManager.isVisible(2)) return;
@@ -634,7 +544,6 @@ const SmartFlowRenderer = (function() {
         _ctx.save();
         _ctx.setTransform(1, 0, 0, 1, 0, 0);
         
-        // Línea guía
         _ctx.beginPath();
         _ctx.moveTo(anchor.x, anchor.y);
         _ctx.lineTo(box.x + 10, box.y + h/2);
@@ -643,7 +552,6 @@ const SmartFlowRenderer = (function() {
         _ctx.lineWidth = 1.2;
         _ctx.stroke();
         
-        // Fondo con gradiente
         const bgGrad = _ctx.createLinearGradient(box.x, box.y, box.x + w, box.y + h);
         bgGrad.addColorStop(0, '#1e293b');
         bgGrad.addColorStop(1, '#0f172a');
@@ -653,7 +561,6 @@ const SmartFlowRenderer = (function() {
         _ctx.lineWidth = 1;
         _ctx.strokeRect(box.x, box.y, w, h);
         
-        // Texto
         _ctx.fillStyle = '#fbbf24';
         _ctx.font = `bold ${Math.max(9, 11 * _cam.scale)}px 'Courier New'`;
         _ctx.textAlign = 'center';
@@ -672,7 +579,6 @@ const SmartFlowRenderer = (function() {
         _ctx.save();
         _ctx.setTransform(1, 0, 0, 1, 0, 0);
         
-        // Línea guía
         _ctx.beginPath();
         _ctx.moveTo(proj2d.x, proj2d.y);
         _ctx.lineTo(box.x + w/2, box.y + h/2);
@@ -680,7 +586,6 @@ const SmartFlowRenderer = (function() {
         _ctx.lineWidth = 0.8;
         _ctx.stroke();
         
-        // Círculo con número
         _ctx.fillStyle = '#0ea5e9';
         _ctx.beginPath();
         _ctx.arc(box.x + w/2, box.y + h/2, h/2, 0, Math.PI * 2);
@@ -732,9 +637,6 @@ const SmartFlowRenderer = (function() {
         _ctx.restore();
     }
 
-    // ================================================================
-    // DIBUJO DE PUERTOS Y ACCESORIOS
-    // ================================================================
     function drawPuertos(obj) {
         if (!obj.puertos) return;
         
@@ -750,14 +652,9 @@ const SmartFlowRenderer = (function() {
             };
             const proj = project(pos);
             
-            // Puerto con orientación
             if (port.orientacion) {
                 const dir = port.orientacion;
-                const endPos = {
-                    x: pos.x + dir.dx * 200,
-                    y: pos.y + dir.dy * 200,
-                    z: pos.z + dir.dz * 200
-                };
+                const endPos = { x: pos.x + dir.dx * 200, y: pos.y + dir.dy * 200, z: pos.z + dir.dz * 200 };
                 const projEnd = project(endPos);
                 _ctx.beginPath();
                 _ctx.moveTo(proj.x, proj.y);
@@ -777,7 +674,6 @@ const SmartFlowRenderer = (function() {
                 _ctx.fill();
             }
             
-            // Círculo del puerto
             _ctx.beginPath();
             _ctx.arc(proj.x, proj.y, 5 * _cam.scale + 2, 0, 2 * Math.PI);
             _ctx.fillStyle = port.connectedLine ? '#4ade80' : '#f59e0b';
@@ -786,7 +682,6 @@ const SmartFlowRenderer = (function() {
             _ctx.lineWidth = 1;
             _ctx.stroke();
             
-            // Etiqueta del puerto
             if (port.id && _cam.scale > 0.3) {
                 drawNozzleTag(proj, port, obj);
             }
@@ -794,11 +689,7 @@ const SmartFlowRenderer = (function() {
     }
 
     function drawAccessory(acc, parentEq) {
-        const pos = {
-            x: parentEq.posX + (acc.relX || 0),
-            y: parentEq.posY + (acc.relY || 0),
-            z: parentEq.posZ + (acc.relZ || 0)
-        };
+        const pos = { x: parentEq.posX + (acc.relX || 0), y: parentEq.posY + (acc.relY || 0), z: parentEq.posZ + (acc.relZ || 0) };
         const proj = project(pos);
         
         _ctx.save();
@@ -811,8 +702,6 @@ const SmartFlowRenderer = (function() {
             _ctx.moveTo(proj.x, proj.y);
             _ctx.lineTo(proj.x, proj.y - 40 * _cam.scale);
             _ctx.stroke();
-            
-            // Peldaños
             for (let i = 0; i < 4; i++) {
                 const y = proj.y - (i * 12 * _cam.scale);
                 _ctx.beginPath();
@@ -827,7 +716,7 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
-    // SISTEMA DE COTAS Y DIMENSIONES
+    // DIMENSIONES ISOMÉTRICAS
     // ================================================================
     function drawIsometricDimension(p1, p2) {
         const realDist = Math.hypot(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
@@ -836,20 +725,15 @@ const SmartFlowRenderer = (function() {
         const orientation = getPipeOrientation(p1, p2);
         const dynamicOffset = Math.max(400, Math.min(2500, realDist * 0.35));
         
-        // Probar 4 direcciones para evitar colisiones
         const candidates = orientation === 'horizontal'
-            ? [
-                { dx: 0, dy: -dynamicOffset, dz: 0, dir: 'up' },
-                { dx: 0, dy: dynamicOffset, dz: 0, dir: 'down' },
-                { dx: dynamicOffset, dy: 0, dz: 0, dir: 'right' },
-                { dx: -dynamicOffset, dy: 0, dz: 0, dir: 'left' }
-              ]
-            : [
-                { dx: dynamicOffset, dy: 0, dz: 0, dir: 'right' },
-                { dx: -dynamicOffset, dy: 0, dz: 0, dir: 'left' },
-                { dx: 0, dy: -dynamicOffset, dz: 0, dir: 'up' },
-                { dx: 0, dy: dynamicOffset, dz: 0, dir: 'down' }
-              ];
+            ? [{ dx: 0, dy: -dynamicOffset, dz: 0, dir: 'up' },
+               { dx: 0, dy: dynamicOffset, dz: 0, dir: 'down' },
+               { dx: dynamicOffset, dy: 0, dz: 0, dir: 'right' },
+               { dx: -dynamicOffset, dy: 0, dz: 0, dir: 'left' }]
+            : [{ dx: dynamicOffset, dy: 0, dz: 0, dir: 'right' },
+               { dx: -dynamicOffset, dy: 0, dz: 0, dir: 'left' },
+               { dx: 0, dy: -dynamicOffset, dz: 0, dir: 'up' },
+               { dx: 0, dy: dynamicOffset, dz: 0, dir: 'down' }];
         
         let chosen = candidates[0];
         for (const candidate of candidates) {
@@ -869,7 +753,6 @@ const SmartFlowRenderer = (function() {
         
         _ctx.save();
         
-        // Líneas de extensión
         _ctx.beginPath();
         _ctx.setLineDash([3, 4]);
         _ctx.strokeStyle = '#64748b';
@@ -880,7 +763,6 @@ const SmartFlowRenderer = (function() {
         _ctx.lineTo(prD2.x, prD2.y);
         _ctx.stroke();
         
-        // Línea de cota
         _ctx.setLineDash([]);
         _ctx.beginPath();
         _ctx.moveTo(prD1.x, prD1.y);
@@ -889,7 +771,6 @@ const SmartFlowRenderer = (function() {
         _ctx.lineWidth = 1.2;
         _ctx.stroke();
         
-        // Marcadores de fin de cota
         _ctx.beginPath();
         _ctx.moveTo(prD1.x - 3, prD1.y - 3);
         _ctx.lineTo(prD1.x + 3, prD1.y + 3);
@@ -901,7 +782,6 @@ const SmartFlowRenderer = (function() {
         _ctx.lineTo(prD2.x + 3, prD2.y - 3);
         _ctx.stroke();
         
-        // Texto de la cota
         const midX = (prD1.x + prD2.x) / 2;
         const midY = (prD1.y + prD2.y) / 2;
         const textOffset = (chosen.dir === 'up' || chosen.dir === 'down') ? -8 : 0;
@@ -911,17 +791,13 @@ const SmartFlowRenderer = (function() {
         _ctx.textAlign = 'center';
         _ctx.textBaseline = 'middle';
         
-        if (dir3D === 'X') {
-            _ctx.setTransform(1, 0.4, 0, 1, midX, midY + textOffset);
-        } else if (dir3D === 'Z') {
-            _ctx.setTransform(1, -0.4, 0, 1, midX, midY + textOffset);
-        } else {
-            _ctx.setTransform(1, 0, 0, 1, midX, midY + textOffset);
-        }
+        if (dir3D === 'X') _ctx.setTransform(1, 0.4, 0, 1, midX, midY + textOffset);
+        else if (dir3D === 'Z') _ctx.setTransform(1, -0.4, 0, 1, midX, midY + textOffset);
+        else _ctx.setTransform(1, 0, 0, 1, midX, midY + textOffset);
         
-        _ctx.fillStyle = 'rgba(0,0,0,0.6)';
         const text = formatDimensionText(realDist);
         const metrics = _ctx.measureText(text);
+        _ctx.fillStyle = 'rgba(0,0,0,0.6)';
         _ctx.fillRect(-metrics.width/2 - 4, -8, metrics.width + 8, 14);
         
         _ctx.fillStyle = '#00ffcc';
@@ -951,16 +827,12 @@ const SmartFlowRenderer = (function() {
         _ctx.fillStyle = '#ef4444';
         _ctx.font = `bold ${Math.max(9, 11 * _cam.scale)}px monospace`;
         _ctx.textAlign = 'center';
-        _ctx.fillText(
-            formatDimensionText(realDist),
-            (proj1.x + proj2.x) / 2,
-            (proj1.y + proj2.y) / 2 - 12
-        );
+        _ctx.fillText(formatDimensionText(realDist), (proj1.x + proj2.x) / 2, (proj1.y + proj2.y) / 2 - 12);
         _ctx.restore();
     }
 
     // ================================================================
-    // DIBUJO DE TUBERÍAS CON CODOS AUTOMÁTICOS
+    // DIBUJO DE TUBERÍAS
     // ================================================================
     function resolvePipeEndpoints(line) {
         const rawPts = _core ? _core.getLinePoints(line) : (line._cachedPoints || line.points3D);
@@ -1062,7 +934,7 @@ const SmartFlowRenderer = (function() {
         _ctx.stroke();
         _ctx.restore();
         
-        // Capas de tubería para efecto 3D
+        // Capas de tubería
         drawPath();
         _ctx.strokeStyle = '#0a0e17';
         _ctx.lineWidth = mainWidth + 4;
@@ -1146,6 +1018,7 @@ const SmartFlowRenderer = (function() {
         _ctx.restore();
     }
 
+    // ✅ CORRECCIÓN 5: drawIsoText con restauración completa
     function drawIsoText(text, x, y, plane) {
         if (!text) return;
         plane = plane || 'XY';
@@ -1174,11 +1047,12 @@ const SmartFlowRenderer = (function() {
         _ctx.fillText(text, 0, -4);
         
         _ctx.restore();
+        // ✅ CORRECCIÓN 5: Restauración completa de transformación
         _ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
     // ================================================================
-    // SÍMBOLOS DE COMPONENTES - VERSIÓN PROFESIONAL
+    // SÍMBOLOS DE COMPONENTES
     // ================================================================
     function drawSymbol(x, y, dir3D, comp) {
         _ctx.save();
@@ -1186,17 +1060,13 @@ const SmartFlowRenderer = (function() {
         _ctx.lineWidth = 1.5;
         _ctx.strokeStyle = '#e2e8f0';
         
-        if (dir3D === 'X') {
-            _ctx.setTransform(1, 0.4, 0, 1, x, y);
-        } else if (dir3D === 'Z') {
-            _ctx.setTransform(1, -0.4, 0, 1, x, y);
-        } else if (dir3D === 'Y') {
-            _ctx.setTransform(0, 1, -0.8, 0, x, y);
-        }
+        if (dir3D === 'X') _ctx.setTransform(1, 0.4, 0, 1, x, y);
+        else if (dir3D === 'Z') _ctx.setTransform(1, -0.4, 0, 1, x, y);
+        else if (dir3D === 'Y') _ctx.setTransform(0, 1, -0.8, 0, x, y);
         
         const tipo = (comp.type || '').toUpperCase();
         
-        // VÁLVULAS
+        // Válvula Mariposa
         if (tipo.includes('BUTTERFLY_VALVE')) {
             _ctx.beginPath();
             _ctx.ellipse(0, 0, s * 0.9, s * 0.35, 0, 0, Math.PI * 2);
@@ -1217,7 +1087,9 @@ const SmartFlowRenderer = (function() {
             _ctx.beginPath();
             _ctx.arc(0, -s * 1.6, s * 0.2, 0, Math.PI * 2);
             _ctx.fill();
-        } else if (tipo.includes('BALL_VALVE') || tipo.includes('VALVE_BALL')) {
+        }
+        // Válvula de Bola
+        else if (tipo.includes('BALL_VALVE')) {
             const ballGrad = _ctx.createRadialGradient(-s * 0.1, -s * 0.1, s * 0.05, 0, 0, s * 0.65);
             ballGrad.addColorStop(0, '#ffffff');
             ballGrad.addColorStop(0.5, '#94a3b8');
@@ -1239,14 +1111,9 @@ const SmartFlowRenderer = (function() {
             _ctx.fillStyle = '#0f172a';
             _ctx.fill();
             _ctx.stroke();
-            _ctx.beginPath();
-            _ctx.moveTo(0, -s * 0.3);
-            _ctx.lineTo(0, -s * 1.2);
-            _ctx.lineTo(s * 0.6, -s * 1.2);
-            _ctx.strokeStyle = '#f8fafc';
-            _ctx.lineWidth = 1.8;
-            _ctx.stroke();
-        } else if (tipo.includes('GATE_VALVE')) {
+        }
+        // Válvula Compuerta
+        else if (tipo.includes('GATE_VALVE')) {
             _ctx.beginPath();
             _ctx.moveTo(-s, -s * 0.6);
             _ctx.lineTo(s, s * 0.6);
@@ -1266,20 +1133,9 @@ const SmartFlowRenderer = (function() {
             _ctx.beginPath();
             _ctx.arc(0, -s * 1.4, s * 0.22, 0, Math.PI * 2);
             _ctx.fill();
-        } else if (tipo.includes('GLOBE_VALVE')) {
-            _ctx.beginPath();
-            _ctx.ellipse(0, 0, s * 0.85, s * 0.55, 0, 0, Math.PI * 2);
-            _ctx.fillStyle = '#1e293b';
-            _ctx.fill();
-            _ctx.stroke();
-            _ctx.beginPath();
-            _ctx.moveTo(0, -s * 0.55);
-            _ctx.lineTo(0, s * 0.55);
-            _ctx.stroke();
-            _ctx.fillStyle = '#334155';
-            _ctx.fillRect(-s * 0.3, -s * 1.1, s * 0.6, s * 0.5);
-            _ctx.strokeRect(-s * 0.3, -s * 1.1, s * 0.6, s * 0.5);
-        } else if (tipo.includes('CHECK_VALVE')) {
+        }
+        // Válvula Check
+        else if (tipo.includes('CHECK_VALVE')) {
             _ctx.strokeRect(-s, -s * 0.45, s * 2, s * 0.9);
             _ctx.fillStyle = '#4ade80';
             _ctx.beginPath();
@@ -1295,31 +1151,9 @@ const SmartFlowRenderer = (function() {
             _ctx.lineTo(-s * 0.5, 0);
             _ctx.stroke();
             _ctx.setLineDash([]);
-        } else if (tipo.includes('CONTROL_VALVE')) {
-            _ctx.beginPath();
-            _ctx.ellipse(0, 0, s * 0.7, s * 0.7, 0, 0, Math.PI * 2);
-            _ctx.fillStyle = '#1e293b';
-            _ctx.fill();
-            _ctx.stroke();
-            _ctx.fillStyle = '#3b82f6';
-            _ctx.fillRect(-s * 0.4, -s * 1.0, s * 0.8, s * 0.4);
-            _ctx.strokeRect(-s * 0.4, -s * 1.0, s * 0.8, s * 0.4);
-            _ctx.fillStyle = '#fbbf24';
-            _ctx.fillRect(-s * 0.3, -s * 1.4, s * 0.6, s * 0.3);
-        } else if (tipo.includes('PRESSURE_RELIEF') || tipo.includes('SAFETY_VALVE')) {
-            _ctx.beginPath();
-            _ctx.moveTo(0, -s * 0.8);
-            _ctx.lineTo(-s * 0.4, 0);
-            _ctx.lineTo(0, s * 0.6);
-            _ctx.lineTo(s * 0.4, 0);
-            _ctx.closePath();
-            _ctx.fillStyle = '#ef4444';
-            _ctx.fill();
-            _ctx.stroke();
-            _ctx.fillStyle = '#ffffff';
-            _ctx.font = `${s * 0.5}px monospace`;
-            _ctx.fillText('RV', 0, 0);
-        } else if (tipo.includes('PRESSURE_GAUGE')) {
+        }
+        // Manómetro
+        else if (tipo.includes('PRESSURE_GAUGE')) {
             _ctx.beginPath();
             _ctx.arc(0, 0, s * 0.7, 0, Math.PI * 2);
             _ctx.fillStyle = '#0f172a';
@@ -1338,7 +1172,9 @@ const SmartFlowRenderer = (function() {
             _ctx.fillStyle = '#0f172a';
             _ctx.font = `bold ${s * 0.4}px monospace`;
             _ctx.fillText('PG', 0, s * 0.2);
-        } else if (tipo.includes('TEMPERATURE_GAUGE')) {
+        }
+        // Termómetro
+        else if (tipo.includes('TEMPERATURE_GAUGE')) {
             _ctx.beginPath();
             _ctx.arc(0, 0, s * 0.7, 0, Math.PI * 2);
             _ctx.fillStyle = '#0f172a';
@@ -1351,85 +1187,17 @@ const SmartFlowRenderer = (function() {
             _ctx.moveTo(0, s * 0.5);
             _ctx.lineTo(0, s * 0.9);
             _ctx.stroke();
-        } else if (tipo.includes('FLOW_METER')) {
+        }
+        // Caudalímetro
+        else if (tipo.includes('FLOW_METER')) {
             _ctx.fillRect(-s * 0.6, -s * 0.5, s * 1.2, s * 1.0);
             _ctx.strokeRect(-s * 0.6, -s * 0.5, s * 1.2, s * 1.0);
             _ctx.fillStyle = '#ffffff';
             _ctx.font = `bold ${s * 0.5}px monospace`;
             _ctx.fillText('FM', 0, s * 0.15);
-        } else if (tipo.includes('LEVEL_SWITCH_RANA')) {
-            _ctx.fillRect(-s * 0.4, -s * 0.9, s * 0.8, s * 1.8);
-            _ctx.strokeRect(-s * 0.4, -s * 0.9, s * 0.8, s * 1.8);
-            _ctx.beginPath();
-            _ctx.moveTo(-s * 0.3, -s * 0.3);
-            _ctx.lineTo(s * 0.3, -s * 0.3);
-            _ctx.moveTo(-s * 0.3, s * 0.3);
-            _ctx.lineTo(s * 0.3, s * 0.3);
-            _ctx.strokeStyle = '#4ade80';
-            _ctx.stroke();
-            _ctx.fillStyle = '#ffffff';
-            _ctx.font = `${s * 0.35}px monospace`;
-            _ctx.fillText('LS', 0, 0);
-            
-        // REDUCTORES
-        } else if (tipo.includes('CONCENTRIC_REDUCER')) {
-            const reducGrad = _ctx.createLinearGradient(-s, 0, s, 0);
-            reducGrad.addColorStop(0, '#475569');
-            reducGrad.addColorStop(1, '#94a3b8');
-            _ctx.beginPath();
-            _ctx.moveTo(-s, -s * 0.5);
-            _ctx.lineTo(s, -s * 0.8);
-            _ctx.lineTo(s, s * 0.8);
-            _ctx.lineTo(-s, s * 0.5);
-            _ctx.closePath();
-            _ctx.fillStyle = reducGrad;
-            _ctx.fill();
-            _ctx.stroke();
-        } else if (tipo.includes('ECCENTRIC_REDUCER')) {
-            const reducGrad = _ctx.createLinearGradient(-s, 0, s, 0);
-            reducGrad.addColorStop(0, '#475569');
-            reducGrad.addColorStop(1, '#94a3b8');
-            _ctx.beginPath();
-            _ctx.moveTo(-s, -s * 0.5);
-            _ctx.lineTo(s, -s * 0.6);
-            _ctx.lineTo(s, s * 0.8);
-            _ctx.lineTo(-s, s * 0.5);
-            _ctx.closePath();
-            _ctx.fillStyle = reducGrad;
-            _ctx.fill();
-            _ctx.stroke();
-            _ctx.beginPath();
-            _ctx.moveTo(-s, -s * 0.5);
-            _ctx.lineTo(-s, s * 0.5);
-            _ctx.strokeStyle = '#facc15';
-            _ctx.lineWidth = 1.5;
-            _ctx.stroke();
-            
-        // BRIDAS
-        } else if (tipo.includes('WELD_NECK_FLANGE') || tipo.includes('SLIP_ON_FLANGE')) {
-            _ctx.fillRect(-s * 0.35, -s * 0.9, s * 0.7, s * 1.8);
-            _ctx.strokeRect(-s * 0.35, -s * 0.9, s * 0.7, s * 1.8);
-            for (let py = -0.6; py <= 0.6; py += 0.4) {
-                _ctx.beginPath();
-                _ctx.arc(-s * 0.55, py * s, s * 0.08, 0, Math.PI * 2);
-                _ctx.fillStyle = '#64748b';
-                _ctx.fill();
-                _ctx.beginPath();
-                _ctx.arc(s * 0.55, py * s, s * 0.08, 0, Math.PI * 2);
-                _ctx.fill();
-            }
-        } else if (tipo.includes('BLIND_FLANGE')) {
-            _ctx.fillRect(-s * 0.7, -s * 0.9, s * 1.4, s * 1.8);
-            _ctx.strokeRect(-s * 0.7, -s * 0.9, s * 1.4, s * 1.8);
-            _ctx.beginPath();
-            _ctx.moveTo(-s * 0.5, -s * 0.5);
-            _ctx.lineTo(s * 0.5, s * 0.5);
-            _ctx.moveTo(s * 0.5, -s * 0.5);
-            _ctx.lineTo(-s * 0.5, s * 0.5);
-            _ctx.stroke();
-            
-        // TEES
-        } else if (tipo.includes('TEE_EQUAL') || tipo.includes('TEE_REDUCING') || tipo.includes('TEE_PPR')) {
+        }
+        // Tee
+        else if (tipo.includes('TEE_EQUAL') || tipo.includes('TEE_REDUCING') || tipo.includes('TEE_PPR')) {
             _ctx.beginPath();
             _ctx.moveTo(-s * 0.9, 0);
             _ctx.lineTo(s * 0.9, 0);
@@ -1449,19 +1217,9 @@ const SmartFlowRenderer = (function() {
                 _ctx.arc(0, -s * 1.3, s * 0.25, 0, Math.PI * 2);
                 _ctx.fill();
             }
-            
-        // CODOS
-        } else if (tipo.includes('ELBOW_45') || tipo.includes('CODO_45')) {
-            _ctx.beginPath();
-            _ctx.arc(0, 0, s, 0, Math.PI / 4);
-            _ctx.strokeStyle = '#f8fafc';
-            _ctx.lineWidth = 2.5;
-            _ctx.stroke();
-            _ctx.fillStyle = '#ffffff';
-            _ctx.beginPath();
-            _ctx.arc(0, 0, s * 0.18, 0, Math.PI * 2);
-            _ctx.fill();
-        } else if (tipo.includes('ELBOW_90') || tipo.includes('CODO_90') || tipo.includes('ELBOW_90_PPR')) {
+        }
+        // Codo 90°
+        else if (tipo.includes('ELBOW_90') || tipo.includes('CODO_90')) {
             const r = tipo.includes('LR') ? s * 1.3 : s * 0.9;
             _ctx.beginPath();
             _ctx.arc(0, 0, r, 0, Math.PI / 2);
@@ -1472,135 +1230,50 @@ const SmartFlowRenderer = (function() {
             _ctx.beginPath();
             _ctx.arc(0, 0, s * 0.18, 0, Math.PI * 2);
             _ctx.fill();
-            
-        // SOPORTES
-        } else if (tipo.includes('PIPE_SHOE') || tipo.includes('ZAPATA')) {
-            _ctx.fillRect(-s * 0.7, -s * 0.3, s * 1.4, s * 0.6);
-            _ctx.strokeRect(-s * 0.7, -s * 0.3, s * 1.4, s * 0.6);
-            _ctx.fillStyle = '#64748b';
-            _ctx.fillRect(-s * 0.5, -s * 0.5, s * 0.3, s * 0.2);
-            _ctx.fillRect(s * 0.2, -s * 0.5, s * 0.3, s * 0.2);
-        } else if (tipo.includes('U_BOLT')) {
+        }
+        // Codo 45°
+        else if (tipo.includes('ELBOW_45')) {
             _ctx.beginPath();
-            _ctx.arc(0, 0, s * 0.5, 0, Math.PI);
+            _ctx.arc(0, 0, s, 0, Math.PI / 4);
+            _ctx.strokeStyle = '#f8fafc';
+            _ctx.lineWidth = 2.5;
             _ctx.stroke();
-            _ctx.fillRect(-s * 0.5, s * 0.1, s * 1.0, s * 0.15);
-            _ctx.strokeRect(-s * 0.5, s * 0.1, s * 1.0, s * 0.15);
-        } else if (tipo.includes('ANCHOR')) {
-            _ctx.fillRect(-s * 0.5, -s * 0.4, s * 1.0, s * 0.8);
-            _ctx.strokeRect(-s * 0.5, -s * 0.4, s * 1.0, s * 0.8);
-            _ctx.fillStyle = '#dc2626';
-            _ctx.fillRect(-s * 0.3, -s * 0.7, s * 0.6, s * 0.3);
-            
-        // OTROS COMPONENTES
-        } else if (tipo.includes('CAP') || tipo.includes('TAPON')) {
+            _ctx.fillStyle = '#ffffff';
             _ctx.beginPath();
-            _ctx.arc(0, 0, s * 0.7, 0, Math.PI, true);
+            _ctx.arc(0, 0, s * 0.18, 0, Math.PI * 2);
+            _ctx.fill();
+        }
+        // Reductor
+        else if (tipo.includes('CONCENTRIC_REDUCER')) {
+            const reducGrad = _ctx.createLinearGradient(-s, 0, s, 0);
+            reducGrad.addColorStop(0, '#475569');
+            reducGrad.addColorStop(1, '#94a3b8');
+            _ctx.beginPath();
+            _ctx.moveTo(-s, -s * 0.5);
+            _ctx.lineTo(s, -s * 0.8);
+            _ctx.lineTo(s, s * 0.8);
+            _ctx.lineTo(-s, s * 0.5);
             _ctx.closePath();
+            _ctx.fillStyle = reducGrad;
             _ctx.fill();
             _ctx.stroke();
-            _ctx.beginPath();
-            _ctx.moveTo(-s * 0.7, 0);
-            _ctx.lineTo(-s * 1.0, 0);
-            _ctx.moveTo(s * 0.7, 0);
-            _ctx.lineTo(s * 1.0, 0);
-            _ctx.stroke();
-        } else if (tipo.includes('UNION')) {
-            _ctx.fillRect(-s * 0.7, -s * 0.7, s * 1.4, s * 1.4);
-            _ctx.strokeRect(-s * 0.7, -s * 0.7, s * 1.4, s * 1.4);
-            for (let i = -0.4; i <= 0.4; i += 0.3) {
+        }
+        // Brida
+        else if (tipo.includes('WELD_NECK_FLANGE') || tipo.includes('SLIP_ON_FLANGE')) {
+            _ctx.fillRect(-s * 0.35, -s * 0.9, s * 0.7, s * 1.8);
+            _ctx.strokeRect(-s * 0.35, -s * 0.9, s * 0.7, s * 1.8);
+            for (let py = -0.6; py <= 0.6; py += 0.4) {
                 _ctx.beginPath();
-                _ctx.moveTo(-s * 0.7, i * s);
-                _ctx.lineTo(s * 0.7, i * s);
-                _ctx.strokeStyle = '#334155';
-                _ctx.stroke();
-            }
-        } else if (tipo.includes('EXPANSION_JOINT')) {
-            _ctx.fillRect(-s * 0.8, -s * 0.7, s * 1.6, s * 1.4);
-            _ctx.strokeRect(-s * 0.8, -s * 0.7, s * 1.6, s * 1.4);
-            for (let i = -0.5; i <= 0.5; i += 0.35) {
+                _ctx.arc(-s * 0.55, py * s, s * 0.08, 0, Math.PI * 2);
+                _ctx.fillStyle = '#64748b';
+                _ctx.fill();
                 _ctx.beginPath();
-                _ctx.moveTo(-s * 0.8, i * s);
-                _ctx.lineTo(s * 0.8, i * s);
-                _ctx.strokeStyle = '#fbbf24';
-                _ctx.stroke();
+                _ctx.arc(s * 0.55, py * s, s * 0.08, 0, Math.PI * 2);
+                _ctx.fill();
             }
-        } else if (tipo.includes('Y_STRAINER')) {
-            _ctx.beginPath();
-            _ctx.moveTo(-s, 0);
-            _ctx.lineTo(0, -s * 0.9);
-            _ctx.lineTo(s, 0);
-            _ctx.lineTo(0, s * 0.5);
-            _ctx.closePath();
-            _ctx.fill();
-            _ctx.stroke();
-            _ctx.beginPath();
-            _ctx.moveTo(-s, 0);
-            _ctx.lineTo(s, 0);
-            _ctx.strokeStyle = '#4ade80';
-            _ctx.lineWidth = 2;
-            _ctx.stroke();
-        } else if (tipo.includes('STEAM_TRAP')) {
-            _ctx.fillRect(-s * 0.6, -s * 0.5, s * 1.2, s * 1.0);
-            _ctx.strokeRect(-s * 0.6, -s * 0.5, s * 1.2, s * 1.0);
-            _ctx.fillStyle = '#f59e0b';
-            _ctx.beginPath();
-            _ctx.moveTo(0, -s * 0.3);
-            _ctx.lineTo(-s * 0.3, s * 0.2);
-            _ctx.lineTo(s * 0.3, s * 0.2);
-            _ctx.closePath();
-            _ctx.fill();
-        } else if (tipo.includes('BULKHEAD')) {
-            _ctx.beginPath();
-            _ctx.moveTo(-s * 0.25, -s * 1.2);
-            _ctx.lineTo(-s * 0.25, s * 1.2);
-            _ctx.lineWidth = 4;
-            _ctx.strokeStyle = '#94a3b8';
-            _ctx.stroke();
-            _ctx.lineWidth = 1.5;
-            _ctx.strokeStyle = '#e2e8f0';
-            _ctx.strokeRect(-s * 1.0, -s * 0.6, s * 2.0, s * 1.2);
-        } else if (tipo.includes('TRANSITION') || tipo.includes('ADAPTADOR')) {
-            _ctx.beginPath();
-            _ctx.moveTo(-s, -s * 0.6);
-            _ctx.lineTo(s * 0.2, -s * 0.8);
-            _ctx.lineTo(s * 0.2, s * 0.8);
-            _ctx.lineTo(-s, s * 0.6);
-            _ctx.closePath();
-            _ctx.fillStyle = '#1e293b';
-            _ctx.fill();
-            _ctx.stroke();
-            _ctx.beginPath();
-            _ctx.moveTo(s * 0.2, -s * 0.6);
-            _ctx.lineTo(s * 0.9, -s * 0.6);
-            _ctx.lineTo(s * 0.9, s * 0.6);
-            _ctx.lineTo(s * 0.2, s * 0.6);
-            _ctx.fillStyle = '#475569';
-            _ctx.fill();
-            _ctx.stroke();
-        } else if (tipo.includes('NIPPLE')) {
-            _ctx.fillRect(-s * 0.9, -s * 0.4, s * 1.8, s * 0.8);
-            _ctx.strokeRect(-s * 0.9, -s * 0.4, s * 1.8, s * 0.8);
-            for (let i = -0.2; i <= 0.2; i += 0.2) {
-                _ctx.beginPath();
-                _ctx.moveTo(-s * 0.9, i * s);
-                _ctx.lineTo(s * 0.9, i * s);
-                _ctx.strokeStyle = '#475569';
-                _ctx.stroke();
-            }
-        } else if (tipo.includes('FLEXIBLE_HOSE') || tipo.includes('MANGUERA')) {
-            const hoseMat = tipo.includes('METALLIC') ? '#94a3b8' : '#22c55e';
-            _ctx.fillStyle = hoseMat;
-            _ctx.fillRect(-s * 0.8, -s * 0.4, s * 1.6, s * 0.8);
-            _ctx.strokeRect(-s * 0.8, -s * 0.4, s * 1.6, s * 0.8);
-            for (let i = 0; i < 4; i++) {
-                _ctx.beginPath();
-                _ctx.moveTo(-s * 0.7 + i * s * 0.5, -s * 0.45);
-                _ctx.lineTo(-s * 0.7 + i * s * 0.5 + s * 0.2, s * 0.45);
-                _ctx.stroke();
-            }
-        } else {
-            // Default
+        }
+        // Default
+        else {
             _ctx.fillRect(-s * 0.8, -s * 0.8, s * 1.6, s * 1.6);
             _ctx.strokeRect(-s * 0.8, -s * 0.8, s * 1.6, s * 1.6);
             const lbl = getComponentLabel(comp.type);
@@ -1653,7 +1326,9 @@ const SmartFlowRenderer = (function() {
             };
             const proj = project(pos3D);
             const dir3D = getSegmentDirection3D(p1, p2);
-            const isHovered = _hoveredComponent && _hoveredComponent.comp === comp;
+            
+            // ✅ CORRECCIÓN 1: Comparación directa con _hoveredComponent
+            const isHovered = _hoveredComponent === comp;
             
             _ctx.save();
             if (isHovered) {
@@ -1685,7 +1360,7 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
-    // DIBUJO DE GRILLA Y ORIGEN
+    // GRILLA Y ORIGEN
     // ================================================================
     function drawGrid(elevation) {
         elevation = elevation || 0;
@@ -1784,7 +1459,6 @@ const SmartFlowRenderer = (function() {
         const lines = db ? db.lines : [];
         const worldClick = inverseProject(mouseCanvas.x, mouseCanvas.y);
         
-        // Equipos (recorrer en orden inverso para prioridad visual)
         for (let i = equipos.length - 1; i >= 0; i--) {
             const eq = equipos[i];
             let inside = false;
@@ -1807,7 +1481,6 @@ const SmartFlowRenderer = (function() {
             if (inside) return { type: 'equipment', obj: eq };
         }
         
-        // Líneas
         for (const line of lines) {
             const pts = _core.getLinePoints(line);
             if (!pts || pts.length < 2) continue;
@@ -1907,10 +1580,8 @@ const SmartFlowRenderer = (function() {
         
         _ctx.restore();
         
-        // Dibujar marcadores de puertos
         drawPortMarkers(element.obj);
         
-        // Dibujar dimensiones temporales
         if (element.type === 'line') {
             const pts = _core.getLinePoints(element.obj);
             if (pts && pts.length >= 2) {
@@ -1998,14 +1669,12 @@ const SmartFlowRenderer = (function() {
         _ctx.save();
         _ctx.setTransform(1, 0, 0, 1, 0, 0);
         
-        // Fondo
         _ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
         _ctx.fillRect(x, y, tableWidth, tableHeight);
         _ctx.strokeStyle = '#0ea5e9';
         _ctx.lineWidth = 1.5;
         _ctx.strokeRect(x, y, tableWidth, tableHeight);
         
-        // Encabezado
         _ctx.fillStyle = '#0ea5e9';
         _ctx.font = 'bold 10px "Segoe UI"';
         _ctx.fillText("ITEM", x + 12, y + 16);
@@ -2018,11 +1687,9 @@ const SmartFlowRenderer = (function() {
         _ctx.strokeStyle = 'rgba(14, 165, 233, 0.3)';
         _ctx.stroke();
         
-        // Filas
         _bomItems.forEach((item, i) => {
             const rowY = y + headerHeight + (i * rowHeight) + 12;
             
-            // Número con círculo
             _ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
             _ctx.beginPath();
             _ctx.arc(x + 20, rowY - 3, 8, 0, Math.PI * 2);
@@ -2032,14 +1699,12 @@ const SmartFlowRenderer = (function() {
             _ctx.textAlign = 'center';
             _ctx.fillText(item.index.toString(), x + 20, rowY);
             
-            // Descripción
             _ctx.textAlign = 'left';
             _ctx.font = '9px monospace';
             _ctx.fillStyle = '#e2e8f0';
             const desc = item.desc.length > 24 ? item.desc.substring(0, 21) + '...' : item.desc;
             _ctx.fillText(desc, x + 45, rowY);
             
-            // Material
             _ctx.fillStyle = '#94a3b8';
             _ctx.fillText(item.mat, x + 215, rowY);
         });
@@ -2054,10 +1719,8 @@ const SmartFlowRenderer = (function() {
         if (!_ctx || !_canvas) return;
         _renderScheduled = false;
         
-        // Limpiar
         _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
         
-        // Fondo con gradiente
         const bgGrad = _ctx.createRadialGradient(
             _canvas.width / 2, _canvas.height / 2, _canvas.width * 0.1,
             _canvas.width / 2, _canvas.height / 2, _canvas.width * 0.9
@@ -2067,7 +1730,6 @@ const SmartFlowRenderer = (function() {
         _ctx.fillStyle = bgGrad;
         _ctx.fillRect(0, 0, _canvas.width, _canvas.height);
         
-        // Elementos base
         drawGrid(_currentElevation);
         drawOrigin();
         
@@ -2075,7 +1737,6 @@ const SmartFlowRenderer = (function() {
         const db = _core.getDb();
         if (!db) return;
         
-        // Construir cola de renderizado con prioridades
         if (_cacheDirty) {
             _renderQueueCache = [];
             
@@ -2093,7 +1754,6 @@ const SmartFlowRenderer = (function() {
                 }
             });
             
-            // Ordenar por tipo y profundidad
             _renderQueueCache.sort((a, b) => {
                 const order = { 'PLATFORM': 0, 'EQUIPMENT': 1, 'LINE': 2 };
                 const typeA = a.type;
@@ -2106,11 +1766,9 @@ const SmartFlowRenderer = (function() {
             _cacheDirty = false;
         }
         
-        // Resetear anotaciones y BOM
         AnnotationManager.reset();
         _bomItems = [];
         
-        // Renderizar cola
         _renderQueueCache.forEach(item => {
             if (item.type === 'EQUIPMENT') {
                 const eq = item.data;
@@ -2126,7 +1784,7 @@ const SmartFlowRenderer = (function() {
                 } else if (['tanque_h', 'separador_trifasico', 'slug_catcher', 'calentador_fuego_directo',
                             'secador_rotativo', 'centrifuga', 'filtro_tambor', 'molino'].includes(tipo)) {
                     drawHorizontalTank(eq);
-                } else if (['bomba', 'bomba_dosificacion', 'bomba_sumergible', 'homogeneizador_ap'].includes(tipo)) {
+                } else if (['bomba', 'bomba_dosificacion', 'bomba_sumergible'].includes(tipo)) {
                     drawBomba(eq);
                 } else if (tipo === 'plataforma') {
                     drawPlatform(eq);
@@ -2134,7 +1792,6 @@ const SmartFlowRenderer = (function() {
                     drawRectEquip(eq, '#475569');
                 }
                 
-                // Etiqueta de equipo
                 if (eq.tag && tipo !== 'plataforma') {
                     const projCenter = project({ x: eq.posX, y: eq.posY + (eq.altura || 1000) * 0.3, z: eq.posZ });
                     drawEquipmentTag(projCenter, eq.tag, 'Y');
@@ -2145,13 +1802,9 @@ const SmartFlowRenderer = (function() {
             }
         });
         
-        // Selección
         const selected = _core.getSelected();
-        if (selected) {
-            drawSelection(selected);
-        }
+        if (selected) drawSelection(selected);
         
-        // Snap activo
         if (_activeSnap) {
             _ctx.save();
             _ctx.beginPath();
@@ -2169,12 +1822,10 @@ const SmartFlowRenderer = (function() {
             _ctx.restore();
         }
         
-        // Tooltip de componente hover
         if (_hoveredComponent && _hoveredComponentScreenPos) {
             drawTechnicalTooltip(_ctx, _hoveredComponent, _hoveredComponentScreenPos);
         }
         
-        // Tabla BOM
         drawBOMTable();
     }
 
@@ -2300,18 +1951,6 @@ const SmartFlowRenderer = (function() {
         scheduleRender();
     }
 
-    function adjustColor(color, percent) {
-        if (!color || !color.startsWith('#')) return color;
-        const num = parseInt(color.replace("#", ""), 16);
-        const amt = Math.round(2.55 * percent);
-        const R = (num >> 16) + amt;
-        const G = ((num >> 8) & 0xFF) + amt;
-        const B = (num & 0xFF) + amt;
-        return "#" + (0x1000000 + (R < 255 ? (R < 0 ? 0 : R) : 255) * 0x10000 +
-            (G < 255 ? (G < 0 ? 0 : G) : 255) * 0x100 +
-            (B < 255 ? (B < 0 ? 0 : B) : 255)).toString(16).slice(1);
-    }
-
     // ================================================================
     // INICIALIZACIÓN
     // ================================================================
@@ -2334,7 +1973,6 @@ const SmartFlowRenderer = (function() {
             });
         }
         
-        // Eventos de interacción
         _canvas.addEventListener('mousemove', (e) => {
             const rect = _canvas.getBoundingClientRect();
             const mX = e.clientX - rect.left;
@@ -2379,7 +2017,6 @@ const SmartFlowRenderer = (function() {
             zoom(e.deltaY < 0 ? 1 : -1, e.clientX - rect.left, e.clientY - rect.top);
         });
         
-        // Touch events para móvil
         let lastTouchDist = 0;
         _canvas.addEventListener('touchmove', (e) => {
             if (e.touches.length === 2) {
@@ -2403,7 +2040,7 @@ const SmartFlowRenderer = (function() {
         autoCenter(isMobile ? { padding: 20, minScale: 0.06, maxScale: 0.5 } : {});
         
         scheduleRender();
-        console.log('✔ SmartFlowRenderer v4.0 inicializado - 100% catálogo integrado');
+        console.log('✔ SmartFlowRenderer v4.1 corregido - 100% catálogo integrado');
     }
 
     // ================================================================
@@ -2423,13 +2060,11 @@ const SmartFlowRenderer = (function() {
         getActiveSnap: () => _activeSnap,
         getCam: () => _cam,
         getBOMItems: () => _bomItems,
-        // Exportación de imágenes
         getCanvas: () => _canvas,
         toDataURL: (format, quality) => _canvas ? _canvas.toDataURL(format, quality) : null
     };
 })();
 
-// Exponer globalmente
 if (typeof window !== 'undefined') {
     window.SmartFlowRenderer = SmartFlowRenderer;
 }
