@@ -2,8 +2,7 @@
 // ============================================================
 // SMARTFLOW ROUTER v2.0 - Router de Tuberías
 // Archivo: js/router.js
-// Mejoras: insertarAccesorioEnLinea usa core.injectFittingAtPoint()
-//          en vez de Commands.executeCommand()
+// Revertido a versión original funcional
 // ============================================================
 
 const SmartFlowRouter = (function() {
@@ -28,9 +27,7 @@ const SmartFlowRouter = (function() {
 
     function speakText(text) {
         if (!_core || !_core.isVoiceEnabled()) return;
-        if (typeof VoiceService !== 'undefined') {
-            VoiceService.speak(text);
-        } else if (typeof window.speechSynthesis !== 'undefined') {
+        if (typeof window.speechSynthesis !== 'undefined') {
             window.speechSynthesis.cancel();
             _currentUtterance = new SpeechSynthesisUtterance(text);
             _currentUtterance.lang = 'es-ES';
@@ -42,8 +39,10 @@ const SmartFlowRouter = (function() {
     function notifyUser(message, isError) {
         isError = isError || false;
         if (typeof _notifyUI === 'function') _notifyUI(message, isError);
-        if (typeof NotificationService !== 'undefined') {
-            NotificationService.notify(message, { isError: isError, voice: isError, statusBar: true });
+        const statusEl = document.getElementById('statusMsg');
+        if (statusEl) {
+            statusEl.innerText = message;
+            statusEl.style.color = isError ? '#ef4444' : '#00f2ff';
         }
         speakText(message);
     }
@@ -345,35 +344,6 @@ const SmartFlowRouter = (function() {
             }
         }
 
-        if (lineObj.destination && lineObj.destination.objType === 'line') {
-            const targetLine = _core ? _core.findObjectByTag(lineObj.destination.equipTag) : null;
-            const puntosTarget = targetLine ? (_core.getLinePoints(targetLine) || []) : [];
-            const puntoFinalConexion = puntos[puntos.length - 1];
-            const puntoCeroTarget = puntosTarget[0];
-            let distanciaAPuntoCero = Infinity;
-            if (puntoFinalConexion && puntoCeroTarget) {
-                distanciaAPuntoCero = Math.hypot(
-                    puntoFinalConexion.x - puntoCeroTarget.x,
-                    puntoFinalConexion.y - puntoCeroTarget.y,
-                    puntoFinalConexion.z - puntoCeroTarget.z
-                );
-            }
-            if (distanciaAPuntoCero < 10) {
-                const codoTerminal = {
-                    type: 'ELBOW_90_LR',
-                    skey: 'ELBW',
-                    tag: 'ELBW-' + lineObj.tag + '-TERM',
-                    param: 1.0,
-                    diameter: diameter || 4,
-                    material: material || 'PPR'
-                };
-                if (!lineObj.components.some(function(c) { return c.tag === codoTerminal.tag; })) {
-                    lineObj.components.push(codoTerminal);
-                    addedFittings.push(codoTerminal.tag);
-                }
-            }
-        }
-
         const delta = lineObj.components.length - inicialCount;
         return {
             added: addedFittings,
@@ -381,65 +351,34 @@ const SmartFlowRouter = (function() {
         };
     }
 
-    // ═══════════════════════════════════════════════════════
-    // CORREGIDO: Usa core.injectFittingAtPoint() directamente
-    // ═══════════════════════════════════════════════════════
     function insertarAccesorioEnLinea(lineTag, puntoConexion, diametroNuevaLinea, forzarTee) {
         ensureInitialized();
         if (!_core) { notifyUser('Core no inicializado', true); return null; }
-        
         const db = _core.getDb();
         const linea = db.lines.find(function(l) { return l.tag === lineTag; });
         if (!linea) { notifyUser('Línea ' + lineTag + ' no encontrada', true); return null; }
-        
         const pts = _core.getLinePoints(linea) || linea._cachedPoints || linea.points3D || linea.points;
         if (!pts || pts.length < 2) { notifyUser('Línea ' + lineTag + ' sin geometría', true); return null; }
-        
         let lengths = [], totalLen = 0;
-        for (let i = 0; i < pts.length - 1; i++) { 
-            const d = distance(pts[i], pts[i+1]); 
-            lengths.push(d); 
-            totalLen += d; 
-        }
-        
+        for (let i = 0; i < pts.length - 1; i++) { const d = distance(pts[i], pts[i+1]); lengths.push(d); totalLen += d; }
         let minDist = Infinity, bestSegIdx = 0, bestT = 0;
         for (let i = 0; i < lengths.length; i++) {
             const proj = projectPointOnSegment(puntoConexion, pts[i], pts[i+1]);
             if (proj.distance < minDist) { minDist = proj.distance; bestSegIdx = i; bestT = proj.t; }
         }
-        
         let accumBefore = 0;
         for (let i = 0; i < bestSegIdx; i++) accumBefore += lengths[i];
         const param = (accumBefore + bestT * lengths[bestSegIdx]) / totalLen;
-        
         const diamLinea = linea.diameter || 4;
         const diffDiam = Math.abs(diametroNuevaLinea - diamLinea) > 0.1;
         const esExtremo = !forzarTee && ((bestSegIdx === 0 && bestT < 0.1) || (bestSegIdx === lengths.length - 1 && bestT > 0.9));
         const lineMaterial = linea.material || 'PPR';
-        
         let tipoAccesorio = 'TEE', descripcion = 'Tee igual';
         if (esExtremo && diffDiam) { tipoAccesorio = 'CONCENTRIC_REDUCER'; descripcion = 'Reductor concéntrico ' + diamLinea + '"x' + diametroNuevaLinea + '"'; }
         else if (diffDiam) { tipoAccesorio = 'TEE_REDUCING'; descripcion = 'Tee reductora ' + diamLinea + '"x' + diametroNuevaLinea + '"'; }
         else { tipoAccesorio = 'TEE'; descripcion = 'Tee igual ' + diamLinea + '"'; }
-        
         const compEnCatalogo = findComponentInCatalog(tipoAccesorio, lineMaterial, []);
         if (!compEnCatalogo) { notifyUser('Componente no encontrado: ' + tipoAccesorio + ' (' + lineMaterial + ')', true); return null; }
-
-        // ═══ NUEVO: Usar el método directo del Core ═══
-        if (_core.injectFittingAtPoint) {
-            const result = _core.injectFittingAtPoint(lineTag, puntoConexion, {
-                type: compEnCatalogo,
-                diameter: diametroNuevaLinea,
-                material: lineMaterial
-            });
-            
-            if (result) {
-                notifyUser('✅ ' + descripcion + ' (' + compEnCatalogo + ') insertado en ' + lineTag, false);
-                return result.branchPortId;
-            }
-        }
-        
-        // Fallback: usar el método antiguo con Commands
         if (typeof SmartFlowCommands !== 'undefined') {
             const cmd = 'edit line ' + lineTag + ' add component ' + compEnCatalogo + ' at ' + param.toFixed(3);
             SmartFlowCommands.executeCommand(cmd);
@@ -447,7 +386,6 @@ const SmartFlowRouter = (function() {
             notifyUser('Módulo de comandos no disponible', true);
             return null;
         }
-        
         notifyUser('✅ ' + descripcion + ' (' + compEnCatalogo + ') insertado en ' + lineTag, false);
         const lineaActualizada = db.lines.find(function(l) { return l.tag === lineTag; });
         if (!lineaActualizada || !lineaActualizada.puertos || lineaActualizada.puertos.length === 0) {
@@ -515,10 +453,7 @@ const SmartFlowRouter = (function() {
             if (!pts || pts.length < 2) { notifyUser('La línea ' + toEquipTag + ' no tiene geometría', true); return null; }
             if (!toPortId || toPortId === '') {
                 let minDist = Infinity, bestPoint = pts[0];
-                for (let i = 0; i < pts.length - 1; i++) { 
-                    const proj = projectPointOnSegment(startPos, pts[i], pts[i+1]); 
-                    if (proj.distance < minDist) { minDist = proj.distance; bestPoint = proj.point; } 
-                }
+                for (let i = 0; i < pts.length - 1; i++) { const proj = projectPointOnSegment(startPos, pts[i], pts[i+1]); if (proj.distance < minDist) { minDist = proj.distance; bestPoint = proj.point; } }
                 const puertoInsertado = insertarAccesorioEnLinea(toEquipTag, bestPoint, diameter, true);
                 if (!puertoInsertado) return null;
                 nuevoPuertoId = puertoInsertado;
