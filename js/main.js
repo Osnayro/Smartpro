@@ -1,7 +1,8 @@
 
 // ============================================================
-// SMARTFLOW MAIN v3.5 - DEFINITIVO
-// FIX: No usar SmartFlowRenderer en modo 3D
+// SMARTFLOW MAIN v3.6 - Punto de Entrada Principal (3D)
+// Archivo: js/main.js
+// CORREGIDO: Voz con window.speechSynthesis directo (sin VoiceService)
 // ============================================================
 
 (function() {
@@ -25,9 +26,8 @@
     // -------------------- 2. ESTADO DE LA APLICACIÓN --------------------
     let toolMode = 'select';
     let voiceEnabled = true;
-    let currentViewMode = '3d';  // ← CAMBIADO: 3D por defecto (usa ThreeJsEngine)
+    let currentViewMode = '3d';
     
-    let _is2DInitialized = false;
     let _is3DInitialized = false;
     
     let draggingEquipment = false;
@@ -38,49 +38,64 @@
     function notify(msg, isErr) {
         if (isErr === undefined) isErr = false;
         
+        // Notificación visual
         if (notificationEl) {
             notificationEl.textContent = msg;
             notificationEl.style.backgroundColor = isErr ? '#da3633' : '#238636';
             notificationEl.style.display = 'block';
         }
         
-        if (voiceEnabled && typeof VoiceService !== 'undefined' && VoiceService.isAvailable()) {
-            try { VoiceService.speak(msg); } catch(e) { console.warn('Error de voz:', e); }
+        // Status bar
+        if (statusMsgEl) {
+            statusMsgEl.innerText = msg;
+            statusMsgEl.style.color = isErr ? '#ef4444' : '#00f2ff';
         }
         
-        if (typeof NotificationService !== 'undefined') {
-            NotificationService.notify(msg, {
-                isError: isErr,
-                voice: false,
-                statusBar: true,
-                toast: false
-            });
+        // ✅ VOZ DIRECTA con window.speechSynthesis (funciona en 2D y 3D)
+        if (voiceEnabled && window.speechSynthesis) {
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(msg);
+                utterance.lang = 'es-ES';
+                utterance.rate = 0.9;
+                setTimeout(() => window.speechSynthesis.speak(utterance), 50);
+            } catch(e) {
+                console.warn('Error en síntesis de voz:', e);
+            }
         }
         
+        // Ocultar notificación después de 4 segundos
         setTimeout(function() { 
             if (notificationEl) notificationEl.style.display = 'none'; 
         }, 4000);
     }
     
+    // ✅ Función de voz directa (para commands.js)
     function voiceFn(msg) {
-        if (voiceEnabled && typeof VoiceService !== 'undefined') {
-            VoiceService.speak(msg);
+        if (voiceEnabled && window.speechSynthesis) {
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(msg);
+                utterance.lang = 'es-ES';
+                utterance.rate = 0.9;
+                window.speechSynthesis.speak(utterance);
+                console.log('🔊 Voz:', msg.substring(0, 50));
+            } catch(e) {
+                console.warn('Error en voz:', e);
+            }
         }
     }
     
     function scheduleRender() {
-        if (currentViewMode === '2d' && window.SmartFlowRenderer) {
-            window.SmartFlowRenderer.render();
-        } else if (currentViewMode === '3d' && window.SmartFlowRender && window.SmartFlowRender.renderFrame) {
+        if (window.ThreeJsEngine && window.ThreeJsEngine.renderFrame) {
+            window.ThreeJsEngine.renderFrame();
+        } else if (window.SmartFlowRender && window.SmartFlowRender.renderFrame) {
             window.SmartFlowRender.renderFrame();
         }
     }
     
     function autoCenter() {
-        if (currentViewMode === '2d' && window.SmartFlowRenderer) {
-            window.SmartFlowRenderer.autoCenter();
-            notify("✅ Vista 2D centrada.", false);
-        } else if (currentViewMode === '3d' && window.ThreeJsEngine && typeof window.ThreeJsEngine.fitCameraToEquipments === 'function') {
+        if (window.ThreeJsEngine && typeof window.ThreeJsEngine.fitCameraToEquipments === 'function') {
             window.ThreeJsEngine.fitCameraToEquipments();
             notify("✅ Vista 3D centrada.", false);
         }
@@ -88,10 +103,7 @@
     
     function toggleFullscreen() {
         document.body.classList.add('fullscreen-mode');
-        if (currentViewMode === '2d' && window.SmartFlowRenderer) {
-            window.SmartFlowRenderer.resizeCanvas();
-            window.SmartFlowRenderer.autoCenter();
-        } else if (currentViewMode === '3d' && window.ThreeJsEngine) {
+        if (window.ThreeJsEngine) {
             window.ThreeJsEngine.onResize();
             setTimeout(function() {
                 if (window.ThreeJsEngine && window.ThreeJsEngine.fitCameraToEquipments) {
@@ -103,10 +115,7 @@
     
     function exitFullscreen() {
         document.body.classList.remove('fullscreen-mode');
-        if (currentViewMode === '2d' && window.SmartFlowRenderer) {
-            window.SmartFlowRenderer.resizeCanvas();
-            window.SmartFlowRenderer.autoCenter();
-        } else if (currentViewMode === '3d' && window.ThreeJsEngine) {
+        if (window.ThreeJsEngine) {
             window.ThreeJsEngine.onResize();
             setTimeout(function() {
                 if (window.ThreeJsEngine && window.ThreeJsEngine.fitCameraToEquipments) {
@@ -158,12 +167,12 @@
         `;
     }
     
-    // -------------------- 4. INICIALIZACIÓN DE MÓDULOS (CORREGIDA) --------------------
+    // -------------------- 4. INICIALIZACIÓN DE MÓDULOS --------------------
     function waitFor3DModules(callback) {
         var maxAttempts = 50;
         var attempts = 0;
         function check() {
-            if (window.ThreeJsEngine && window.SmartFlowRender && window.SmartFlowLabels3D) {
+            if (window.ThreeJsEngine && window.ThreeJsEngine.isReady && window.ThreeJsEngine.isReady()) {
                 console.log('✅ Módulos 3D listos');
                 callback();
             } else if (attempts < maxAttempts) {
@@ -178,7 +187,7 @@
     }
     
     function initModules() {
-        console.log('🚀 Inicializando SmartFlow v3.5...');
+        console.log('🚀 Inicializando SmartFlow v3.6 (3D)...');
         
         // 1. Core
         if (typeof SmartFlowCore !== 'undefined') {
@@ -188,44 +197,43 @@
         
         const container3D = document.getElementById('viewer-3d');
         
-        // 2. Modo 3D (principal)
-        if (currentViewMode === '3d') {
-            if (canvas) canvas.style.display = 'none';
-            if (container3D) {
-                container3D.style.display = 'block';
-                container3D.style.width = '100%';
-                container3D.style.height = '100%';
-            }
-            
-            waitFor3DModules(function() {
-                if (typeof ThreeJsEngine !== 'undefined' && container3D) {
-                    ThreeJsEngine.init(container3D, SmartFlowCore);
-                    _is3DInitialized = true;
-                    console.log('✅ ThreeJsEngine inicializado');
-                    
-                    if (typeof SmartFlowRender !== 'undefined') {
-                        SmartFlowRender.init(SmartFlowCore, ThreeJsEngine);
-                        console.log('✅ SmartFlowRender inicializado');
-                    }
-                    
-                    setTimeout(function() {
-                        if (ThreeJsEngine && ThreeJsEngine.fitCameraToEquipments) {
-                            ThreeJsEngine.fitCameraToEquipments();
-                        }
-                    }, 500);
-                }
-            });
-        } else {
-            // Modo 2D
-            if (container3D) container3D.style.display = 'none';
-            if (canvas) canvas.style.display = 'block';
-            
-            if (typeof SmartFlowRenderer !== 'undefined' && canvas) {
-                SmartFlowRenderer.init(canvas, SmartFlowCore, SmartFlowCatalog, notify);
-                _is2DInitialized = true;
-                console.log('✅ SmartFlowRenderer inicializado');
-            }
+        // 2. Modo 3D
+        if (canvas) canvas.style.display = 'none';
+        if (container3D) {
+            container3D.style.display = 'block';
+            container3D.style.width = '100%';
+            container3D.style.height = '100%';
         }
+        
+        waitFor3DModules(function() {
+            if (typeof ThreeJsEngine !== 'undefined' && container3D) {
+                ThreeJsEngine.init(container3D, SmartFlowCore);
+                _is3DInitialized = true;
+                console.log('✅ ThreeJsEngine inicializado');
+                
+                if (typeof SmartFlowRender !== 'undefined') {
+                    SmartFlowRender.init(SmartFlowCore, ThreeJsEngine);
+                    console.log('✅ SmartFlowRender inicializado');
+                }
+                
+                // Configurar selección
+                if (typeof ThreeJsEngine.onSelection === 'function') {
+                    ThreeJsEngine.onSelection(function(selectionData) {
+                        if (selectionData && selectionData.obj) {
+                            updatePropertyPanel(SmartFlowCore.getPropertyInfo(selectionData.obj.tag));
+                        } else {
+                            updatePropertyPanel(null);
+                        }
+                    });
+                }
+                
+                setTimeout(function() {
+                    if (ThreeJsEngine && ThreeJsEngine.fitCameraToEquipments) {
+                        ThreeJsEngine.fitCameraToEquipments();
+                    }
+                }, 500);
+            }
+        });
         
         // 3. Router
         if (typeof SmartFlowRouter !== 'undefined') {
@@ -233,19 +241,12 @@
             console.log('✅ Router inicializado');
         }
         
-        // 4. Comandos (con verificación de renderer)
+        // 4. Comandos (con voiceFn directo)
         if (typeof SmartFlowCommands !== 'undefined') {
-            let activeRenderer = null;
-            if (currentViewMode === '2d' && window.SmartFlowRenderer) {
-                activeRenderer = window.SmartFlowRenderer;
-            } else if (currentViewMode === '3d' && window.SmartFlowRender) {
-                activeRenderer = window.SmartFlowRender;
-            }
-            
             SmartFlowCommands.init(
                 SmartFlowCore, 
                 SmartFlowCatalog, 
-                activeRenderer, 
+                window.ThreeJsEngine || window.SmartFlowRender, 
                 notify, 
                 scheduleRender, 
                 voiceFn
@@ -253,128 +254,25 @@
             console.log('✅ Comandos inicializado');
         }
         
-        // 5. Exporter
-        if (typeof SmartFlowExporter !== 'undefined') {
-            SmartFlowExporter.init(
-                SmartFlowCore, 
-                window.SmartFlowRenderer, 
-                typeof ThreeJsEngine !== 'undefined' ? ThreeJsEngine : null, 
-                SmartFlowCatalog
-            );
-        }
-        
-        // 6. Configurar voz
+        // 5. Configurar voz
         if (typeof SmartFlowCore !== 'undefined') {
             SmartFlowCore.setVoice(voiceEnabled);
         }
-        if (typeof NotificationService !== 'undefined') {
-            NotificationService.setVoiceEnabled(voiceEnabled);
-        }
-        if (typeof VoiceService !== 'undefined') {
-            VoiceService.setEnabled(voiceEnabled);
-        }
         
-        updateViewModeButtons();
-        notify('SmartFlow v3.5 listo (' + currentViewMode.toUpperCase() + ')', false);
-        console.log('🎯 SmartFlow v3.5 iniciado correctamente');
-    }
-    
-    function switchViewMode(mode) {
-        if (currentViewMode === mode) return;
-        
-        var selected = null;
-        if (typeof SmartFlowCore !== 'undefined') {
-            selected = SmartFlowCore.getSelected();
-        }
-        currentViewMode = mode;
-        
-        var container3D = document.getElementById('viewer-3d');
-        
-        if (mode === '2d') {
-            // Cambiar a 2D
-            if (typeof ThreeJsEngine !== 'undefined' && _is3DInitialized) {
-                if (ThreeJsEngine.pauseLoop) ThreeJsEngine.pauseLoop();
-            }
-            if (container3D) container3D.style.display = 'none';
-            if (canvas) canvas.style.display = 'block';
-            
-            if (typeof SmartFlowRenderer !== 'undefined' && canvas) {
-                if (!_is2DInitialized) {
-                    SmartFlowRenderer.init(canvas, SmartFlowCore, SmartFlowCatalog, notify);
-                    _is2DInitialized = true;
-                }
-                SmartFlowRenderer.autoCenter();
-            }
-        } else {
-            // Cambiar a 3D
-            if (canvas) canvas.style.display = 'none';
-            if (container3D) {
-                container3D.style.display = 'block';
-                container3D.style.width = '100%';
-                container3D.style.height = '100%';
-            }
-            
-            waitFor3DModules(function() {
-                if (typeof ThreeJsEngine !== 'undefined' && container3D) {
-                    if (!_is3DInitialized) {
-                        ThreeJsEngine.init(container3D, SmartFlowCore);
-                        _is3DInitialized = true;
-                    } else {
-                        if (ThreeJsEngine.resumeLoop) ThreeJsEngine.resumeLoop();
-                    }
-                    
-                    if (typeof SmartFlowRender !== 'undefined') {
-                        SmartFlowRender.init(SmartFlowCore, ThreeJsEngine);
-                    }
-                    
-                    setTimeout(function() {
-                        if (ThreeJsEngine && ThreeJsEngine.fitCameraToEquipments) {
-                            ThreeJsEngine.fitCameraToEquipments();
-                        }
-                    }, 500);
-                }
-            });
-        }
-        
-        // Actualizar comandos con el nuevo renderer
-        if (typeof SmartFlowCommands !== 'undefined') {
-            let activeRenderer = null;
-            if (mode === '2d' && window.SmartFlowRenderer) {
-                activeRenderer = window.SmartFlowRenderer;
-            } else if (mode === '3d' && window.SmartFlowRender) {
-                activeRenderer = window.SmartFlowRender;
-            }
-            
-            SmartFlowCommands.init(
-                SmartFlowCore, 
-                SmartFlowCatalog, 
-                activeRenderer, 
-                notify, 
-                scheduleRender, 
-                voiceFn
-            );
-        }
-        
-        updateViewModeButtons();
-        
-        if (selected && typeof SmartFlowCore !== 'undefined') {
-            setTimeout(function() { SmartFlowCore.setSelected(selected); }, 150);
-        }
-        
-        scheduleRender();
-        notify('✅ Modo ' + mode.toUpperCase() + ' activado', false);
+        notify('SmartFlow v3.6 listo (3D)', false);
+        console.log('🎯 SmartFlow v3.6 iniciado correctamente');
     }
     
     function updateViewModeButtons() {
         var btn2D = document.getElementById('btn-mode-2d');
         var btn3D = document.getElementById('btn-mode-3d');
         if (btn2D) {
-            if (currentViewMode === '2d') btn2D.classList.add('active');
-            else btn2D.classList.remove('active');
+            btn2D.classList.remove('active');
+            btn2D.style.opacity = '0.5';
+            btn2D.title = 'Modo 2D no disponible';
         }
         if (btn3D) {
-            if (currentViewMode === '3d') btn3D.classList.add('active');
-            else btn3D.classList.remove('active');
+            btn3D.classList.add('active');
         }
     }
     
@@ -527,17 +425,12 @@
     
     window.setElevation = function(level) {
         if (typeof SmartFlowCore !== 'undefined') SmartFlowCore.setElevation(level);
-        if (currentViewMode === '2d' && window.SmartFlowRenderer) {
-            window.SmartFlowRenderer.setElevation(level);
-        }
         if (customElev) customElev.value = level;
     };
     
     function toggleVoice() {
         voiceEnabled = !voiceEnabled;
         if (typeof SmartFlowCore !== 'undefined') SmartFlowCore.setVoice(voiceEnabled);
-        if (typeof NotificationService !== 'undefined') NotificationService.setVoiceEnabled(voiceEnabled);
-        if (typeof VoiceService !== 'undefined') VoiceService.setEnabled(voiceEnabled);
         const btnVoice = document.getElementById('btnVoice');
         if (btnVoice) btnVoice.textContent = voiceEnabled ? '🔊 Voz ON' : '🔇 Voz OFF';
         notify(voiceEnabled ? "✅ Voz activada" : "🔇 Voz desactivada", false);
@@ -675,8 +568,16 @@
         vincular('btnFullscreenExit', exitFullscreen);
         vincular('btnTogglePanels', toggleAllPanels);
         
-        vincular('btn-mode-2d', function() { switchViewMode('2d'); });
-        vincular('btn-mode-3d', function() { switchViewMode('3d'); });
+        vincular('btn-mode-2d', function() { 
+            notify("❌ Modo 2D no disponible. Solo modo 3D activo.", true);
+        });
+        vincular('btn-mode-3d', function() { 
+            if (currentViewMode !== '3d') {
+                currentViewMode = '3d';
+                updateViewModeButtons();
+                notify("✅ Modo 3D activado", false);
+            }
+        });
         
         vincular('btnCommand', abrirPanelComandos);
         vincular('closeCommand', function() { if (commandPanel) commandPanel.style.display = 'none'; });
@@ -775,9 +676,7 @@
         
         let resizeTimeout;
         window.addEventListener('resize', function() {
-            if (currentViewMode === '2d' && window.SmartFlowRenderer) {
-                window.SmartFlowRenderer.resizeCanvas();
-            } else if (currentViewMode === '3d' && window.ThreeJsEngine) {
+            if (window.ThreeJsEngine) {
                 window.ThreeJsEngine.onResize();
             }
             clearTimeout(resizeTimeout);
@@ -811,7 +710,7 @@
                 return;
             }
             
-            console.log('🚀 Iniciando SmartFlow v3.5...');
+            console.log('🚀 Iniciando SmartFlow v3.6 (3D con voz directa)...');
             
             initModules();
             bindEvents();
