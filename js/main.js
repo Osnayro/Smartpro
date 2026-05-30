@@ -1,8 +1,6 @@
-
 // ============================================================
-// SMARTFLOW MAIN v3.2 - Punto de Entrada Principal
-// Archivo: js/main.js
-// CORREGIDO: Referencias a SmartFlowRenderer usando window.
+// SMARTFLOW MAIN v3.3 - Punto de Entrada Principal
+// CORREGIDO: Verificación de SmartFlowRenderer en eventos
 // ============================================================
 
 (function() {
@@ -199,6 +197,7 @@
             if (typeof SmartFlowRenderer !== 'undefined' && canvas) {
                 SmartFlowRenderer.init(canvas, SmartFlowCore, SmartFlowCatalog, notify);
                 _is2DInitialized = true;
+                console.log('✅ SmartFlowRenderer inicializado');
             }
         } else {
             if (canvas) canvas.style.display = 'none';
@@ -223,7 +222,6 @@
             SmartFlowCommands.init(SmartFlowCore, SmartFlowCatalog, SmartFlowRenderer, notify, scheduleRender, voiceFn);
         }
         
-        // Inicializar el Exportador para PDF, PCF, MTO
         if (typeof SmartFlowExporter !== 'undefined') {
             SmartFlowExporter.init(
                 SmartFlowCore, 
@@ -244,7 +242,7 @@
         }
         
         updateViewModeButtons();
-        notify('SmartFlow v3.2 listo (' + currentViewMode.toUpperCase() + ')', false);
+        notify('SmartFlow v3.3 listo (' + currentViewMode.toUpperCase() + ')', false);
     }
     
     function switchViewMode(mode) {
@@ -335,7 +333,7 @@
         }
     }
     
-    // -------------------- 6. GESTIÓN DE PROYECTOS (DIRECTO, sin Exporter) --------------------
+    // -------------------- 6. GESTIÓN DE PROYECTOS --------------------
     function guardarProyecto() {
         if (typeof SmartFlowCore === 'undefined') return;
         const state = SmartFlowCore.exportProject();
@@ -522,13 +520,37 @@
         });
     }
     
-    // -------------------- 10. EVENTOS DEL CANVAS (CORREGIDO) --------------------
+    // -------------------- 10. EVENTOS DEL CANVAS (CORREGIDO CON VERIFICACIÓN) --------------------
     function initCanvasEvents() {
-        if (!canvas) return;
+        if (!canvas) {
+            console.warn('Canvas no encontrado');
+            return;
+        }
+        
+        // Verificar que SmartFlowRenderer existe
+        if (!window.SmartFlowRenderer) {
+            console.warn('SmartFlowRenderer no disponible para eventos del canvas, reintentando...');
+            setTimeout(function() {
+                if (window.SmartFlowRenderer) {
+                    console.log('SmartFlowRenderer disponible, inicializando eventos...');
+                    initCanvasEvents();
+                } else {
+                    console.error('SmartFlowRenderer no disponible después de reintento');
+                }
+            }, 500);
+            return;
+        }
+        
+        console.log('Inicializando eventos del canvas con SmartFlowRenderer');
         
         canvas.addEventListener('pointerdown', function(e) {
             if (currentViewMode !== '2d') return;
             if (toolMode !== 'moveEq' && toolMode !== 'addPoint') return;
+            
+            if (!window.SmartFlowRenderer) {
+                notify("Motor 2D no disponible", true);
+                return;
+            }
             
             const rect = canvas.getBoundingClientRect();
             const mouse = {
@@ -537,11 +559,6 @@
             };
             
             if (toolMode === 'moveEq') {
-                // ✅ CORRECCIÓN: Verificar que SmartFlowRenderer existe
-                if (!window.SmartFlowRenderer) {
-                    notify("Motor 2D no inicializado", true);
-                    return;
-                }
                 const picked = window.SmartFlowRenderer.pickElement(mouse);
                 if (picked && picked.type === 'equipment') {
                     draggingEquipment = true;
@@ -556,7 +573,6 @@
                     e.stopPropagation();
                 }
             } else if (toolMode === 'addPoint') {
-                // ✅ CORRECCIÓN: Verificar que SmartFlowRenderer existe
                 if (!window.SmartFlowRenderer) return;
                 const selected = SmartFlowCore.getSelected();
                 if (selected && selected.type === 'line') {
@@ -580,7 +596,6 @@
         canvas.addEventListener('pointermove', function(e) {
             if (!draggingEquipment || !draggedEquipTag || currentViewMode !== '2d') return;
             
-            // ✅ CORRECCIÓN: Verificar que SmartFlowRenderer existe
             if (!window.SmartFlowRenderer) return;
             
             const camScale = window.SmartFlowRenderer.getCam().scale || 1.0;
@@ -717,21 +732,10 @@
         vincular('modal-accept', iniciarNuevoProyecto);
         vincular('modal-skip', saltarNombreProyecto);
         
-        // ═══════════════════════════════════════════════════════
-        // BOTONES DE ARCHIVO - FUNCIONES DIRECTAS
-        // ═══════════════════════════════════════════════════════
-        vincular('btnOpen', function() {
-            cargarProyecto();
-        });
-        vincular('btnSave', function() {
-            guardarProyecto();
-        });
-        vincular('btnExportProject', function() {
-            exportarProyectoArchivo();
-        });
-        vincular('btnImportProject', function() {
-            importarProyectoArchivo();
-        });
+        vincular('btnOpen', cargarProyecto);
+        vincular('btnSave', guardarProyecto);
+        vincular('btnExportProject', exportarProyectoArchivo);
+        vincular('btnImportProject', importarProyectoArchivo);
         
         vincular('btnReset', autoCenter);
         vincular('btnFullscreen', toggleFullscreen);
@@ -783,10 +787,7 @@
             }
         });
         
-        // ═══════════════════════════════════════════════════════
-        // BOTONES DE EXPORTACIÓN (usan Exporter si existe)
-        // ═══════════════════════════════════════════════════════
-        vincular('btnMTO', function() { exportarMTO(); });
+        vincular('btnMTO', exportarMTO);
         vincular('btnPDF', function() { 
             if (typeof SmartFlowExporter !== 'undefined') SmartFlowExporter.exportPDF(); 
             else if (typeof SmartFlowRenderer !== 'undefined' && SmartFlowRenderer.exportPDF) SmartFlowRenderer.exportPDF();
@@ -852,7 +853,7 @@
         });
     }
     
-    // -------------------- 14. ARRANQUE --------------------
+    // -------------------- 14. ARRANQUE (CORREGIDO) --------------------
     function init() {
         window.currentProjectName = window.currentProjectName || 'Proyecto_SmartFlow';
         window.voiceEnabled = true;
@@ -879,13 +880,38 @@
                 return;
             }
             
+            console.log('🚀 Inicializando SmartFlow v3.3...');
+            
+            // 1. Inicializar módulos
             initModules();
+            
+            // 2. Configurar eventos del canvas DESPUÉS de que los módulos estén listos
+            setTimeout(function() {
+                if (window.SmartFlowRenderer) {
+                    initCanvasEvents();
+                    console.log('✅ Eventos del canvas inicializados');
+                } else {
+                    console.warn('⚠️ SmartFlowRenderer no disponible, reintentando...');
+                    setTimeout(function() {
+                        if (window.SmartFlowRenderer) {
+                            initCanvasEvents();
+                            console.log('✅ Eventos del canvas inicializados (reintento)');
+                        } else {
+                            console.error('❌ SmartFlowRenderer no disponible después de reintento');
+                        }
+                    }, 500);
+                }
+            }, 300);
+            
+            // 3. Bind de eventos de UI
             bindEvents();
-            initCanvasEvents();
             setupKeyboardShortcuts();
+            
+            // 4. Configurar herramientas
             setTool('select');
             window.setElevation(0);
             
+            // 5. Ocultar splash y mostrar welcome
             if (splashScreen) splashScreen.classList.add('splash-hidden');
             clearInterval(interval);
             
@@ -894,7 +920,7 @@
             }, 300);
         }
         
-        setTimeout(bootstrapWhenReady, 3000);
+        setTimeout(bootstrapWhenReady, 2000);
         
         if (window.innerWidth < 768) togglePanel(false);
         
@@ -903,7 +929,7 @@
                 window.SmartFlowRenderer.resizeCanvas();
             }
             autoCenter();
-        }, 200);
+        }, 600);
     }
     
     init();
