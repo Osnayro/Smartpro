@@ -1,8 +1,10 @@
 
 // ============================================================
-// SMARTFLOW CORE v5.6 - Motor de Datos de Ingeniería
+// SMARTFLOW CORE v5.7 - Motor de Datos de Ingeniería
 // Archivo: js/core.js
-// Mejoras: injectFittingAtPoint, VoiceService en notificaciones
+// MEJORAS: Eliminación completa de objetos (Maps sincronizados)
+//          Limpieza de referencias en puertos y componentes
+//          Soporte completo para isométrico 2.5D y 3D
 // ============================================================
 
 const SmartFlowCore = (function() {
@@ -97,20 +99,11 @@ const SmartFlowCore = (function() {
         }
     }
 
-    // ═══════════════════════════════════════════════════════
-    // CORREGIDO: _notifyUI ahora usa VoiceService directamente
-    // ═══════════════════════════════════════════════════════
     let _notifyUI = function(msg, isErr) {
         console.log(msg);
-        // Voz directa
         if (typeof VoiceService !== 'undefined' && VoiceService.isEnabled()) {
-            try {
-                VoiceService.speak(msg);
-            } catch(e) {
-                console.warn('Error de voz en Core:', e);
-            }
+            try { VoiceService.speak(msg); } catch(e) { console.warn('Error de voz en Core:', e); }
         }
-        // Notificación visual
         if (typeof NotificationService !== 'undefined') {
             NotificationService.notify(msg, {
                 isError: isErr || false,
@@ -285,9 +278,6 @@ const SmartFlowCore = (function() {
         return count;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // NUEVO: Proyección de punto sobre segmento
-    // ═══════════════════════════════════════════════════════
     function _projectPointOnSegment(p, a, b) {
         const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
         const ap = { x: p.x - a.x, y: p.y - a.y, z: p.z - a.z };
@@ -299,9 +289,6 @@ const SmartFlowCore = (function() {
         return { point: proj, t: t, distance: Math.hypot(p.x - proj.x, p.y - proj.y, p.z - proj.z) };
     }
 
-    // ═══════════════════════════════════════════════════════
-    // NUEVO: Inyectar fitting en punto intermedio de línea
-    // ═══════════════════════════════════════════════════════
     function injectFittingAtPoint(lineTag, point, fitting) {
         const line = _linesMap.get(lineTag);
         if (!line) return null;
@@ -369,6 +356,163 @@ const SmartFlowCore = (function() {
             run2PortId: run2PortId,
             param: param
         };
+    }
+
+    // ================================================================
+    // NUEVAS FUNCIONES DE ELIMINACIÓN COMPLETA
+    // ================================================================
+
+    /**
+     * Elimina un equipo y todas sus referencias
+     * @param {string} tag - Tag del equipo a eliminar
+     * @returns {boolean} - true si se eliminó, false si no existía
+     */
+    function deleteEquipment(tag) {
+        const eq = _equiposMap.get(tag);
+        if (!eq) return false;
+        
+        // Guardar estado antes de modificar
+        this._saveState();
+        
+        // 1. Eliminar del array de equipos
+        const eqIndex = _db.equipos.findIndex(function(e) { return e.tag === tag; });
+        if (eqIndex !== -1) _db.equipos.splice(eqIndex, 1);
+        
+        // 2. Eliminar de los Maps
+        _equiposMap.delete(tag);
+        _allObjectsMap.delete(tag);
+        
+        // 3. Eliminar todas las líneas conectadas a este equipo
+        const linesToRemove = [];
+        _db.lines.forEach(function(line) {
+            if ((line.origin && line.origin.objTag === tag) || 
+                (line.destination && line.destination.objTag === tag)) {
+                linesToRemove.push(line.tag);
+            }
+        });
+        
+        linesToRemove.forEach(function(lineTag) {
+            const lineIndex = _db.lines.findIndex(function(l) { return l.tag === lineTag; });
+            if (lineIndex !== -1) _db.lines.splice(lineIndex, 1);
+            _linesMap.delete(lineTag);
+            _allObjectsMap.delete(lineTag);
+        });
+        
+        // 4. Limpiar selección si estaba seleccionado
+        if (_selectedElement && _selectedElement.obj && _selectedElement.obj.tag === tag) {
+            _selectedElement = null;
+            _onSelectionChanged(null);
+        }
+        
+        // 5. Notificar cambio
+        _notifyUI("✅ Equipo " + tag + " eliminado correctamente", false);
+        emit('modelChanged', { type: 'deleteEquipment', tag: tag });
+        _renderUI();
+        
+        return true;
+    }
+    
+    /**
+     * Elimina una línea y todas sus referencias
+     * @param {string} tag - Tag de la línea a eliminar
+     * @returns {boolean} - true si se eliminó, false si no existía
+     */
+    function deleteLine(tag) {
+        const line = _linesMap.get(tag);
+        if (!line) return false;
+        
+        // Guardar estado antes de modificar
+        this._saveState();
+        
+        // 1. Eliminar del array de líneas
+        const lineIndex = _db.lines.findIndex(function(l) { return l.tag === tag; });
+        if (lineIndex !== -1) _db.lines.splice(lineIndex, 1);
+        
+        // 2. Eliminar de los Maps
+        _linesMap.delete(tag);
+        _allObjectsMap.delete(tag);
+        
+        // 3. Limpiar referencias en puertos de equipos
+        _db.equipos.forEach(function(eq) {
+            if (eq.puertos) {
+                eq.puertos.forEach(function(p) {
+                    if (p.connectedLine === tag) {
+                        p.connectedLine = null;
+                        p.status = 'open';
+                        p.connectedTo = null;
+                    }
+                    if (p.connectedTo && p.connectedTo.tag === tag) {
+                        p.connectedTo = null;
+                        p.status = 'open';
+                    }
+                });
+            }
+        });
+        
+        // 4. Limpiar referencias en otras líneas (componentes)
+        _db.lines.forEach(function(l) {
+            if (l.components) {
+                l.components = l.components.filter(function(c) {
+                    return c.tag !== tag && c.lineTag !== tag;
+                });
+            }
+            if (l.puertos) {
+                l.puertos.forEach(function(p) {
+                    if (p.connectedLine === tag) {
+                        p.connectedLine = null;
+                        p.status = 'open';
+                    }
+                });
+            }
+        });
+        
+        // 5. Limpiar selección si estaba seleccionada
+        if (_selectedElement && _selectedElement.obj && _selectedElement.obj.tag === tag) {
+            _selectedElement = null;
+            _onSelectionChanged(null);
+        }
+        
+        // 6. Notificar cambio
+        _notifyUI("✅ Línea " + tag + " eliminada correctamente", false);
+        emit('modelChanged', { type: 'deleteLine', tag: tag });
+        _renderUI();
+        
+        return true;
+    }
+    
+    /**
+     * Elimina un componente de una línea
+     * @param {string} lineTag - Tag de la línea que contiene el componente
+     * @param {string} componentTag - Tag del componente a eliminar
+     * @returns {boolean} - true si se eliminó, false si no existía
+     */
+    function deleteComponent(lineTag, componentTag) {
+        const line = _linesMap.get(lineTag);
+        if (!line) return false;
+        
+        if (!line.components) return false;
+        
+        const compIndex = line.components.findIndex(function(c) { return c.tag === componentTag; });
+        if (compIndex === -1) return false;
+        
+        // Guardar estado
+        this._saveState();
+        
+        // Eliminar componente
+        line.components.splice(compIndex, 1);
+        
+        // Limpiar puertos asociados al componente
+        if (line.puertos) {
+            line.puertos = line.puertos.filter(function(p) {
+                return !p.id || !p.id.startsWith(componentTag);
+            });
+        }
+        
+        _notifyUI("✅ Componente " + componentTag + " eliminado de " + lineTag, false);
+        emit('modelChanged', { type: 'deleteComponent', lineTag: lineTag, componentTag: componentTag });
+        _renderUI();
+        
+        return true;
     }
 
     function auditCollisions() {
@@ -563,7 +707,7 @@ const SmartFlowCore = (function() {
     }
 
     // ================================================================
-    // API PÚBLICA
+    // API PÚBLICA ACTUALIZADA
     // ================================================================
     return {
         init: function(notifyFn, renderFn, propertyPanelFn) {
@@ -633,6 +777,11 @@ const SmartFlowCore = (function() {
             scheduleAudit();
             return true;
         },
+        
+        // NUEVAS FUNCIONES DE ELIMINACIÓN
+        deleteEquipment: deleteEquipment,
+        deleteLine: deleteLine,
+        deleteComponent: deleteComponent,
         
         syncPhysicalData: syncPhysicalData,
 
@@ -952,3 +1101,8 @@ const SmartFlowCore = (function() {
         get allObjectsMap() { return _allObjectsMap; }
     };
 })();
+
+// Exponer globalmente
+if (typeof window !== 'undefined') {
+    window.SmartFlowCore = SmartFlowCore;
+}
