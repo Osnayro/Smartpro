@@ -1,7 +1,8 @@
 
 // ============================================================
-// SMARTFLOW RENDERER v4.2 COMPLETO - Motor Isométrico 2.5D Industrial
-// Incluye: Equipos, Tuberías, Válvulas, Instrumentos, Soportes, Cotas, BOM
+// SMARTFLOW RENDERER v5.0 - MOTOR 2.5D INDUSTRIAL (VERSIÓN GANADORA)
+// Incluye: Texturas PBR, detalles en válvulas, GeometricComponents
+// autoCenter: VERSIÓN SIMPLE (la que funciona correctamente)
 // ============================================================
 
 const SmartFlowRenderer = (function() {
@@ -25,7 +26,7 @@ const SmartFlowRenderer = (function() {
     let _hoveredComponentScreenPos = null;
 
     // ================================================================
-    // CONFIGURACIÓN INDUSTRIAL
+    // CONFIGURACIÓN INDUSTRIAL - MATERIALES Y TEXTURAS
     // ================================================================
     const ISO_CONFIG = {
         MATERIALS: {
@@ -79,7 +80,7 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
-    // UTILIDADES
+    // UTILIDADES DE MATERIALES (PBR)
     // ================================================================
     function getMaterialColor(specCode, materialName) {
         if (_catalog && specCode) {
@@ -257,7 +258,7 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
-    // COTAS Y DIMENSIONES (NUEVA FUNCIÓN)
+    // COTAS Y DIMENSIONES
     // ================================================================
     function drawIsometricDimension(p1, p2) {
         const realDist = Math.hypot(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
@@ -288,7 +289,6 @@ const SmartFlowRenderer = (function() {
         
         _ctx.save();
         
-        // Líneas de extensión
         _ctx.beginPath();
         _ctx.setLineDash([3, 4]);
         _ctx.strokeStyle = '#64748b';
@@ -300,7 +300,6 @@ const SmartFlowRenderer = (function() {
         _ctx.stroke();
         _ctx.setLineDash([]);
         
-        // Línea de cota
         _ctx.beginPath();
         _ctx.moveTo(prD1.x, prD1.y);
         _ctx.lineTo(prD2.x, prD2.y);
@@ -308,7 +307,6 @@ const SmartFlowRenderer = (function() {
         _ctx.lineWidth = 1.2;
         _ctx.stroke();
         
-        // Texto de cota
         const midX = (prD1.x + prD2.x) / 2;
         const midY = (prD1.y + prD2.y) / 2;
         const dimText = formatDimensionText(realDist);
@@ -723,7 +721,6 @@ const SmartFlowRenderer = (function() {
         const baseWidth = (line.diameter || 4) * _cam.scale * scheduleFactor;
         const mainWidth = Math.max(5, baseWidth);
         const matShort = getShortMaterial(line.material);
-        const lineLabel = line.tag;
         
         const drawPath = function() {
             _ctx.beginPath();
@@ -829,10 +826,10 @@ const SmartFlowRenderer = (function() {
         }
 
         // Etiqueta de línea
-        if (lineLabel && pts.length >= 2 && _cam.scale > 0.15) {
+        if (line.tag && pts.length >= 2 && _cam.scale > 0.15) {
             const midIdx = Math.floor(pts.length / 2);
             const midProj = project(pts[midIdx]);
-            const label = lineLabel + ' ' + line.diameter + '" ' + matShort;
+            const label = line.tag + ' ' + line.diameter + '" ' + matShort;
             _ctx.font = 'bold ' + Math.max(9, 11 * _cam.scale) + 'px monospace';
             _ctx.fillStyle = '#00f2ff';
             _ctx.shadowBlur = 0;
@@ -843,7 +840,7 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
-    // SÍMBOLOS DE COMPONENTES
+    // SÍMBOLOS DE COMPONENTES (VÁLVULAS, INSTRUMENTOS, ETC.)
     // ================================================================
     function drawPipeComponents(line) {
         if (!_core) return;
@@ -1289,10 +1286,9 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
-    // CONTROL DE CÁMARA
+    // autoCenter - VERSIÓN SIMPLE (LA QUE FUNCIONA CORRECTAMENTE)
     // ================================================================
-    function autoCenter(options) {
-        options = options || {};
+    function autoCenter(options = {}) {
         if (!_canvas || !_core) return;
         
         const db = _core.getDb();
@@ -1305,65 +1301,66 @@ const SmartFlowRenderer = (function() {
             return;
         }
         
-        let minX = Infinity, maxX = -Infinity;
-        let minY = Infinity, maxY = -Infinity;
+        // Recolectar TODOS los puntos (sin filtros)
+        let points = [];
         
         equipos.forEach(eq => {
-            const box = getEquipmentDrawBox(eq);
-            const corners = [
-                { x: eq.posX - box.halfWidth, y: eq.posY - box.halfHeight, z: eq.posZ - box.halfDepth },
-                { x: eq.posX + box.halfWidth, y: eq.posY + box.halfHeight, z: eq.posZ + box.halfDepth }
-            ];
-            corners.forEach(c => {
-                const proj = project(c);
-                minX = Math.min(minX, proj.x);
-                maxX = Math.max(maxX, proj.x);
-                minY = Math.min(minY, proj.y);
-                maxY = Math.max(maxY, proj.y);
-            });
+            points.push({ x: eq.posX, y: eq.posY, z: eq.posZ });
+            if (eq.diametro) points.push({ x: eq.posX + eq.diametro/2, y: eq.posY, z: eq.posZ });
+            if (eq.largo) points.push({ x: eq.posX + eq.largo/2, y: eq.posY, z: eq.posZ });
         });
         
         lines.forEach(line => {
             const pts = _core.getLinePoints(line);
-            if (pts) {
-                pts.forEach(p => {
-                    const proj = project(p);
-                    minX = Math.min(minX, proj.x);
-                    maxX = Math.max(maxX, proj.x);
-                    minY = Math.min(minY, proj.y);
-                    maxY = Math.max(maxY, proj.y);
-                });
-            }
+            if (pts) pts.forEach(p => points.push(p));
         });
         
-        if (minX === Infinity) {
-            _cam = { scale: 0.5, panX: 0, panY: 0 };
-            scheduleRender();
-            return;
+        if (points.length === 0) {
+            points = [{ x: -2000, y: 0, z: -2000 }, { x: 2000, y: 2000, z: 2000 }];
         }
+        
+        // Calcular bounding box en coordenadas de pantalla
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        
+        points.forEach(p => {
+            const proj = project(p);
+            if (proj.x < minX) minX = proj.x;
+            if (proj.x > maxX) maxX = proj.x;
+            if (proj.y < minY) minY = proj.y;
+            if (proj.y > maxY) maxY = proj.y;
+        });
+        
+        // Margen proporcional
+        const margin = (maxX - minX) * 0.15;
+        const marginY = (maxY - minY) * 0.15;
+        minX -= margin;
+        maxX += margin;
+        minY -= marginY;
+        maxY += marginY;
+        
+        const worldW = maxX - minX;
+        const worldH = maxY - minY;
         
         const isMobile = /Mobi|Android/i.test(navigator.userAgent) || _canvas.width < 600;
         const padding = options.padding !== undefined ? options.padding : (isMobile ? 20 : 80);
         const minScale = options.minScale !== undefined ? options.minScale : (isMobile ? 0.06 : 0.12);
-        const maxScale = options.maxScale !== undefined ? options.maxScale : (isMobile ? 0.5 : 0.7);
+        const maxScale = options.maxScale !== undefined ? options.maxScale : (isMobile ? 0.8 : 1.2);
         
-        const width = maxX - minX;
-        const height = maxY - minY;
-        
-        let sc = Math.min((_canvas.width - padding * 2) / width, (_canvas.height - padding * 2) / height, maxScale);
+        let sc = Math.min((_canvas.width - padding * 2) / worldW, (_canvas.height - padding * 2) / worldH, maxScale);
         sc = Math.max(minScale, isFinite(sc) ? sc : 0.3);
         
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        
         _cam.scale = sc;
-        _cam.panX = _canvas.width / 2 - centerX * sc;
-        _cam.panY = _canvas.height / 2 - centerY * sc;
+        _cam.panX = _canvas.width / 2 - ((minX + maxX) / 2);
+        _cam.panY = _canvas.height / 2 - ((minY + maxY) / 2);
         
         _cacheDirty = true;
         scheduleRender();
     }
 
+    // ================================================================
+    // CONTROL DE CÁMARA (ZOOM, PAN, RESIZE)
+    // ================================================================
     function pan(dx, dy) {
         _cam.panX += dx;
         _cam.panY += dy;
@@ -1409,7 +1406,7 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
-    // EXPORTACIONES
+    // EXPORTACIONES (PDF, PCF)
     // ================================================================
     function exportPDF() {
         if (!_canvas) return;
@@ -1561,6 +1558,55 @@ const SmartFlowRenderer = (function() {
                           _activeSnap.screenPos.x + 15, _activeSnap.screenPos.y - 10);
             _ctx.restore();
         }
+        
+        // BOM (Lista de Materiales)
+        if (_bomItems.length > 0 && _cam.scale > 0.15) {
+            drawBOMTable();
+        }
+    }
+
+    function drawBOMTable() {
+        if (_bomItems.length === 0) return;
+        const x = 15, rowHeight = 18, headerHeight = 24, tableWidth = 260;
+        const tableHeight = headerHeight + (_bomItems.length * rowHeight) + 10;
+        const y = _canvas.height - tableHeight - 15;
+        
+        _ctx.save();
+        _ctx.setTransform(1, 0, 0, 1, 0, 0);
+        _ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        _ctx.fillRect(x, y, tableWidth, tableHeight);
+        _ctx.strokeStyle = '#0ea5e9';
+        _ctx.lineWidth = 1.5;
+        _ctx.strokeRect(x, y, tableWidth, tableHeight);
+        _ctx.fillStyle = '#0ea5e9';
+        _ctx.font = 'bold 10px "Segoe UI"';
+        _ctx.fillText("ITEM", x + 12, y + 16);
+        _ctx.fillText("DESCRIPCIÓN", x + 50, y + 16);
+        _ctx.fillText("MAT", x + 220, y + 16);
+        _ctx.beginPath();
+        _ctx.moveTo(x + 10, y + 22);
+        _ctx.lineTo(x + tableWidth - 10, y + 22);
+        _ctx.strokeStyle = 'rgba(14, 165, 233, 0.3)';
+        _ctx.stroke();
+        
+        _bomItems.forEach((item, i) => {
+            const rowY = y + headerHeight + (i * rowHeight) + 12;
+            _ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+            _ctx.beginPath();
+            _ctx.arc(x + 20, rowY - 3, 8, 0, Math.PI * 2);
+            _ctx.fill();
+            _ctx.fillStyle = '#f8fafc';
+            _ctx.font = 'bold 9px "Roboto Mono"';
+            _ctx.textAlign = 'center';
+            _ctx.fillText(item.index.toString(), x + 20, rowY);
+            _ctx.textAlign = 'left';
+            _ctx.font = '9px monospace';
+            _ctx.fillStyle = '#e2e8f0';
+            _ctx.fillText(item.desc.length > 24 ? item.desc.substring(0, 21) + '...' : item.desc, x + 50, rowY);
+            _ctx.fillStyle = '#94a3b8';
+            _ctx.fillText(item.mat, x + 220, rowY);
+        });
+        _ctx.restore();
     }
 
     function scheduleRender() {
@@ -1593,6 +1639,7 @@ const SmartFlowRenderer = (function() {
             });
         }
         
+        // Eventos del mouse
         _canvas.addEventListener('mousemove', function(e) {
             const rect = _canvas.getBoundingClientRect();
             const mX = e.clientX - rect.left;
@@ -1602,10 +1649,18 @@ const SmartFlowRenderer = (function() {
             if (snapped) {
                 _activeSnap = snapped;
                 _canvas.style.cursor = 'crosshair';
+                _hoveredComponent = null;
             } else {
                 _activeSnap = null;
-                const picked = pickElement({ x: mX, y: mY });
-                _canvas.style.cursor = picked ? 'pointer' : 'default';
+                const hovered = pickComponent(mX, mY);
+                if (hovered) {
+                    _hoveredComponent = hovered;
+                    _hoveredComponentScreenPos = { x: mX, y: mY };
+                    _canvas.style.cursor = 'pointer';
+                } else {
+                    _hoveredComponent = null;
+                    _canvas.style.cursor = pickElement({ x: mX, y: mY }) ? 'pointer' : 'default';
+                }
             }
             scheduleRender();
         });
@@ -1632,12 +1687,21 @@ const SmartFlowRenderer = (function() {
             zoom(e.deltaY < 0 ? 1 : -1, mX, mY);
         });
         
+        // Eventos táctiles
         let lastTouchDist = 0;
         let lastPanPos = null;
         
         _canvas.addEventListener('touchstart', function(e) {
             if (e.touches.length === 1) {
                 lastPanPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                const rect = _canvas.getBoundingClientRect();
+                const mX = e.touches[0].clientX - rect.left;
+                const mY = e.touches[0].clientY - rect.top;
+                const hovered = pickComponent(mX, mY);
+                if (hovered) {
+                    _hoveredComponent = hovered;
+                    _hoveredComponentScreenPos = { x: mX, y: mY };
+                }
             } else if (e.touches.length === 2) {
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
                 const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -1670,12 +1734,55 @@ const SmartFlowRenderer = (function() {
             lastPanPos = null;
         });
         
-        const isMobile = /Mobi|Android/i.test(navigator.userAgent) || _canvas.width < 600;
-        autoCenter(isMobile ? { padding: 20, minScale: 0.06, maxScale: 0.5 } : {});
+        // Inicializar con autoCenter
+        autoCenter();
         scheduleRender();
         
-        console.log('✔ SmartFlowRenderer v4.2 COMPLETO - Motor 2.5D listo');
+        console.log('✔ SmartFlowRenderer v5.0 - Motor 2.5D Nivel 2');
         return true;
+    }
+
+    function pickComponent(mouseX, mouseY) {
+        if (!_core) return null;
+        const db = _core.getDb();
+        let closest = null, closestDist = 20;
+        for (const line of (db ? db.lines : [])) {
+            if (!line.components) continue;
+            for (const comp of line.components) {
+                if (!comp._screenPos) continue;
+                const dist = Math.hypot(comp._screenPos.x - mouseX, comp._screenPos.y - mouseY);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closest = comp;
+                }
+            }
+        }
+        return closest;
+    }
+
+    function drawTechnicalTooltip(ctx, comp, screenPos) {
+        const compType = comp.type || '';
+        const desc = getComponentLabel(compType);
+        const material = comp.material || 'N/D';
+        const boxW = 180, boxH = 55;
+        const x = Math.min(screenPos.x + 25, _canvas.width - boxW - 10);
+        const y = Math.max(screenPos.y - 60, 10);
+        
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(x, y, boxW, boxH);
+        ctx.strokeRect(x, y, boxW, boxH);
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 10px Inter';
+        ctx.fillText(desc, x + 8, y + 16);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '9px Inter';
+        ctx.fillText('Tag: ' + (comp.tag || 'N/A'), x + 8, y + 32);
+        ctx.fillText('Mat: ' + material, x + 8, y + 46);
+        ctx.restore();
     }
 
     // ================================================================
