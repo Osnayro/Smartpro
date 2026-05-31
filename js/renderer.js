@@ -1,8 +1,8 @@
 
 // ============================================================
-// SMARTFLOW RENDERER v5.0 - MOTOR 2.5D INDUSTRIAL (VERSIÓN GANADORA)
-// Incluye: Texturas PBR, detalles en válvulas, GeometricComponents
-// autoCenter: VERSIÓN SIMPLE (la que funciona correctamente)
+// SMARTFLOW RENDERER v5.1 - MOTOR 2.5D INDUSTRIAL (VERSIÓN GANADORA)
+// Incluye: Texturas PBR, detalles en válvulas, instrumentos, soportes
+// autoCenter: VERSIÓN CORREGIDA (calcula bounding box real)
 // ============================================================
 
 const SmartFlowRenderer = (function() {
@@ -195,12 +195,6 @@ const SmartFlowRenderer = (function() {
         return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, z: from.z + (to.z - from.z) * t };
     }
 
-    function getElbowRadius(diameter, isPPR) {
-        const mmDiameter = diameter * 25.4;
-        const baseRadius = isPPR ? mmDiameter * 0.8 : mmDiameter * 1.5;
-        return Math.min(baseRadius, 350);
-    }
-
     function getScheduleFactor(spec) {
         if (!spec) return 1.0;
         const upper = spec.toUpperCase();
@@ -210,31 +204,6 @@ const SmartFlowRenderer = (function() {
         return 1.0;
     }
 
-    function isPointCollidingWithEquipment(point, margin) {
-        margin = margin || 1200;
-        if (!_core) return false;
-        const db = _core.getDb();
-        if (!db || !db.equipos) return false;
-        return db.equipos.some(eq => {
-            const box = getEquipmentDrawBox(eq);
-            const dx = Math.abs(point.x - eq.posX);
-            const dz = Math.abs(point.z - eq.posZ);
-            return dx <= box.halfWidth + margin && dz <= box.halfDepth + margin;
-        });
-    }
-
-    function checkOffsetCollision(p1, p2, offset) {
-        const midPoint = {
-            x: (p1.x + p2.x) / 2 + offset.dx,
-            y: (p1.y + p2.y) / 2 + offset.dy,
-            z: (p1.z + p2.z) / 2 + offset.dz
-        };
-        return isPointCollidingWithEquipment(midPoint, 1200);
-    }
-
-    // ================================================================
-    // DIMENSIONES DE EQUIPOS
-    // ================================================================
     function getEquipmentDrawBox(eq) {
         const tipo = eq.tipo || '';
         if (tipo === 'tanque_v' || tipo === 'torre' || tipo === 'reactor' ||
@@ -274,10 +243,28 @@ const SmartFlowRenderer = (function() {
                { dx: 0, dy: -dynamicOffset, dz: 0 }, { dx: 0, dy: dynamicOffset, dz: 0 }];
         
         let chosen = candidates[0];
-        for (const candidate of candidates) {
-            if (!checkOffsetCollision(p1, p2, candidate)) {
-                chosen = candidate;
-                break;
+        const db = _core.getDb();
+        if (db && db.equipos) {
+            for (const candidate of candidates) {
+                const midPoint = {
+                    x: (p1.x + p2.x) / 2 + candidate.dx,
+                    y: (p1.y + p2.y) / 2 + candidate.dy,
+                    z: (p1.z + p2.z) / 2 + candidate.dz
+                };
+                let collision = false;
+                for (const eq of db.equipos) {
+                    const box = getEquipmentDrawBox(eq);
+                    const dx = Math.abs(midPoint.x - eq.posX);
+                    const dz = Math.abs(midPoint.z - eq.posZ);
+                    if (dx <= box.halfWidth + 1200 && dz <= box.halfDepth + 1200) {
+                        collision = true;
+                        break;
+                    }
+                }
+                if (!collision) {
+                    chosen = candidate;
+                    break;
+                }
             }
         }
         
@@ -464,6 +451,32 @@ const SmartFlowRenderer = (function() {
         _ctx.fill();
         _ctx.stroke();
         
+        // Anillos de refuerzo
+        const numRings = Math.floor(h / 800);
+        for (let i = 1; i <= numRings; i++) {
+            const ringY = topY + (i * h / (numRings + 1));
+            _ctx.beginPath();
+            _ctx.ellipse(p.x, ringY, w + 2, (w + 2) * 0.5, 0, 0, 2 * Math.PI);
+            _ctx.strokeStyle = adjustColor(color, 30);
+            _ctx.lineWidth = 1.2;
+            _ctx.stroke();
+        }
+        
+        // Indicador de nivel
+        if (eq.nivel && eq.nivel > 0) {
+            const nivelY = bottomY - (eq.nivel / eq.altura) * h;
+            _ctx.fillStyle = 'rgba(0, 242, 255, 0.12)';
+            _ctx.fillRect(p.x - w + 2, nivelY, w - 2, bottomY - nivelY - 2);
+            _ctx.strokeStyle = '#00f2ff';
+            _ctx.lineWidth = 1;
+            _ctx.setLineDash([4, 4]);
+            _ctx.beginPath();
+            _ctx.moveTo(p.x - w + 5, nivelY);
+            _ctx.lineTo(p.x + w - 5, nivelY);
+            _ctx.stroke();
+            _ctx.setLineDash([]);
+        }
+        
         _ctx.shadowBlur = 0;
 
         const projCenter = project({ x: eq.posX, y: eq.posY + box.halfHeight * 1.2, z: eq.posZ });
@@ -532,6 +545,10 @@ const SmartFlowRenderer = (function() {
         _ctx.ellipse(p.x, p.y - rad * 0.7, motorRad, motorRad * 0.7, 0, 0, 2 * Math.PI);
         _ctx.fill();
         _ctx.stroke();
+        
+        // Acople
+        _ctx.fillStyle = '#888888';
+        _ctx.fillRect(p.x - 3, p.y - rad * 0.4, 6, rad * 0.5);
         
         _ctx.beginPath();
         _ctx.moveTo(p.x, p.y);
@@ -716,8 +733,6 @@ const SmartFlowRenderer = (function() {
         
         const isPPR = line.material === 'PPR' || (line.spec && line.spec.includes('PPR'));
         const scheduleFactor = getScheduleFactor(line.spec);
-        const radioBase = isPPR ? (line.diameter * 25.4 * 0.8) : (line.diameter * 25.4 * 1.5 * scheduleFactor);
-        const radio = Math.min(radioBase, 350);
         const baseWidth = (line.diameter || 4) * _cam.scale * scheduleFactor;
         const mainWidth = Math.max(5, baseWidth);
         const matShort = getShortMaterial(line.material);
@@ -726,24 +741,10 @@ const SmartFlowRenderer = (function() {
             _ctx.beginPath();
             let first = project(pts[0]);
             _ctx.moveTo(first.x, first.y);
-            for (let i = 1; i < pts.length - 1; i++) {
-                const pPrev = pts[i - 1], pCurr = pts[i], pNext = pts[i + 1];
-                if (pCurr.isControlPoint && i + 1 < pts.length) {
-                    const cp = project(pCurr);
-                    const nextP = project(pts[i + 1]);
-                    _ctx.quadraticCurveTo(cp.x, cp.y, nextP.x, nextP.y);
-                    i++;
-                } else {
-                    const pIn = getPointAtDistance(pCurr, pPrev, radio);
-                    const pOut = getPointAtDistance(pCurr, pNext, radio);
-                    const projIn = project(pIn);
-                    const projOut = project(pOut);
-                    const projCurr = project(pCurr);
-                    _ctx.lineTo(projIn.x, projIn.y);
-                    _ctx.quadraticCurveTo(projCurr.x, projCurr.y, projOut.x, projOut.y);
-                }
+            for (let i = 1; i < pts.length; i++) {
+                const p = project(pts[i]);
+                _ctx.lineTo(p.x, p.y);
             }
-            _ctx.lineTo(project(pts[pts.length - 1]).x, project(pts[pts.length - 1]).y);
         };
 
         const grad = getMaterialGradient(_ctx, pts[0], pts[pts.length - 1], matShort);
@@ -786,7 +787,7 @@ const SmartFlowRenderer = (function() {
         _ctx.stroke();
         _ctx.globalAlpha = 1;
 
-        // Soldaduras cada 6m para tuberías metálicas
+        // Soldaduras para tuberías metálicas
         if (!isPPR && _cam.scale > 0.15) {
             let accumDist = 0;
             for (let i = 0; i < pts.length - 1; i++) {
@@ -1076,7 +1077,7 @@ const SmartFlowRenderer = (function() {
         }
         // Codo 90
         else if (tipo.includes('ELBOW_90')) {
-            const r = tipo.includes('LR') ? s * 1.3 : s * 0.9;
+            const r = s * 1.2;
             _ctx.beginPath();
             _ctx.arc(0, 0, r, 0, Math.PI / 2);
             _ctx.strokeStyle = '#f8fafc';
@@ -1254,6 +1255,24 @@ const SmartFlowRenderer = (function() {
         return null;
     }
 
+    function pickComponent(mouseX, mouseY) {
+        if (!_core) return null;
+        const db = _core.getDb();
+        let closest = null, closestDist = 20;
+        for (const line of (db ? db.lines : [])) {
+            if (!line.components) continue;
+            for (const comp of line.components) {
+                if (!comp._screenPos) continue;
+                const dist = Math.hypot(comp._screenPos.x - mouseX, comp._screenPos.y - mouseY);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closest = comp;
+                }
+            }
+        }
+        return closest;
+    }
+
     function drawSelection(element) {
         if (!element) return;
         _ctx.save();
@@ -1285,8 +1304,33 @@ const SmartFlowRenderer = (function() {
         _ctx.restore();
     }
 
+    function drawTechnicalTooltip(ctx, comp, screenPos) {
+        const compType = comp.type || '';
+        const desc = getComponentLabel(compType);
+        const material = comp.material || 'N/D';
+        const boxW = 180, boxH = 55;
+        const x = Math.min(screenPos.x + 25, _canvas.width - boxW - 10);
+        const y = Math.max(screenPos.y - 60, 10);
+        
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(x, y, boxW, boxH);
+        ctx.strokeRect(x, y, boxW, boxH);
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 10px Inter';
+        ctx.fillText(desc, x + 8, y + 16);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '9px Inter';
+        ctx.fillText('Tag: ' + (comp.tag || 'N/A'), x + 8, y + 32);
+        ctx.fillText('Mat: ' + material, x + 8, y + 46);
+        ctx.restore();
+    }
+
     // ================================================================
-    // autoCenter - VERSIÓN SIMPLE (LA QUE FUNCIONA CORRECTAMENTE)
+    // autoCenter - VERSIÓN CORREGIDA (calcula bounding box real)
     // ================================================================
     function autoCenter(options = {}) {
         if (!_canvas || !_core) return;
@@ -1301,18 +1345,53 @@ const SmartFlowRenderer = (function() {
             return;
         }
         
-        // Recolectar TODOS los puntos (sin filtros)
+        // Recolectar TODOS los puntos 3D
         let points = [];
         
+        // 1. Puntos de equipos
         equipos.forEach(eq => {
+            // Centro del equipo
             points.push({ x: eq.posX, y: eq.posY, z: eq.posZ });
-            if (eq.diametro) points.push({ x: eq.posX + eq.diametro/2, y: eq.posY, z: eq.posZ });
-            if (eq.largo) points.push({ x: eq.posX + eq.largo/2, y: eq.posY, z: eq.posZ });
+            
+            // Extremos según el tipo de equipo
+            if (eq.tipo === 'tanque_v' || eq.tipo === 'torre' || eq.tipo === 'reactor') {
+                const r = (eq.diametro || 1000) / 2;
+                const h = (eq.altura || 1500) / 2;
+                points.push({ x: eq.posX + r, y: eq.posY + h, z: eq.posZ });
+                points.push({ x: eq.posX - r, y: eq.posY - h, z: eq.posZ });
+                points.push({ x: eq.posX, y: eq.posY + h, z: eq.posZ + r });
+                points.push({ x: eq.posX, y: eq.posY - h, z: eq.posZ - r });
+            } else if (eq.tipo === 'tanque_h') {
+                const r = (eq.diametro || 1000) / 2;
+                const l = (eq.largo || 3000) / 2;
+                points.push({ x: eq.posX + l, y: eq.posY, z: eq.posZ });
+                points.push({ x: eq.posX - l, y: eq.posY, z: eq.posZ });
+                points.push({ x: eq.posX, y: eq.posY + r, z: eq.posZ });
+                points.push({ x: eq.posX, y: eq.posY - r, z: eq.posZ });
+            } else if (eq.tipo === 'plataforma') {
+                const l = (eq.largo || 6000) / 2;
+                const a = (eq.ancho || 3000) / 2;
+                const h = (eq.altura || 400) / 2;
+                points.push({ x: eq.posX + l, y: eq.posY, z: eq.posZ });
+                points.push({ x: eq.posX - l, y: eq.posY, z: eq.posZ });
+                points.push({ x: eq.posX, y: eq.posY + h, z: eq.posZ + a });
+                points.push({ x: eq.posX, y: eq.posY - h, z: eq.posZ - a });
+            } else {
+                // Equipo genérico
+                const w = (eq.largo || eq.diametro || 1000) / 2;
+                const h = (eq.altura || 1000) / 2;
+                const d = (eq.ancho || eq.diametro || 1000) / 2;
+                points.push({ x: eq.posX + w, y: eq.posY + h, z: eq.posZ + d });
+                points.push({ x: eq.posX - w, y: eq.posY - h, z: eq.posZ - d });
+            }
         });
         
+        // 2. Puntos de líneas (tuberías)
         lines.forEach(line => {
             const pts = _core.getLinePoints(line);
-            if (pts) pts.forEach(p => points.push(p));
+            if (pts && pts.length > 0) {
+                pts.forEach(p => points.push({ x: p.x, y: p.y, z: p.z }));
+            }
         });
         
         if (points.length === 0) {
@@ -1331,7 +1410,7 @@ const SmartFlowRenderer = (function() {
             if (proj.y > maxY) maxY = proj.y;
         });
         
-        // Margen proporcional
+        // Margen proporcional (15%)
         const margin = (maxX - minX) * 0.15;
         const marginY = (maxY - minY) * 0.15;
         minX -= margin;
@@ -1342,20 +1421,29 @@ const SmartFlowRenderer = (function() {
         const worldW = maxX - minX;
         const worldH = maxY - minY;
         
+        // Parámetros configurables
         const isMobile = /Mobi|Android/i.test(navigator.userAgent) || _canvas.width < 600;
         const padding = options.padding !== undefined ? options.padding : (isMobile ? 20 : 80);
-        const minScale = options.minScale !== undefined ? options.minScale : (isMobile ? 0.06 : 0.12);
-        const maxScale = options.maxScale !== undefined ? options.maxScale : (isMobile ? 0.8 : 1.2);
+        const minScale = options.minScale !== undefined ? options.minScale : (isMobile ? 0.08 : 0.15);
+        const maxScale = options.maxScale !== undefined ? options.maxScale : (isMobile ? 0.9 : 1.5);
         
-        let sc = Math.min((_canvas.width - padding * 2) / worldW, (_canvas.height - padding * 2) / worldH, maxScale);
+        // Calcular escala óptima
+        let sc = Math.min(
+            (_canvas.width - padding * 2) / worldW,
+            (_canvas.height - padding * 2) / worldH,
+            maxScale
+        );
         sc = Math.max(minScale, isFinite(sc) ? sc : 0.3);
         
+        // Calcular pan para centrar
         _cam.scale = sc;
-        _cam.panX = _canvas.width / 2 - ((minX + maxX) / 2);
-        _cam.panY = _canvas.height / 2 - ((minY + maxY) / 2);
+        _cam.panX = (_canvas.width / 2) - ((minX + maxX) / 2);
+        _cam.panY = (_canvas.height / 2) - ((minY + maxY) / 2);
         
         _cacheDirty = true;
         scheduleRender();
+        
+        console.log(`autoCenter: escala=${sc.toFixed(3)}, panX=${_cam.panX.toFixed(0)}, panY=${_cam.panY.toFixed(0)}`);
     }
 
     // ================================================================
@@ -1471,6 +1559,72 @@ const SmartFlowRenderer = (function() {
     }
 
     // ================================================================
+    // BOM (Lista de Materiales)
+    // ================================================================
+    function updateBOM() {
+        _bomItems = [];
+        if (!_core) return;
+        
+        const lines = _core.getLines();
+        lines.forEach(line => {
+            if (line.components) {
+                line.components.forEach(comp => {
+                    _bomItems.push({
+                        index: _bomItems.length + 1,
+                        desc: getComponentLabel(comp.type),
+                        mat: getShortMaterial(line.material),
+                        comp: comp
+                    });
+                });
+            }
+        });
+    }
+
+    function drawBOMTable() {
+        if (_bomItems.length === 0) return;
+        const x = 15, rowHeight = 18, headerHeight = 24, tableWidth = 260;
+        const tableHeight = headerHeight + (_bomItems.length * rowHeight) + 10;
+        const y = _canvas.height - tableHeight - 15;
+        
+        _ctx.save();
+        _ctx.setTransform(1, 0, 0, 1, 0, 0);
+        _ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        _ctx.fillRect(x, y, tableWidth, tableHeight);
+        _ctx.strokeStyle = '#0ea5e9';
+        _ctx.lineWidth = 1.5;
+        _ctx.strokeRect(x, y, tableWidth, tableHeight);
+        _ctx.fillStyle = '#0ea5e9';
+        _ctx.font = 'bold 10px "Segoe UI"';
+        _ctx.fillText("ITEM", x + 12, y + 16);
+        _ctx.fillText("DESCRIPCIÓN", x + 50, y + 16);
+        _ctx.fillText("MAT", x + 220, y + 16);
+        _ctx.beginPath();
+        _ctx.moveTo(x + 10, y + 22);
+        _ctx.lineTo(x + tableWidth - 10, y + 22);
+        _ctx.strokeStyle = 'rgba(14, 165, 233, 0.3)';
+        _ctx.stroke();
+        
+        _bomItems.forEach((item, i) => {
+            const rowY = y + headerHeight + (i * rowHeight) + 12;
+            _ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+            _ctx.beginPath();
+            _ctx.arc(x + 20, rowY - 3, 8, 0, Math.PI * 2);
+            _ctx.fill();
+            _ctx.fillStyle = '#f8fafc';
+            _ctx.font = 'bold 9px "Roboto Mono"';
+            _ctx.textAlign = 'center';
+            _ctx.fillText(item.index.toString(), x + 20, rowY);
+            _ctx.textAlign = 'left';
+            _ctx.font = '9px monospace';
+            _ctx.fillStyle = '#e2e8f0';
+            _ctx.fillText(item.desc.length > 24 ? item.desc.substring(0, 21) + '...' : item.desc, x + 50, rowY);
+            _ctx.fillStyle = '#94a3b8';
+            _ctx.fillText(item.mat, x + 220, rowY);
+        });
+        _ctx.restore();
+    }
+
+    // ================================================================
     // RENDER PRINCIPAL
     // ================================================================
     function render() {
@@ -1517,6 +1671,7 @@ const SmartFlowRenderer = (function() {
                 return a.depth - b.depth;
             });
             
+            updateBOM();
             _cacheDirty = false;
         }
         
@@ -1559,54 +1714,13 @@ const SmartFlowRenderer = (function() {
             _ctx.restore();
         }
         
-        // BOM (Lista de Materiales)
+        if (_hoveredComponent && _hoveredComponentScreenPos) {
+            drawTechnicalTooltip(_ctx, _hoveredComponent, _hoveredComponentScreenPos);
+        }
+        
         if (_bomItems.length > 0 && _cam.scale > 0.15) {
             drawBOMTable();
         }
-    }
-
-    function drawBOMTable() {
-        if (_bomItems.length === 0) return;
-        const x = 15, rowHeight = 18, headerHeight = 24, tableWidth = 260;
-        const tableHeight = headerHeight + (_bomItems.length * rowHeight) + 10;
-        const y = _canvas.height - tableHeight - 15;
-        
-        _ctx.save();
-        _ctx.setTransform(1, 0, 0, 1, 0, 0);
-        _ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-        _ctx.fillRect(x, y, tableWidth, tableHeight);
-        _ctx.strokeStyle = '#0ea5e9';
-        _ctx.lineWidth = 1.5;
-        _ctx.strokeRect(x, y, tableWidth, tableHeight);
-        _ctx.fillStyle = '#0ea5e9';
-        _ctx.font = 'bold 10px "Segoe UI"';
-        _ctx.fillText("ITEM", x + 12, y + 16);
-        _ctx.fillText("DESCRIPCIÓN", x + 50, y + 16);
-        _ctx.fillText("MAT", x + 220, y + 16);
-        _ctx.beginPath();
-        _ctx.moveTo(x + 10, y + 22);
-        _ctx.lineTo(x + tableWidth - 10, y + 22);
-        _ctx.strokeStyle = 'rgba(14, 165, 233, 0.3)';
-        _ctx.stroke();
-        
-        _bomItems.forEach((item, i) => {
-            const rowY = y + headerHeight + (i * rowHeight) + 12;
-            _ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
-            _ctx.beginPath();
-            _ctx.arc(x + 20, rowY - 3, 8, 0, Math.PI * 2);
-            _ctx.fill();
-            _ctx.fillStyle = '#f8fafc';
-            _ctx.font = 'bold 9px "Roboto Mono"';
-            _ctx.textAlign = 'center';
-            _ctx.fillText(item.index.toString(), x + 20, rowY);
-            _ctx.textAlign = 'left';
-            _ctx.font = '9px monospace';
-            _ctx.fillStyle = '#e2e8f0';
-            _ctx.fillText(item.desc.length > 24 ? item.desc.substring(0, 21) + '...' : item.desc, x + 50, rowY);
-            _ctx.fillStyle = '#94a3b8';
-            _ctx.fillText(item.mat, x + 220, rowY);
-        });
-        _ctx.restore();
     }
 
     function scheduleRender() {
@@ -1738,51 +1852,8 @@ const SmartFlowRenderer = (function() {
         autoCenter();
         scheduleRender();
         
-        console.log('✔ SmartFlowRenderer v5.0 - Motor 2.5D Nivel 2');
+        console.log('✔ SmartFlowRenderer v5.1 - Motor 2.5D Nivel 2 (autoCenter corregido)');
         return true;
-    }
-
-    function pickComponent(mouseX, mouseY) {
-        if (!_core) return null;
-        const db = _core.getDb();
-        let closest = null, closestDist = 20;
-        for (const line of (db ? db.lines : [])) {
-            if (!line.components) continue;
-            for (const comp of line.components) {
-                if (!comp._screenPos) continue;
-                const dist = Math.hypot(comp._screenPos.x - mouseX, comp._screenPos.y - mouseY);
-                if (dist < closestDist) {
-                    closestDist = dist;
-                    closest = comp;
-                }
-            }
-        }
-        return closest;
-    }
-
-    function drawTechnicalTooltip(ctx, comp, screenPos) {
-        const compType = comp.type || '';
-        const desc = getComponentLabel(compType);
-        const material = comp.material || 'N/D';
-        const boxW = 180, boxH = 55;
-        const x = Math.min(screenPos.x + 25, _canvas.width - boxW - 10);
-        const y = Math.max(screenPos.y - 60, 10);
-        
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
-        ctx.strokeStyle = '#fbbf24';
-        ctx.lineWidth = 1.5;
-        ctx.fillRect(x, y, boxW, boxH);
-        ctx.strokeRect(x, y, boxW, boxH);
-        ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 10px Inter';
-        ctx.fillText(desc, x + 8, y + 16);
-        ctx.fillStyle = '#e2e8f0';
-        ctx.font = '9px Inter';
-        ctx.fillText('Tag: ' + (comp.tag || 'N/A'), x + 8, y + 32);
-        ctx.fillText('Mat: ' + material, x + 8, y + 46);
-        ctx.restore();
     }
 
     // ================================================================
