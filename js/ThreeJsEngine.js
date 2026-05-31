@@ -1,8 +1,8 @@
-
 // ============================================================
 // ARCHIVO: js/ThreeJsEngine.js - v3.1 (Three.js 0.160.0)
 // MEJORAS: Optimización de cámara 3D, bounding box real,
-//          límites de órbita, Z-fighting eliminado
+//          ajuste de escala industrial (mm) para r160,
+//          límites de órbita, Z-fighting eliminado.
 // ============================================================
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -51,6 +51,10 @@ const ThreeJsEngine = (function() {
             _renderer.setSize(_container.clientWidth, _container.clientHeight);
             _renderer.shadowMap.enabled = true;
             _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            
+            // --- AJUSTE r160: Espacio de color de salida estándar ---
+            _renderer.outputColorSpace = THREE.SRGBColorSpace;
+            
             _container.appendChild(_renderer.domElement);
         } catch (e) {
             console.error('ThreeJsEngine: Error al crear WebGLRenderer', e);
@@ -71,12 +75,12 @@ const ThreeJsEngine = (function() {
             _controls.zoomSpeed = 1.2;
             _controls.panSpeed = 0.8;
             
-            // === MEJORAS DE OPTIMIZACIÓN DE CÁMARA ===
+            // === CONFIGURACIÓN DE ÓRBITA EN CÁMARA ORTOGRÁFICA (r160) ===
             _controls.maxPolarAngle = Math.PI / 2 - 0.05; // Bloquea cámara bajo el suelo
-            _controls.minDistance = 50;                   // Zoom mínimo (evita traspasar equipos)
-            _controls.maxDistance = 50000;                // Zoom máximo
             _controls.enableZoom = true;
             _controls.enablePan = true;
+            
+            // Nota: Se remueven minDistance y maxDistance porque rompen la matriz ortográfica en la r160
             
             _controls.update();
         } catch (e) {
@@ -101,7 +105,7 @@ const ThreeJsEngine = (function() {
         
         resumeLoop();
         
-        console.log('✔ ThreeJsEngine v3.1 - Cámara optimizada (Three.js 0.160.0)');
+        console.log('✔ ThreeJsEngine v3.1 - Adaptado a Escala Industrial (Three.js 0.160.0)');
         return true;
     }
     
@@ -109,14 +113,14 @@ const ThreeJsEngine = (function() {
         var aspect = (_container.clientWidth / _container.clientHeight) || 1;
         var frustumSize = BASE_FRUSTUM_SIZE;
         
-        // Planos de corte mejorados para evitar Z-fighting
+        // Planos de corte mejorados para evitar Z-fighting en mallas densas
         var camera = new THREE.OrthographicCamera(
             frustumSize * aspect / -2,
             frustumSize * aspect / 2,
             frustumSize / 2,
             frustumSize / -2,
-            0.5,      // near - aumentado para mejor rendimiento
-            20000     // far - aumentado para capturar equipos grandes
+            1.0,      // near - optimizado para evitar cortes cercanos y parpadeo
+            50000     // far - amplio rango inicial, dinámico en el fitCamera
         );
         
         camera.position.set(15, 12, 15);
@@ -127,10 +131,10 @@ const ThreeJsEngine = (function() {
     }
     
     function setupLights() {
-        var ambientLight = new THREE.AmbientLight(0x334455, 1.5);
+        var ambientLight = new THREE.AmbientLight(0x334455, 1.2);
         _scene.add(ambientLight);
         
-        var sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+        var sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
         sunLight.position.set(20, 30, 15);
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.width = 2048;
@@ -152,14 +156,14 @@ const ThreeJsEngine = (function() {
     }
     
     function setupGrid() {
-        // Cuadrícula principal
+        // Cuadrícula principal extendida
         var gridHelper = new THREE.GridHelper(100, 40, 0x3b82f6, 0x1e293b);
         gridHelper.position.y = -0.01;
         gridHelper.material.transparent = true;
         gridHelper.material.opacity = 0.35;
         _scene.add(gridHelper);
         
-        // Cuadrícula secundaria más densa
+        // Cuadrícula secundaria de precisión densa
         var fineGrid = new THREE.GridHelper(50, 20, 0x64748b, 0x334155);
         fineGrid.position.y = -0.009;
         fineGrid.material.transparent = true;
@@ -285,7 +289,10 @@ const ThreeJsEngine = (function() {
                 if (node.geometry) { node.geometry.dispose(); node.geometry = null; }
                 if (node.material) {
                     if (Array.isArray(node.material)) {
-                        node.material.forEach(function(m) { if (m.map) { m.map.dispose(); m.map = null; } m.dispose(); });
+                        node.material.forEach(function(m) { 
+                            if (m.map) { m.map.dispose(); m.map = null; } 
+                            m.dispose(); 
+                        });
                     } else {
                         if (node.material.map) { node.material.map.dispose(); node.material.map = null; }
                         node.material.dispose();
@@ -311,25 +318,18 @@ const ThreeJsEngine = (function() {
         if (!_loopActive) { _loopActive = true; animate(); }
     }
     
-    // ================================================================
-    // OPTIMIZACIÓN DE CÁMARA 3D - Bounding Box + FOV Calculation
-    // ================================================================
     function getAllSceneObjects() {
         const objects = [];
         if (!_scene) return objects;
         
         _scene.traverse(obj => {
-            // Excluir helpers, luces, grupos de anotaciones
             if (obj.isMesh && obj.visible && obj.geometry) {
-                // Excluir GridHelper y ArrowHelper
                 if (obj instanceof THREE.GridHelper) return;
                 if (obj instanceof THREE.ArrowHelper) return;
-                // Excluir elementos de UI/anotaciones
                 if (obj.userData && (obj.userData.isLabel || obj.userData.isLabelAnchor || 
                     obj.userData.isLineLabel || obj.userData.isDimensionText)) return;
                 objects.push(obj);
             } else if (obj.isGroup && obj.children.length > 0) {
-                // Excluir grupos de anotaciones y ejes
                 if (obj.userData?.isSymbolGroup === true) return;
                 if (obj.userData?.isAxesGroup === true) return;
                 if (obj.userData?.isLabelGroup === true) return;
@@ -337,7 +337,6 @@ const ThreeJsEngine = (function() {
                 if (obj.userData?.isDimensionGroup3D === true) return;
                 if (obj.userData?.isFlowArrowGroup === true) return;
                 
-                // Verificar si el grupo contiene geometría
                 let hasGeometry = false;
                 obj.traverse(child => {
                     if (child.isMesh && child.geometry && child.visible) hasGeometry = true;
@@ -349,11 +348,13 @@ const ThreeJsEngine = (function() {
         return objects;
     }
     
-    function fitCameraToScene(camera, controls, sceneObjects, offset = 1.2) {
+    // ================================================================
+    // RECALIBRACIÓN PARA CONFIGURACIÓN DE ESCALAS INDUSTRIALES MASIVAS
+    // ================================================================
+    function fitCameraToScene(camera, controls, sceneObjects, offset = 1.3) {
         if (!sceneObjects || sceneObjects.length === 0) return;
 
         const boundingBox = new THREE.Box3();
-        
         sceneObjects.forEach(object => {
             if (object && object.isObject3D) {
                 boundingBox.expandByObject(object);
@@ -369,18 +370,24 @@ const ThreeJsEngine = (function() {
 
         const maxDim = Math.max(size.x, size.y, size.z);
         
-        // Calcular distancia óptima basada en FOV (cámara ortográfica)
-        const frustumSize = BASE_FRUSTUM_SIZE;
+        // Si maxDim supera 500, asumimos milímetros y adaptamos proporcionalmente el Frustum
+        const frustumSize = maxDim > 500 ? maxDim * 1.5 : BASE_FRUSTUM_SIZE;
         let optimalZoom = frustumSize / (maxDim * offset);
-        optimalZoom = Math.min(Math.max(optimalZoom, 0.3), 8.0);
         
-        // Posicionar cámara en diagonal isométrica manteniendo el centro
-        const distance = Math.max(maxDim * 1.2, 5);
+        // Límite de zoom elástico para dar soporte a coordenadas kilométricas
+        optimalZoom = Math.min(Math.max(optimalZoom, 0.0001), 20.0);
+        
+        // Distancia en diagonal isométrica basada en el tamaño real del layout industrial
+        const distance = Math.max(maxDim * 2.0, 100);
         camera.position.set(
             center.x + distance * 0.7,
             center.y + distance * 0.55,
             center.z + distance * 0.7
         );
+        
+        // Evitamos el rebanado del tanque adaptando dinámicamente los planos de profundidad
+        camera.near = 1.0;
+        camera.far = distance * 10; 
         
         camera.zoom = optimalZoom;
         camera.updateProjectionMatrix();
@@ -388,7 +395,7 @@ const ThreeJsEngine = (function() {
         controls.target.copy(center);
         controls.update();
         
-        console.log(`📐 Camera optimized: center=(${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)}) | maxDim=${maxDim.toFixed(1)} | zoom=${optimalZoom.toFixed(3)}`);
+        console.log(`📐 Real-Scale Fit: Center=(${center.x.toFixed(0)}, ${center.y.toFixed(0)}), maxDim=${maxDim.toFixed(0)} | Zoom=${optimalZoom.toFixed(5)}`);
     }
     
     function fitCameraToEquipments() {
@@ -397,7 +404,6 @@ const ThreeJsEngine = (function() {
         const allObjects = getAllSceneObjects();
         
         if (allObjects.length === 0) {
-            // Fallback: posición por defecto
             _camera.position.set(15, 12, 15);
             _camera.zoom = 1.0;
             _camera.updateProjectionMatrix();
@@ -414,6 +420,10 @@ const ThreeJsEngine = (function() {
         var center = new THREE.Vector3();
         if (_controls.target) center.copy(_controls.target);
         var dist = 30;
+        
+        // Si la escena es masiva, escalamos la distancia base de cambio de vista
+        if (_camera.far > 20000) dist = _camera.far * 0.05;
+
         switch(type) {
             case 'iso': _camera.position.set(center.x + dist*0.7, center.y + dist*0.55, center.z + dist*0.7); break;
             case 'top': _camera.position.set(center.x, center.y + dist, center.z); break;
@@ -430,19 +440,16 @@ const ThreeJsEngine = (function() {
         if (!_loopActive) return;
         _animationId = requestAnimationFrame(animate);
         
-        // Actualizar controles (necesario para damping suave)
         if (_controls && _controls.update) {
             _controls.update();
         }
         
-        // Renderizado principal
         if (typeof SmartFlowRender !== 'undefined' && SmartFlowRender.renderFrame) {
             SmartFlowRender.renderFrame();
         } else if (_renderer && _scene && _camera) {
             _renderer.render(_scene, _camera);
         }
         
-        // Renderizado de etiquetas CSS2D
         if (typeof SmartFlowLabels3D !== 'undefined' && SmartFlowLabels3D.render) {
             SmartFlowLabels3D.render();
         }
