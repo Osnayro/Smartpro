@@ -1,22 +1,17 @@
-
 // ============================================================
-// SMARTFLOW PFD ENGINE v1.0 - Motor de Diagrama de Flujo de Proceso
+// SMARTFLOW PFD ENGINE v1.1 - Motor de Diagrama de Flujo de Proceso
 // Archivo: js/modules/pfd_engine.js
-// Dependencias: SmartFlowCore v6.0+
-// ============================================================
-// 
-// Gestiona:
-//   - Corrientes de proceso (Streams)
-//   - Conexiones lógicas entre equipos
-//   - Vinculación PFD ↔ Líneas 3D
-//   - Validación de integridad PFD
-//   - Cálculos de balance de masa simples
-//
+// Dependencias: SmartFlowCore v6.0+, SmartFlowCatalog (opcional)
+// Novedades v1.1:
+//   - Validación de tipos de equipo contra catálogo
+//   - Creación de equipos lógicos (sin posición 3D)
+//   - Los equipos creados desde PFD se comparten con DTI y 3D
 // ============================================================
 
 const SmartFlowPFD = (function() {
     
     let _core = null;
+    let _catalog = null;
     let _notify = (msg, isErr) => console.log(msg);
     
     // ================================================================
@@ -33,21 +28,110 @@ const SmartFlowPFD = (function() {
     const PHASE_TYPES = ['LIQUID', 'GAS', 'TWO_PHASE', 'SOLID', 'SLURRY', 'SUPERCRITICAL'];
     
     // ================================================================
+    //  VALIDACIÓN CONTRA CATÁLOGO
+    // ================================================================
+    
+    function validateEquipmentType(tipo) {
+        if (!_catalog || typeof _catalog.getEquipment !== 'function') {
+            return { valid: true, msg: 'Catálogo no disponible - validación omitida' };
+        }
+        
+        const equipoDef = _catalog.getEquipment(tipo);
+        if (!equipoDef) {
+            const tiposDisponibles = typeof _catalog.listEquipmentTypes === 'function' 
+                ? _catalog.listEquipmentTypes() 
+                : [];
+            return { 
+                valid: false, 
+                msg: 'Tipo de equipo desconocido: ' + tipo,
+                sugerencias: tiposDisponibles.slice(0, 5)
+            };
+        }
+        
+        return { valid: true, equipoDef: equipoDef };
+    }
+    
+    // ================================================================
+    //  CREACIÓN DE EQUIPOS LÓGICOS (para PFD)
+    // ================================================================
+    
+    function createEquipmentForPFD(tipo, tag, params) {
+        if (!_core) {
+            _notify('❌ Error: Core no inicializado', true);
+            return null;
+        }
+        
+        // Validar contra catálogo
+        const validation = validateEquipmentType(tipo);
+        if (!validation.valid) {
+            _notify('❌ ' + validation.msg, true);
+            if (validation.sugerencias && validation.sugerencias.length > 0) {
+                _notify('   Sugerencias: ' + validation.sugerencias.join(', '), false);
+            }
+            return null;
+        }
+        
+        // Verificar si ya existe
+        if (_core.findObjectByTag(tag)) {
+            _notify('❌ Error: El equipo ' + tag + ' ya existe', true);
+            return null;
+        }
+        
+        // Crear equipo lógico (sin posición 3D o con posición por defecto)
+        params = params || {};
+        
+        const equipo = {
+            tag: tag,
+            tipo: tipo,
+            posX: params.posX || 0,
+            posY: params.posY || 0,
+            posZ: params.posZ || 0,
+            diametro: params.diametro || validation.equipoDef?.diametro || 1000,
+            altura: params.altura || validation.equipoDef?.altura || 1500,
+            largo: params.largo || 0,
+            ancho: params.ancho || 0,
+            material: params.material || 'PPR',
+            spec: params.spec || 'PPR_PN12_5',
+            puertos: params.puertos || [],
+            isLogical: params.isLogical !== false  // Marcar como equipo lógico
+        };
+        
+        // Si el catálogo tiene puertos por defecto, usarlos
+        if (validation.equipoDef && validation.equipoDef.puertos && !params.puertos) {
+            equipo.puertos = validation.equipoDef.puertos.map(function(p) {
+                return {
+                    id: p.id,
+                    relX: p.relX || 0,
+                    relY: p.relY || 0,
+                    relZ: p.relZ || 0,
+                    diametro: p.diametro || 3,
+                    status: 'open',
+                    flow: 'bi',
+                    orientacion: p.orientacion || { dx: 1, dy: 0, dz: 0 }
+                };
+            });
+        }
+        
+        const result = _core.addEquipment(equipo);
+        
+        if (result) {
+            _notify('✅ Equipo lógico ' + tag + ' (' + tipo + ') creado para PFD', false);
+            return equipo;
+        }
+        
+        return null;
+    }
+    
+    // ================================================================
     //  CREACIÓN DE CORRIENTES
     // ================================================================
     
-    /**
-     * Crea una nueva corriente de proceso
-     * @param {Object} params - Parámetros de la corriente
-     * @returns {Object|null} La corriente creada o null si hay error
-     */
     function createStream(params) {
         if (!_core) {
             _notify('❌ Error: Core no inicializado', true);
             return null;
         }
         
-        // Validaciones
         if (!params.tag) {
             _notify('❌ Error: Tag de corriente requerido', true);
             return null;
@@ -58,17 +142,16 @@ const SmartFlowPFD = (function() {
             return null;
         }
         
-        // Validar que los equipos existen si se especifican
+        // Validar que los equipos existen en la base de datos compartida
         if (params.from && !_core.findObjectByTag(params.from)) {
-            _notify('⚠️ Advertencia: Equipo origen ' + params.from + ' no existe en el modelo 3D', false);
+            _notify('⚠️ Equipo origen ' + params.from + ' no existe. Créelo primero con: create equipo TIPO TAG', false);
         }
         if (params.to && !_core.findObjectByTag(params.to)) {
-            _notify('⚠️ Advertencia: Equipo destino ' + params.to + ' no existe en el modelo 3D', false);
+            _notify('⚠️ Equipo destino ' + params.to + ' no existe. Créelo primero con: create equipo TIPO TAG', false);
         }
         
-        // Validar fluido
         if (params.fluid && FLUID_TYPES.indexOf(params.fluid.toUpperCase()) === -1) {
-            _notify('⚠️ Fluido "' + params.fluid + '" no está en la lista estándar. Se agregará igualmente.', false);
+            _notify('⚠️ Fluido "' + params.fluid + '" fuera de la lista estándar', false);
         }
         
         const streamData = {
@@ -98,14 +181,14 @@ const SmartFlowPFD = (function() {
         const result = _core.addStream(streamData);
         
         if (result) {
-            // Auto-detectar fase según temperatura
             if (!params.phase && params.fluid === 'STEAM' && params.temperature >= 100) {
                 _core.updateStream(params.tag, { phase: 'GAS' });
             }
             
-            const fromStr = params.from ? params.from : '?';
-            const toStr = params.to ? params.to : '?';
-            _notify('✅ Corriente ' + params.tag + ': ' + fromStr + ' → ' + toStr + ' | ' + streamData.fluid + ' ' + streamData.flow + ' ' + streamData.flowUnit);
+            const fromStr = params.from || '?';
+            const toStr = params.to || '?';
+            _notify('✅ Corriente ' + params.tag + ': ' + fromStr + ' → ' + toStr + 
+                    ' | ' + streamData.fluid + ' ' + streamData.flow + ' ' + streamData.flowUnit);
         }
         
         return result ? _core.getStreamByTag(params.tag) : null;
@@ -115,9 +198,6 @@ const SmartFlowPFD = (function() {
     //  CONSULTA DE CORRIENTES
     // ================================================================
     
-    /**
-     * Obtiene información detallada de una corriente
-     */
     function getStreamInfo(tag) {
         const stream = _core.getStreamByTag(tag);
         if (!stream) {
@@ -125,13 +205,11 @@ const SmartFlowPFD = (function() {
             return null;
         }
         
-        // Buscar líneas 3D vinculadas
         const allLines = _core.getLines();
         const linkedLines = allLines.filter(l => 
             stream.linkedLineTags && stream.linkedLineTags.includes(l.tag)
         );
         
-        // Buscar líneas que conecten los mismos equipos
         const relatedLines = allLines.filter(l => {
             if (!stream.from || !stream.to) return false;
             const fromMatch = l.origin && (l.origin.equipTag === stream.from || l.origin.objTag === stream.from);
@@ -147,7 +225,6 @@ const SmartFlowPFD = (function() {
             has3DRepresentation: linkedLines.length > 0 || relatedLines.length > 0
         };
         
-        // Formatear salida
         let msg = '═══════════════════════════════════\n';
         msg += '📊 CORRIENTE: ' + tag + '\n';
         msg += '═══════════════════════════════════\n\n';
@@ -173,9 +250,6 @@ const SmartFlowPFD = (function() {
         return info;
     }
     
-    /**
-     * Lista todas las corrientes
-     */
     function listStreams(filter) {
         const streams = _core.getStreams();
         if (streams.length === 0) {
@@ -184,7 +258,6 @@ const SmartFlowPFD = (function() {
         }
         
         let filtered = streams;
-        
         if (filter) {
             const f = filter.toUpperCase();
             filtered = streams.filter(s => 
@@ -202,7 +275,48 @@ const SmartFlowPFD = (function() {
         filtered.forEach(s => {
             const has3D = s.linkedLineTags && s.linkedLineTags.length > 0;
             const icon = has3D ? '🔗' : '⚠️';
-            msg += icon + ' ' + s.tag + ': ' + (s.from||'?') + ' → ' + (s.to||'?') + ' | ' + s.fluid + ' ' + s.flow + ' ' + (s.flowUnit||'m3/h') + '\n';
+            msg += icon + ' ' + s.tag + ': ' + (s.from||'?') + ' → ' + (s.to||'?') + 
+                   ' | ' + s.fluid + ' ' + s.flow + ' ' + (s.flowUnit||'m3/h') + '\n';
+        });
+        
+        msg += '══════════════════════════════════════════';
+        _notify(msg, false);
+        return filtered;
+    }
+    
+    function listEquipment(filter) {
+        const equipos = _core.getEquipos();
+        if (equipos.length === 0) {
+            _notify('📦 No hay equipos. Use: create equipo TIPO TAG', false);
+            return [];
+        }
+        
+        let filtered = equipos;
+        if (filter) {
+            const f = filter.toUpperCase();
+            filtered = equipos.filter(e => 
+                e.tag.toUpperCase().includes(f) || 
+                e.tipo.toUpperCase().includes(f)
+            );
+        }
+        
+        let msg = '📦 EQUIPOS (' + filtered.length + ')\n';
+        msg += '══════════════════════════════════════════\n';
+        
+        filtered.forEach(e => {
+            const isLogical = !e.posX && !e.posY && !e.posZ;
+            const icon = isLogical ? '📋' : '🧊';
+            const hasStreams = (_core.getStreams() || []).filter(s => s.from === e.tag || s.to === e.tag).length;
+            const hasLines = (_core.getLines() || []).filter(l => {
+                const from = l.origin ? (l.origin.equipTag || l.origin.objTag) : '';
+                const to = l.destination ? (l.destination.equipTag || l.destination.objTag) : '';
+                return from === e.tag || to === e.tag;
+            }).length;
+            
+            msg += icon + ' ' + e.tag + ' (' + e.tipo + ')';
+            if (hasStreams > 0) msg += ' | Corrientes: ' + hasStreams;
+            if (hasLines > 0) msg += ' | Líneas 3D: ' + hasLines;
+            msg += '\n';
         });
         
         msg += '══════════════════════════════════════════';
@@ -214,9 +328,6 @@ const SmartFlowPFD = (function() {
     //  VINCULACIÓN PFD ↔ 3D
     // ================================================================
     
-    /**
-     * Vincula una corriente PFD con una línea 3D
-     */
     function linkStreamToLine(streamTag, lineTag) {
         if (!_core) {
             _notify('❌ Error: Core no inicializado', true);
@@ -235,7 +346,6 @@ const SmartFlowPFD = (function() {
             return false;
         }
         
-        // Verificar consistencia
         const warnings = [];
         
         if (stream.from && line.origin) {
@@ -259,7 +369,6 @@ const SmartFlowPFD = (function() {
         const result = _core.linkStreamToLine(streamTag, lineTag);
         
         if (result) {
-            // Actualizar el servicio de la línea con el fluido de la corriente
             if (!line.service) {
                 _core.updateLine(lineTag, { service: stream.fluid });
             }
@@ -274,9 +383,6 @@ const SmartFlowPFD = (function() {
         return result;
     }
     
-    /**
-     * Auto-vincula corrientes con líneas basado en coincidencia de equipos
-     */
     function autoLinkStreams() {
         const streams = _core.getStreams();
         const lines = _core.getLines();
@@ -303,12 +409,9 @@ const SmartFlowPFD = (function() {
     }
     
     // ================================================================
-    //  VALIDACIÓN DE INTEGRIDAD PFD
+    //  VALIDACIÓN PFD
     // ================================================================
     
-    /**
-     * Valida la integridad del PFD contra el modelo 3D
-     */
     function validatePFD() {
         if (!_core) return { valid: true, issues: [] };
         
@@ -319,25 +422,22 @@ const SmartFlowPFD = (function() {
         const equiposTags = new Set(equipos.map(e => e.tag));
         
         streams.forEach(stream => {
-            // Verificar origen
             if (stream.from && !equiposTags.has(stream.from)) {
                 issues.push({
                     type: 'ORIGEN_FALTANTE',
                     stream: stream.tag,
-                    msg: 'Equipo origen ' + stream.from + ' no existe en el modelo 3D'
+                    msg: 'Equipo origen ' + stream.from + ' no existe'
                 });
             }
             
-            // Verificar destino
             if (stream.to && !equiposTags.has(stream.to)) {
                 issues.push({
                     type: 'DESTINO_FALTANTE',
                     stream: stream.tag,
-                    msg: 'Equipo destino ' + stream.to + ' no existe en el modelo 3D'
+                    msg: 'Equipo destino ' + stream.to + ' no existe'
                 });
             }
             
-            // Verificar si tiene líneas 3D asociadas
             const hasLines = stream.linkedLineTags && stream.linkedLineTags.length > 0;
             const connectedLines = lines.filter(l => {
                 const from = l.origin ? (l.origin.equipTag || l.origin.objTag) : '';
@@ -353,8 +453,7 @@ const SmartFlowPFD = (function() {
                 });
             }
             
-            // Verificar datos mínimos
-            if (!stream.fluid || stream.fluid === 'WATER' && !stream.flow) {
+            if (!stream.fluid || (stream.fluid === 'WATER' && !stream.flow)) {
                 issues.push({
                     type: 'DATOS_INCOMPLETOS',
                     stream: stream.tag,
@@ -363,9 +462,8 @@ const SmartFlowPFD = (function() {
             }
         });
         
-        // Verificar equipos sin corrientes
         equipos.forEach(eq => {
-            if (eq.tipo === 'plataforma') return; // Las plataformas no tienen corrientes
+            if (eq.tipo === 'plataforma') return;
             
             const hasStream = streams.some(s => s.from === eq.tag || s.to === eq.tag);
             const hasLine = lines.some(l => {
@@ -383,10 +481,9 @@ const SmartFlowPFD = (function() {
             }
         });
         
-        // Reporte
         let report = '--- VALIDACIÓN PFD ---\n';
         if (issues.length === 0) {
-            report += '✅ PFD íntegro. Todas las corrientes tienen representación 3D.\n';
+            report += '✅ PFD íntegro.\n';
         } else {
             const byType = {};
             issues.forEach(i => {
@@ -402,22 +499,9 @@ const SmartFlowPFD = (function() {
         report += '══════════════════════';
         
         _notify(report, issues.length > 0);
-        
-        return {
-            valid: issues.length === 0,
-            issues: issues,
-            report: report
-        };
+        return { valid: issues.length === 0, issues, report };
     }
     
-    // ================================================================
-    //  BALANCE DE MASA SIMPLE
-    // ================================================================
-    
-    /**
-     * Verifica balance de masa para un equipo
-     * Suma de flujos de entrada = Suma de flujos de salida
-     */
     function checkMassBalance(equipmentTag) {
         const streams = _core.getStreams();
         const inflows = streams.filter(s => s.to === equipmentTag);
@@ -429,7 +513,6 @@ const SmartFlowPFD = (function() {
         }
         
         let totalIn = 0, totalOut = 0;
-        
         inflows.forEach(s => totalIn += s.flow || 0);
         outflows.forEach(s => totalOut += s.flow || 0);
         
@@ -454,24 +537,9 @@ const SmartFlowPFD = (function() {
         
         _notify(msg, percentDiff >= 5);
         
-        return {
-            equipmentTag: equipmentTag,
-            totalIn: totalIn,
-            totalOut: totalOut,
-            balance: balance,
-            percentDiff: percentDiff,
-            inflows: inflows,
-            outflows: outflows
-        };
+        return { equipmentTag, totalIn, totalOut, balance, percentDiff, inflows, outflows };
     }
     
-    // ================================================================
-    //  EXPORTACIÓN DE DATOS PFD
-    // ================================================================
-    
-    /**
-     * Exporta los datos PFD para la base de datos Excel
-     */
     function exportPFDData() {
         const streams = _core.getStreams();
         const headers = [
@@ -480,28 +548,15 @@ const SmartFlowPFD = (function() {
             'TEMPERATURE', 'TEMP_UNIT', 'SERVICE',
             'LINKED_LINES', 'DESIGN_CASE'
         ];
-        
         const rows = [headers];
-        
         streams.forEach(s => {
             rows.push([
-                s.tag,
-                s.from || '',
-                s.to || '',
-                s.fluid || '',
-                s.phase || '',
-                s.flow || 0,
-                s.flowUnit || 'm3/h',
-                s.pressure || 0,
-                s.pressureUnit || 'bar',
-                s.temperature || 25,
-                s.temperatureUnit || '°C',
-                s.service || '',
-                (s.linkedLineTags || []).join(', '),
-                s.designCase || 'NORMAL'
+                s.tag, s.from || '', s.to || '', s.fluid || '', s.phase || '',
+                s.flow || 0, s.flowUnit || 'm3/h', s.pressure || 0, s.pressureUnit || 'bar',
+                s.temperature || 25, s.temperatureUnit || '°C', s.service || '',
+                (s.linkedLineTags || []).join(', '), s.designCase || 'NORMAL'
             ]);
         });
-        
         return rows;
     }
     
@@ -509,10 +564,12 @@ const SmartFlowPFD = (function() {
     //  INICIALIZACIÓN
     // ================================================================
     
-    function init(coreInstance, notifyFn) {
+    function init(coreInstance, catalogInstance, notifyFn) {
         _core = coreInstance;
+        _catalog = catalogInstance || null;
         _notify = notifyFn || _notify;
-        console.log('SmartFlowPFD v1.0 inicializado | Fluidos: ' + FLUID_TYPES.length + ' | Fases: ' + PHASE_TYPES.length);
+        console.log('SmartFlowPFD v1.1 inicializado | Fluidos: ' + FLUID_TYPES.length + 
+                    ' | Catálogo: ' + (_catalog ? '✅' : '⚠️ no disponible'));
     }
     
     // ================================================================
@@ -521,158 +578,18 @@ const SmartFlowPFD = (function() {
     
     return {
         init: init,
+        createEquipmentForPFD: createEquipmentForPFD,
         createStream: createStream,
         getStreamInfo: getStreamInfo,
         listStreams: listStreams,
+        listEquipment: listEquipment,
         linkStreamToLine: linkStreamToLine,
         autoLinkStreams: autoLinkStreams,
         validatePFD: validatePFD,
         checkMassBalance: checkMassBalance,
         exportPFDData: exportPFDData,
+        validateEquipmentType: validateEquipmentType,
         FLUID_TYPES: FLUID_TYPES,
         PHASE_TYPES: PHASE_TYPES
     };
 })();
-```
-
----
-
-Integración en commands.js
-
-Agrega estas funciones de parsing y regístralas en executeCommand():
-
-```javascript
-// ================================================================
-//  COMANDOS PFD (Agregar en commands.js)
-// ================================================================
-
-function parseCreateStream(cmd) {
-    const parts = cmd.trim().split(/\s+/);
-    if (parts[0] !== 'create' || parts[1] !== 'stream') return false;
-    
-    const tag = parts[2];
-    if (!tag) { notifyWithVoice('❌ Uso: create stream TAG from EQUIPO to EQUIPO fluid FLUIDO flow VALOR', true); return true; }
-    
-    const fromIdx = parts.indexOf('from') !== -1 ? parts.indexOf('from') : parts.indexOf('desde');
-    const toIdx = parts.indexOf('to') !== -1 ? parts.indexOf('to') : parts.indexOf('a');
-    
-    if (fromIdx === -1 || toIdx === -1) {
-        notifyWithVoice('❌ Especifique origen (from) y destino (to)', true);
-        return true;
-    }
-    
-    const params = {
-        tag: tag,
-        from: parts[fromIdx + 1] || '',
-        to: parts[toIdx + 1] || ''
-    };
-    
-    // Extraer parámetros nombrados
-    for (let i = toIdx + 2; i < parts.length; i++) {
-        const key = parts[i].toLowerCase();
-        if (key === 'fluid' || key === 'fluido') params.fluid = parts[++i]?.toUpperCase();
-        else if (key === 'flow' || key === 'flujo') params.flow = parseFloat(parts[++i]) || 0;
-        else if (key === 'pressure' || key === 'presion') params.pressure = parseFloat(parts[++i]) || 0;
-        else if (key === 'temperature' || key === 'temperatura') params.temperature = parseFloat(parts[++i]) || 25;
-        else if (key === 'phase' || key === 'fase') params.phase = parts[++i]?.toUpperCase();
-        else if (key === 'service' || key === 'servicio') params.service = parts[++i];
-        else if (key === 'density' || key === 'densidad') params.density = parseFloat(parts[++i]) || 1000;
-    }
-    
-    if (typeof SmartFlowPFD !== 'undefined') {
-        SmartFlowPFD.createStream(params);
-        return true;
-    }
-    
-    notifyWithVoice('❌ Módulo PFD no disponible', true);
-    return true;
-}
-
-function parseStreamInfo(cmd) {
-    const parts = cmd.trim().split(/\s+/);
-    if (parts[0] !== 'info' || parts[1] !== 'stream') return false;
-    const tag = parts[2];
-    if (!tag) { notifyWithVoice('Uso: info stream TAG', true); return true; }
-    if (typeof SmartFlowPFD !== 'undefined') {
-        SmartFlowPFD.getStreamInfo(tag);
-        return true;
-    }
-    return false;
-}
-
-function parseListStreams(cmd) {
-    const parts = cmd.trim().split(/\s+/);
-    if (parts[0] !== 'list' || parts[1] !== 'streams') return false;
-    const filter = parts[2] || null;
-    if (typeof SmartFlowPFD !== 'undefined') {
-        SmartFlowPFD.listStreams(filter);
-        return true;
-    }
-    return false;
-}
-
-function parseLinkStream(cmd) {
-    const parts = cmd.trim().split(/\s+/);
-    if (parts[0] !== 'link' || parts[1] !== 'stream') return false;
-    // "link stream S1 to L-1"
-    const streamTag = parts[2];
-    const toIdx = parts.indexOf('to');
-    if (toIdx === -1 || !streamTag) return false;
-    const lineTag = parts[toIdx + 1];
-    if (typeof SmartFlowPFD !== 'undefined') {
-        SmartFlowPFD.linkStreamToLine(streamTag, lineTag);
-        return true;
-    }
-    return false;
-}
-
-function parseValidatePFD(cmd) {
-    const trimmed = cmd.trim().toLowerCase();
-    if (trimmed === 'validate pfd' || trimmed === 'validar pfd') {
-        if (typeof SmartFlowPFD !== 'undefined') {
-            SmartFlowPFD.validatePFD();
-            return true;
-        }
-    }
-    return false;
-}
-
-function parseBalance(cmd) {
-    const parts = cmd.trim().split(/\s+/);
-    if (parts[0] !== 'balance' || parts[1] !== 'masa') return false;
-    const tag = parts[2];
-    if (!tag) { notifyWithVoice('Uso: balance masa EQUIPO_TAG', true); return true; }
-    if (typeof SmartFlowPFD !== 'undefined') {
-        SmartFlowPFD.checkMassBalance(tag);
-        return true;
-    }
-    return false;
-}
-
-function parseAutoLink(cmd) {
-    const trimmed = cmd.trim().toLowerCase();
-    if (trimmed === 'autolink' || trimmed === 'auto link' || trimmed === 'vincular auto') {
-        if (typeof SmartFlowPFD !== 'undefined') {
-            SmartFlowPFD.autoLinkStreams();
-            return true;
-        }
-    }
-    return false;
-}
-```
-
----
-
-Registro en executeCommand() — Agregar estas líneas:
-
-```javascript
-// En executeCommand(), después de los comandos existentes:
-
-// ===== COMANDOS PFD =====
-if (parseCreateStream(trimmed))    { recordCommand(cmd); return true; }
-if (parseStreamInfo(trimmed))      { recordCommand(cmd); return true; }
-if (parseListStreams(trimmed))     { recordCommand(cmd); return true; }
-if (parseLinkStream(trimmed))      { recordCommand(cmd); return true; }
-if (parseValidatePFD(trimmed))     { recordCommand(cmd); return true; }
-if (parseBalance(trimmed))         { recordCommand(cmd); return true; }
-if (parseAutoLink(trimmed))        { recordCommand(cmd); return true; }
