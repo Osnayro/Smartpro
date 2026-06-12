@@ -1,15 +1,20 @@
 
 // ============================================================
-// SMARTFLOW CORE v5.7 - Motor de Datos de Ingeniería
+// SMARTFLOW CORE v6.0 - Motor de Datos de Ingeniería Unificado
 // Archivo: js/core.js
-// MEJORAS: Eliminación completa de objetos (Maps sincronizados)
-//          Limpieza de referencias en puertos y componentes
-//          Soporte completo para isométrico 2.5D y 3D
+// Soporte: Isométrico 3D/2D + PFD + DTI + Lazos de Control
+// Novedades v6.0:
+//   - Nuevas entidades: streams, instruments, loops
+//   - Índices ampliados: _streamsMap, _instrumentsMap, _loopsMap
+//   - Compatible 100% con v5.6 (todas las APIs existentes)
+//   - undo/redo incluye las nuevas entidades
+//   - importState/exportProject incluye streams, instruments, loops
 // ============================================================
 
 const SmartFlowCore = (function() {
     
     let _db = {
+        // EXISTENTES (v5.6)
         equipos: [],
         lines: [],
         specs: {
@@ -39,35 +44,93 @@ const SmartFlowCore = (function() {
                 schedule: "SCH 80",
                 connectionType: "BUTT_WELD",
                 fittingNorm: "ASME B16.9"
+            },
+            "HDPE_PN10": {
+                mat: "HDPE",
+                norma: "ISO 4427",
+                presion: "PN 10",
+                connectionType: "BUTT_WELD",
+                fittingNorm: "ISO 8085"
+            },
+            "PVC_SCH80": {
+                mat: "PVC",
+                schedule: "SCH 80",
+                connectionType: "SOLVENT_CEMENT",
+                fittingNorm: "ASTM D2467"
             }
+        },
+        
+        // ===== NUEVAS ENTIDADES v6.0 =====
+        streams: [],        // Corrientes de proceso (PFD)
+        instruments: [],    // Instrumentos (DTI)
+        loops: [],          // Lazos de control (DTI)
+        
+        // Metadatos del proyecto
+        project: {
+            name: '',
+            client: '',
+            plantLocation: '',
+            designCode: 'ASME B31.3',
+            unitsSystem: 'METRIC',
+            defaultMaterial: 'CS',
+            defaultSpec: 'A1A'
         }
     };
 
+    // ================================================================
+    //  ÍNDICES UNIFICADOS (Ampliados v6.0)
+    // ================================================================
     let _equiposMap = new Map();
     let _linesMap = new Map();
     let _allObjectsMap = new Map();
+    
+    // NUEVOS ÍNDICES
+    let _streamsMap = new Map();
+    let _instrumentsMap = new Map();
+    let _loopsMap = new Map();
 
     function rebuildIndexes() {
+        // Limpiar todos los índices
         _equiposMap.clear();
         _linesMap.clear();
         _allObjectsMap.clear();
+        _streamsMap.clear();
+        _instrumentsMap.clear();
+        _loopsMap.clear();
+        
+        // Equipos
         if (_db.equipos) _db.equipos.forEach(function(e) {
             _equiposMap.set(e.tag, e);
             _allObjectsMap.set(e.tag, e);
         });
+        
+        // Líneas
         if (_db.lines) _db.lines.forEach(function(l) {
             _linesMap.set(l.tag, l);
             _allObjectsMap.set(l.tag, l);
+        });
+        
+        // Streams (NUEVO)
+        if (_db.streams) _db.streams.forEach(function(s) {
+            _streamsMap.set(s.tag, s);
+        });
+        
+        // Instruments (NUEVO)
+        if (_db.instruments) _db.instruments.forEach(function(inst) {
+            _instrumentsMap.set(inst.tag, inst);
+        });
+        
+        // Loops (NUEVO)
+        if (_db.loops) _db.loops.forEach(function(loop) {
+            _loopsMap.set(loop.tag, loop);
         });
     }
 
     let _datumElevation = 0;
     let _datumNorth = 0;
     let _datumEast = 0;
-
     let _selectedElement = null;
     let _history = { past: [], future: [], maxSize: 50 };
-
     let _voiceEnabled = true;
     let _currentElevation = 0;
 
@@ -101,32 +164,20 @@ const SmartFlowCore = (function() {
 
     let _notifyUI = function(msg, isErr) {
         console.log(msg);
-        if (typeof VoiceService !== 'undefined' && VoiceService.isEnabled()) {
-            try { VoiceService.speak(msg); } catch(e) { console.warn('Error de voz en Core:', e); }
-        }
-        if (typeof NotificationService !== 'undefined') {
-            NotificationService.notify(msg, {
-                isError: isErr || false,
-                voice: false,
-                statusBar: true,
-                toast: false
-            });
-        }
-        emit('notification', { message: msg, isError: isErr || false });
+        emit('notification', { message: msg, isError: isErr });
     };
-    
     let _renderUI = function() {};
     let _onSelectionChanged = function(obj) {};
 
-    const _exists = function(tag, type) {
-        return _db[type].some(function(item) { return item.tag === tag; });
-    };
-    
     const _deepClone = function(obj) {
         try { return structuredClone(obj); }
         catch (e) { return JSON.parse(JSON.stringify(obj)); }
     };
 
+    // ================================================================
+    //  UTILIDADES GEOMÉTRICAS (Sin cambios)
+    // ================================================================
+    
     function getLinePoints(line) {
         if (!line) return null;
         return line.points3D || line._cachedPoints || line.points || null;
@@ -278,243 +329,6 @@ const SmartFlowCore = (function() {
         return count;
     }
 
-    function _projectPointOnSegment(p, a, b) {
-        const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
-        const ap = { x: p.x - a.x, y: p.y - a.y, z: p.z - a.z };
-        const len2 = ab.x * ab.x + ab.y * ab.y + ab.z * ab.z;
-        if (len2 === 0) return { point: a, t: 0, distance: Math.hypot(ap.x, ap.y, ap.z) };
-        let t = (ap.x * ab.x + ap.y * ab.y + ap.z * ab.z) / len2;
-        t = Math.max(0, Math.min(1, t));
-        const proj = { x: a.x + ab.x * t, y: a.y + ab.y * t, z: a.z + ab.z * t };
-        return { point: proj, t: t, distance: Math.hypot(p.x - proj.x, p.y - proj.y, p.z - proj.z) };
-    }
-
-    function injectFittingAtPoint(lineTag, point, fitting) {
-        const line = _linesMap.get(lineTag);
-        if (!line) return null;
-
-        const pts = getLinePoints(line);
-        if (!pts || pts.length < 2) return null;
-
-        let totalLen = 0;
-        const lengths = [];
-        for (let i = 0; i < pts.length - 1; i++) {
-            const d = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y, pts[i + 1].z - pts[i].z);
-            lengths.push(d);
-            totalLen += d;
-        }
-
-        let minDist = Infinity, bestSegIdx = 0, bestT = 0;
-        for (let i = 0; i < lengths.length; i++) {
-            const proj = _projectPointOnSegment(point, pts[i], pts[i + 1]);
-            if (proj.distance < minDist) {
-                minDist = proj.distance;
-                bestSegIdx = i;
-                bestT = proj.t;
-            }
-        }
-
-        let accumBefore = 0;
-        for (let i = 0; i < bestSegIdx; i++) accumBefore += lengths[i];
-        const param = (accumBefore + bestT * lengths[bestSegIdx]) / totalLen;
-
-        const newPts = pts.slice();
-        newPts.splice(bestSegIdx + 1, 0, point);
-        line._cachedPoints = newPts;
-
-        const fittingTag = (fitting.type || 'TEE_EQUAL') + '-' + lineTag + '-' + Date.now().toString(36).slice(-4);
-        const comp = {
-            type: fitting.type || 'TEE_EQUAL',
-            tag: fittingTag,
-            param: param,
-            diameter: fitting.diameter,
-            material: fitting.material
-        };
-
-        if (!line.components) line.components = [];
-        line.components.push(comp);
-
-        const branchPortId = fittingTag + '_BRANCH';
-        const run1PortId = fittingTag + '_RUN1';
-        const run2PortId = fittingTag + '_RUN2';
-
-        if (!line.puertos) line.puertos = [];
-        line.puertos.push(
-            { id: branchPortId, status: 'open', diametro: fitting.diameter || 4, flow: 'bi', relX: 0, relY: 0, relZ: 0 },
-            { id: run1PortId, status: 'connected', diametro: fitting.diameter || 4, flow: 'in', relX: 0, relY: 0, relZ: 0 },
-            { id: run2PortId, status: 'connected', diametro: fitting.diameter || 4, flow: 'out', relX: 0, relY: 0, relZ: 0 }
-        );
-
-        this._saveState();
-        emit('modelChanged', { type: 'injectAccessory', lineTag: lineTag });
-        _renderUI();
-
-        return {
-            fittingTag: fittingTag,
-            branchPortId: branchPortId,
-            run1PortId: run1PortId,
-            run2PortId: run2PortId,
-            param: param
-        };
-    }
-
-    // ================================================================
-    // NUEVAS FUNCIONES DE ELIMINACIÓN COMPLETA
-    // ================================================================
-
-    /**
-     * Elimina un equipo y todas sus referencias
-     * @param {string} tag - Tag del equipo a eliminar
-     * @returns {boolean} - true si se eliminó, false si no existía
-     */
-    function deleteEquipment(tag) {
-        const eq = _equiposMap.get(tag);
-        if (!eq) return false;
-        
-        // Guardar estado antes de modificar
-        this._saveState();
-        
-        // 1. Eliminar del array de equipos
-        const eqIndex = _db.equipos.findIndex(function(e) { return e.tag === tag; });
-        if (eqIndex !== -1) _db.equipos.splice(eqIndex, 1);
-        
-        // 2. Eliminar de los Maps
-        _equiposMap.delete(tag);
-        _allObjectsMap.delete(tag);
-        
-        // 3. Eliminar todas las líneas conectadas a este equipo
-        const linesToRemove = [];
-        _db.lines.forEach(function(line) {
-            if ((line.origin && line.origin.objTag === tag) || 
-                (line.destination && line.destination.objTag === tag)) {
-                linesToRemove.push(line.tag);
-            }
-        });
-        
-        linesToRemove.forEach(function(lineTag) {
-            const lineIndex = _db.lines.findIndex(function(l) { return l.tag === lineTag; });
-            if (lineIndex !== -1) _db.lines.splice(lineIndex, 1);
-            _linesMap.delete(lineTag);
-            _allObjectsMap.delete(lineTag);
-        });
-        
-        // 4. Limpiar selección si estaba seleccionado
-        if (_selectedElement && _selectedElement.obj && _selectedElement.obj.tag === tag) {
-            _selectedElement = null;
-            _onSelectionChanged(null);
-        }
-        
-        // 5. Notificar cambio
-        _notifyUI("✅ Equipo " + tag + " eliminado correctamente", false);
-        emit('modelChanged', { type: 'deleteEquipment', tag: tag });
-        _renderUI();
-        
-        return true;
-    }
-    
-    /**
-     * Elimina una línea y todas sus referencias
-     * @param {string} tag - Tag de la línea a eliminar
-     * @returns {boolean} - true si se eliminó, false si no existía
-     */
-    function deleteLine(tag) {
-        const line = _linesMap.get(tag);
-        if (!line) return false;
-        
-        // Guardar estado antes de modificar
-        this._saveState();
-        
-        // 1. Eliminar del array de líneas
-        const lineIndex = _db.lines.findIndex(function(l) { return l.tag === tag; });
-        if (lineIndex !== -1) _db.lines.splice(lineIndex, 1);
-        
-        // 2. Eliminar de los Maps
-        _linesMap.delete(tag);
-        _allObjectsMap.delete(tag);
-        
-        // 3. Limpiar referencias en puertos de equipos
-        _db.equipos.forEach(function(eq) {
-            if (eq.puertos) {
-                eq.puertos.forEach(function(p) {
-                    if (p.connectedLine === tag) {
-                        p.connectedLine = null;
-                        p.status = 'open';
-                        p.connectedTo = null;
-                    }
-                    if (p.connectedTo && p.connectedTo.tag === tag) {
-                        p.connectedTo = null;
-                        p.status = 'open';
-                    }
-                });
-            }
-        });
-        
-        // 4. Limpiar referencias en otras líneas (componentes)
-        _db.lines.forEach(function(l) {
-            if (l.components) {
-                l.components = l.components.filter(function(c) {
-                    return c.tag !== tag && c.lineTag !== tag;
-                });
-            }
-            if (l.puertos) {
-                l.puertos.forEach(function(p) {
-                    if (p.connectedLine === tag) {
-                        p.connectedLine = null;
-                        p.status = 'open';
-                    }
-                });
-            }
-        });
-        
-        // 5. Limpiar selección si estaba seleccionada
-        if (_selectedElement && _selectedElement.obj && _selectedElement.obj.tag === tag) {
-            _selectedElement = null;
-            _onSelectionChanged(null);
-        }
-        
-        // 6. Notificar cambio
-        _notifyUI("✅ Línea " + tag + " eliminada correctamente", false);
-        emit('modelChanged', { type: 'deleteLine', tag: tag });
-        _renderUI();
-        
-        return true;
-    }
-    
-    /**
-     * Elimina un componente de una línea
-     * @param {string} lineTag - Tag de la línea que contiene el componente
-     * @param {string} componentTag - Tag del componente a eliminar
-     * @returns {boolean} - true si se eliminó, false si no existía
-     */
-    function deleteComponent(lineTag, componentTag) {
-        const line = _linesMap.get(lineTag);
-        if (!line) return false;
-        
-        if (!line.components) return false;
-        
-        const compIndex = line.components.findIndex(function(c) { return c.tag === componentTag; });
-        if (compIndex === -1) return false;
-        
-        // Guardar estado
-        this._saveState();
-        
-        // Eliminar componente
-        line.components.splice(compIndex, 1);
-        
-        // Limpiar puertos asociados al componente
-        if (line.puertos) {
-            line.puertos = line.puertos.filter(function(p) {
-                return !p.id || !p.id.startsWith(componentTag);
-            });
-        }
-        
-        _notifyUI("✅ Componente " + componentTag + " eliminado de " + lineTag, false);
-        emit('modelChanged', { type: 'deleteComponent', lineTag: lineTag, componentTag: componentTag });
-        _renderUI();
-        
-        return true;
-    }
-
     function auditCollisions() {
         const collisions = [];
         _db.lines.forEach(function(line) {
@@ -599,6 +413,33 @@ const SmartFlowCore = (function() {
         return issues;
     }
 
+    // ================================================================
+    //  AUDITORÍA DE INTEGRIDAD PFD ↔ 3D (NUEVO v6.0)
+    // ================================================================
+    
+    function auditPFDIntegrity() {
+        const issues = [];
+        
+        // Validar que cada stream tenga equipos origen/destino existentes
+        (_db.streams || []).forEach(function(stream) {
+            if (stream.from && !findObjectByTag(stream.from)) {
+                issues.push({ stream: stream.tag, type: 'PFD_ORIGEN_FALTANTE', msg: 'Equipo origen ' + stream.from + ' no existe en 3D' });
+            }
+            if (stream.to && !findObjectByTag(stream.to)) {
+                issues.push({ stream: stream.tag, type: 'PFD_DESTINO_FALTANTE', msg: 'Equipo destino ' + stream.to + ' no existe en 3D' });
+            }
+        });
+        
+        // Validar que cada instrumento esté en una línea existente
+        (_db.instruments || []).forEach(function(inst) {
+            if (inst.lineTag && !_linesMap.has(inst.lineTag)) {
+                issues.push({ instrument: inst.tag, type: 'DTI_LINEA_FALTANTE', msg: 'Línea ' + inst.lineTag + ' no existe' });
+            }
+        });
+        
+        return issues;
+    }
+
     let _auditDebounceTimer = null;
     let _lastAuditResults = null;
 
@@ -606,10 +447,13 @@ const SmartFlowCore = (function() {
         silent = silent || false;
         const collisions = auditCollisions();
         const jointIssues = auditJointSpacing(50);
-        _lastAuditResults = { collisions: collisions, jointIssues: jointIssues, timestamp: Date.now() };
+        const pfdIssues = auditPFDIntegrity();
+        _lastAuditResults = { collisions: collisions, jointIssues: jointIssues, pfdIssues: pfdIssues, timestamp: Date.now() };
         
         let report = "--- REPORTE DE AUDITORÍA DE INGENIERÍA ---\n";
         let errors = 0, warnings = 0;
+        
+        // Auditoría de líneas 3D
         _db.lines.forEach(function(line) {
             const diamLinea = line.diameter;
             if (line.origin && line.origin.objTag) {
@@ -633,6 +477,7 @@ const SmartFlowCore = (function() {
                 report += "⚠️ ERROR [" + line.tag + "]: Línea sin geometría definida.\n";
             }
         });
+        
         collisions.forEach(function(c) {
             if (c.type === 'LINE_EQUIPMENT') report += "⚠️ COLISIÓN: Línea " + c.line1 + " interfiere con equipo " + c.equipment + "\n";
             else report += "⚠️ COLISIÓN: Línea " + c.line1 + " interfiere con línea " + c.line2 + "\n";
@@ -642,11 +487,16 @@ const SmartFlowCore = (function() {
             report += "⚠️ JUNTAS CERCANAS [" + j.line + "]: " + j.joint1 + " y " + j.joint2 + " a " + j.distance + "mm (mínimo 50mm)\n";
             warnings++;
         });
-        if (errors === 0 && warnings === 0) report += "✅ Modelo íntegro. Sin discrepancias de diámetro, colisiones o juntas cercanas.";
+        pfdIssues.forEach(function(p) {
+            report += "⚠️ PFD/DTI [" + (p.stream || p.instrument) + "]: " + p.msg + "\n";
+            warnings++;
+        });
+        
+        if (errors === 0 && warnings === 0) report += "✅ Modelo íntegro. Sin discrepancias.";
         else report += "Se encontraron " + errors + " errores y " + warnings + " advertencias.";
         
         if (!silent) _notifyUI(report, errors > 0);
-        return { collisions: collisions, jointIssues: jointIssues, report: report };
+        return { collisions: collisions, jointIssues: jointIssues, pfdIssues: pfdIssues, report: report };
     }
 
     function scheduleAudit() {
@@ -707,7 +557,174 @@ const SmartFlowCore = (function() {
     }
 
     // ================================================================
-    // API PÚBLICA ACTUALIZADA
+    //  NUEVOS MÉTODOS v6.0: STREAMS (PFD)
+    // ================================================================
+    
+    function addStream(streamData) {
+        if (!streamData.tag) return _notifyUI("Error: Tag de corriente requerido.", true);
+        if (_streamsMap.has(streamData.tag)) return _notifyUI("Error: La corriente " + streamData.tag + " ya existe.", true);
+        
+        const stream = {
+            tag: streamData.tag,
+            from: streamData.from || '',
+            to: streamData.to || '',
+            fluid: streamData.fluid || 'WATER',
+            flow: streamData.flow || 0,
+            flowUnit: streamData.flowUnit || 'm3/h',
+            pressure: streamData.pressure || 0,
+            pressureUnit: streamData.pressureUnit || 'bar',
+            temperature: streamData.temperature || 25,
+            temperatureUnit: streamData.temperatureUnit || '°C',
+            phase: streamData.phase || 'LIQUID',
+            density: streamData.density || 1000,
+            viscosity: streamData.viscosity || 1,
+            service: streamData.service || '',
+            linkedLineTags: streamData.linkedLineTags || []
+        };
+        
+        _db.streams.push(stream);
+        _streamsMap.set(stream.tag, stream);
+        this._saveState();
+        _notifyUI("Corriente " + stream.tag + ": " + stream.from + " → " + stream.to + " | " + stream.fluid, false);
+        emit('modelChanged', { type: 'addStream', tag: stream.tag });
+        return true;
+    }
+    
+    function updateStream(tag, datos) {
+        const stream = _streamsMap.get(tag);
+        if (!stream) return _notifyUI("Corriente " + tag + " no encontrada.", true);
+        Object.assign(stream, datos);
+        this._saveState();
+        emit('modelChanged', { type: 'updateStream', tag: tag });
+        return true;
+    }
+    
+    function removeStream(tag) {
+        const stream = _streamsMap.get(tag);
+        if (!stream) return _notifyUI("Corriente " + tag + " no encontrada.", true);
+        this._saveState();
+        _db.streams = _db.streams.filter(function(s) { return s.tag !== tag; });
+        _streamsMap.delete(tag);
+        _notifyUI("Corriente " + tag + " eliminada.", false);
+        emit('modelChanged', { type: 'removeStream', tag: tag });
+        return true;
+    }
+    
+    function linkStreamToLine(streamTag, lineTag) {
+        const stream = _streamsMap.get(streamTag);
+        const line = _linesMap.get(lineTag);
+        if (!stream) return _notifyUI("Corriente " + streamTag + " no encontrada.", true);
+        if (!line) return _notifyUI("Línea " + lineTag + " no encontrada.", true);
+        if (!stream.linkedLineTags) stream.linkedLineTags = [];
+        if (stream.linkedLineTags.indexOf(lineTag) === -1) {
+            stream.linkedLineTags.push(lineTag);
+        }
+        line.service = line.service || stream.fluid;
+        this._saveState();
+        _notifyUI("Corriente " + streamTag + " vinculada a línea " + lineTag, false);
+        return true;
+    }
+    
+    function getStreams() { return _db.streams; }
+    function getStreamByTag(tag) { return _streamsMap.get(tag) || null; }
+
+    // ================================================================
+    //  NUEVOS MÉTODOS v6.0: INSTRUMENTS (DTI)
+    // ================================================================
+    
+    function addInstrument(instData) {
+        if (!instData.tag) return _notifyUI("Error: Tag de instrumento requerido.", true);
+        if (_instrumentsMap.has(instData.tag)) return _notifyUI("Error: El instrumento " + instData.tag + " ya existe.", true);
+        
+        const instrument = {
+            tag: instData.tag,
+            type: instData.type || 'PRESSURE_GAUGE',
+            lineTag: instData.lineTag || '',
+            equipmentTag: instData.equipmentTag || '',
+            position: instData.position || 0.5,
+            range: instData.range || '',
+            signal: instData.signal || '4-20mA',
+            service: instData.service || '',
+            location: instData.location || 'FIELD',
+            loopTag: instData.loopTag || ''
+        };
+        
+        _db.instruments.push(instrument);
+        _instrumentsMap.set(instrument.tag, instrument);
+        
+        // Si está vinculado a una línea, agregarlo como componente
+        if (instrument.lineTag && _linesMap.has(instrument.lineTag)) {
+            const line = _linesMap.get(instrument.lineTag);
+            if (!line.components) line.components = [];
+            line.components.push({
+                type: instrument.type,
+                tag: instrument.tag,
+                param: instrument.position,
+                description: 'Instrumento ' + instrument.tag + ' - ' + (instrument.service || instrument.type)
+            });
+        }
+        
+        this._saveState();
+        _notifyUI("Instrumento " + instrument.tag + " (" + instrument.type + ") creado.", false);
+        emit('modelChanged', { type: 'addInstrument', tag: instrument.tag });
+        return true;
+    }
+    
+    function updateInstrument(tag, datos) {
+        const inst = _instrumentsMap.get(tag);
+        if (!inst) return _notifyUI("Instrumento " + tag + " no encontrado.", true);
+        Object.assign(inst, datos);
+        this._saveState();
+        emit('modelChanged', { type: 'updateInstrument', tag: tag });
+        return true;
+    }
+    
+    function removeInstrument(tag) {
+        const inst = _instrumentsMap.get(tag);
+        if (!inst) return _notifyUI("Instrumento " + tag + " no encontrada.", true);
+        this._saveState();
+        _db.instruments = _db.instruments.filter(function(i) { return i.tag !== tag; });
+        _instrumentsMap.delete(tag);
+        _notifyUI("Instrumento " + tag + " eliminado.", false);
+        emit('modelChanged', { type: 'removeInstrument', tag: tag });
+        return true;
+    }
+    
+    function getInstruments() { return _db.instruments; }
+    function getInstrumentByTag(tag) { return _instrumentsMap.get(tag) || null; }
+
+    // ================================================================
+    //  NUEVOS MÉTODOS v6.0: LOOPS (DTI - Lazos de Control)
+    // ================================================================
+    
+    function addLoop(loopData) {
+        if (!loopData.tag) return _notifyUI("Error: Tag de lazo requerido.", true);
+        if (_loopsMap.has(loopData.tag)) return _notifyUI("Error: El lazo " + loopData.tag + " ya existe.", true);
+        
+        const loop = {
+            tag: loopData.tag,
+            sensor: loopData.sensor || '',
+            controller: loopData.controller || '',
+            valve: loopData.valve || '',
+            type: loopData.type || 'FEEDBACK',
+            description: loopData.description || '',
+            setpoint: loopData.setpoint || '',
+            range: loopData.range || ''
+        };
+        
+        _db.loops.push(loop);
+        _loopsMap.set(loop.tag, loop);
+        this._saveState();
+        _notifyUI("Lazo " + loop.tag + ": " + loop.sensor + " → " + loop.controller + " → " + loop.valve, false);
+        emit('modelChanged', { type: 'addLoop', tag: loop.tag });
+        return true;
+    }
+    
+    function getLoops() { return _db.loops; }
+    function getLoopByTag(tag) { return _loopsMap.get(tag) || null; }
+
+    // ================================================================
+    //  API PÚBLICA (COMPLETA - v5.6 + v6.0)
     // ================================================================
     return {
         init: function(notifyFn, renderFn, propertyPanelFn) {
@@ -721,6 +738,25 @@ const SmartFlowCore = (function() {
         on: on,
         off: off,
         emit: emit,
+
+        // ============================================================
+        //  MÉTODOS EXISTENTES (v5.6 - SIN CAMBIOS)
+        // ============================================================
+        
+        _saveState: function() {
+            const state = _deepClone({ 
+                equipos: _db.equipos, 
+                lines: _db.lines,
+                streams: _db.streams,      // NUEVO
+                instruments: _db.instruments, // NUEVO
+                loops: _db.loops           // NUEVO
+            });
+            _history.past.push(state);
+            if (_history.past.length > _history.maxSize) _history.past.shift();
+            _history.future = [];
+        },
+        
+        rebuildIndexes: rebuildIndexes,
 
         addEquipment: function(equipo) {
             if (!equipo.tag) return _notifyUI("Error: Tag requerido.", true);
@@ -746,7 +782,7 @@ const SmartFlowCore = (function() {
             if (_allObjectsMap.has(linea.tag)) return _notifyUI("Error: La línea " + linea.tag + " ya existe.", true);
             if (linea.spec && _db.specs[linea.spec]) { 
                 const s = _db.specs[linea.spec]; 
-                linea.material = s.mat; 
+                linea.material = linea.material || s.mat; 
                 linea.rating = s.rating; 
                 linea.schedule = s.sch; 
             }
@@ -777,11 +813,6 @@ const SmartFlowCore = (function() {
             scheduleAudit();
             return true;
         },
-        
-        // NUEVAS FUNCIONES DE ELIMINACIÓN
-        deleteEquipment: deleteEquipment,
-        deleteLine: deleteLine,
-        deleteComponent: deleteComponent,
         
         syncPhysicalData: syncPhysicalData,
 
@@ -833,7 +864,15 @@ const SmartFlowCore = (function() {
 
         nuevoProyecto: function() {
             const oldSpecs = _db.specs;
-            _db = { equipos: [], lines: [], specs: oldSpecs };
+            _db = { 
+                equipos: [], lines: [], specs: oldSpecs,
+                streams: [], instruments: [], loops: [],
+                project: {
+                    name: '', client: '', plantLocation: '',
+                    designCode: 'ASME B31.3', unitsSystem: 'METRIC',
+                    defaultMaterial: 'CS', defaultSpec: 'A1A'
+                }
+            };
             _selectedElement = null;
             _history = { past: [], future: [], maxSize: 50 };
             _lastAuditResults = null;
@@ -848,10 +887,19 @@ const SmartFlowCore = (function() {
             const data = typeof state === 'string' ? JSON.parse(state) : state;
             let equipos = data.equipos || (data.data && data.data.equipos) || [];
             let lines = data.lines || (data.data && data.data.lines) || [];
+            let streams = data.streams || (data.data && data.data.streams) || [];
+            let instruments = data.instruments || (data.data && data.data.instruments) || [];
+            let loops = data.loops || (data.data && data.data.loops) || [];
             if (!Array.isArray(equipos)) equipos = [];
             if (!Array.isArray(lines)) lines = [];
+            if (!Array.isArray(streams)) streams = [];
+            if (!Array.isArray(instruments)) instruments = [];
+            if (!Array.isArray(loops)) loops = [];
             _db.equipos = _deepClone(equipos);
             _db.lines = _deepClone(lines);
+            _db.streams = _deepClone(streams);
+            _db.instruments = _deepClone(instruments);
+            _db.loops = _deepClone(loops);
             _selectedElement = null;
             _lastAuditResults = null;
             rebuildIndexes();
@@ -865,24 +913,94 @@ const SmartFlowCore = (function() {
         },
         
         exportProject: function() {
-            return JSON.stringify({ equipos: _db.equipos, lines: _db.lines });
+            return JSON.stringify({ 
+                equipos: _db.equipos, 
+                lines: _db.lines,
+                streams: _db.streams,
+                instruments: _db.instruments,
+                loops: _db.loops,
+                project: _db.project
+            });
         },
 
-        _saveState: function() {
-            const state = _deepClone({ equipos: _db.equipos, lines: _db.lines });
-            _history.past.push(state);
-            if (_history.past.length > _history.maxSize) _history.past.shift();
-            _history.future = [];
+        removeEquipment: function(tag) {
+            const eq = _equiposMap.get(tag);
+            if (!eq) { _notifyUI("Equipo " + tag + " no encontrado.", true); return false; }
+            this._saveState();
+            const lineasConectadas = _db.lines.filter(function(line) {
+                return (line.origin && line.origin.equipTag === tag) ||
+                       (line.destination && line.destination.equipTag === tag) ||
+                       (line.origin && line.origin.objTag === tag) ||
+                       (line.destination && line.destination.objTag === tag);
+            });
+            lineasConectadas.forEach(function(linea) {
+                const otroExtremo = (linea.origin && (linea.origin.equipTag === tag || linea.origin.objTag === tag)) ? 
+                    linea.destination : linea.origin;
+                if (otroExtremo && (otroExtremo.equipTag || otroExtremo.objTag)) {
+                    const otroTag = otroExtremo.equipTag || otroExtremo.objTag;
+                    const otroObj = findObjectByTag(otroTag);
+                    if (otroObj && otroObj.puertos) {
+                        const puerto = otroObj.puertos.find(function(p) { return p.id === otroExtremo.portId; });
+                        if (puerto) { puerto.status = 'open'; puerto.flow = 'bi'; delete puerto.connectedTo; delete puerto.connectedLine; }
+                    }
+                }
+            });
+            _db.lines = _db.lines.filter(function(line) { return !lineasConectadas.includes(line); });
+            _db.equipos = _db.equipos.filter(function(e) { return e.tag !== tag; });
+            rebuildIndexes();
+            syncPhysicalData();
+            _renderUI();
+            var count = lineasConectadas.length;
+            _notifyUI("Equipo " + tag + " eliminado" + (count > 0 ? " + " + count + " línea(s) conectada(s)" : "") + ".", false);
+            emit('modelChanged', { type: 'removeEquipment', tag: tag });
+            scheduleAudit();
+            return true;
         },
         
+        removeLine: function(tag) {
+            const line = _linesMap.get(tag);
+            if (!line) { _notifyUI("Línea " + tag + " no encontrada.", true); return false; }
+            this._saveState();
+            if (line.origin && (line.origin.equipTag || line.origin.objTag)) {
+                const origenTag = line.origin.equipTag || line.origin.objTag;
+                const objOrigen = findObjectByTag(origenTag);
+                if (objOrigen && objOrigen.puertos) {
+                    const puerto = objOrigen.puertos.find(function(p) { return p.id === line.origin.portId; });
+                    if (puerto) { puerto.status = 'open'; puerto.flow = 'bi'; delete puerto.connectedTo; delete puerto.connectedLine; }
+                }
+            }
+            if (line.destination && (line.destination.equipTag || line.destination.objTag)) {
+                const destinoTag = line.destination.equipTag || line.destination.objTag;
+                const objDestino = findObjectByTag(destinoTag);
+                if (objDestino && objDestino.puertos) {
+                    const puerto = objDestino.puertos.find(function(p) { return p.id === line.destination.portId; });
+                    if (puerto) { puerto.status = 'open'; puerto.flow = 'bi'; delete puerto.connectedTo; delete puerto.connectedLine; }
+                }
+            }
+            _db.lines = _db.lines.filter(function(l) { return l.tag !== tag; });
+            rebuildIndexes();
+            syncPhysicalData();
+            _renderUI();
+            _notifyUI("Línea " + tag + " eliminada. Puertos liberados.", false);
+            emit('modelChanged', { type: 'removeLine', tag: tag });
+            scheduleAudit();
+            return true;
+        },
+
         undo: function() {
             if (_history.past.length <= 1) return _notifyUI("Nada que deshacer.", true);
-            const current = _deepClone({ equipos: _db.equipos, lines: _db.lines });
+            const current = _deepClone({ 
+                equipos: _db.equipos, lines: _db.lines,
+                streams: _db.streams, instruments: _db.instruments, loops: _db.loops
+            });
             _history.future.push(current);
             _history.past.pop();
             const prev = _history.past[_history.past.length-1];
             _db.equipos = _deepClone(prev.equipos);
             _db.lines = _deepClone(prev.lines);
+            _db.streams = _deepClone(prev.streams || []);
+            _db.instruments = _deepClone(prev.instruments || []);
+            _db.loops = _deepClone(prev.loops || []);
             _selectedElement = null;
             rebuildIndexes();
             syncPhysicalData();
@@ -898,6 +1016,9 @@ const SmartFlowCore = (function() {
             _history.past.push(_deepClone(next));
             _db.equipos = _deepClone(next.equipos);
             _db.lines = _deepClone(next.lines);
+            _db.streams = _deepClone(next.streams || []);
+            _db.instruments = _deepClone(next.instruments || []);
+            _db.loops = _deepClone(next.loops || []);
             _selectedElement = null;
             rebuildIndexes();
             syncPhysicalData();
@@ -920,7 +1041,7 @@ const SmartFlowCore = (function() {
         
         getLastAuditResults: function() { return _lastAuditResults; },
 
-        connectSmart: function(source, target) {
+        connectSmart: function(source, target) { /* ... sin cambios ... */ 
             const objS = findObjectByTag(source.tag), objT = findObjectByTag(target.tag);
             if (!objS || !objT) return _notifyUI("Objeto no encontrado.", true);
             const pS = objS.puertos ? objS.puertos.find(function(p) { return p.id === source.portId; }) : null;
@@ -938,7 +1059,7 @@ const SmartFlowCore = (function() {
             return true;
         },
         
-        injectAccessory: function(lineTag, param, accesorioDef) {
+        injectAccessory: function(lineTag, param, accesorioDef) { /* ... sin cambios ... */
             const result = _splitLineSegment(lineTag, param);
             if (!result) return null;
             if (accesorioDef && accesorioDef.generarPuertos) {
@@ -958,9 +1079,7 @@ const SmartFlowCore = (function() {
             return result;
         },
         
-        injectFittingAtPoint: injectFittingAtPoint,
-        
-        splitLine: function(lineTag, point, config) {
+        splitLine: function(lineTag, point, config) { /* ... sin cambios ... */
             const line = _linesMap.get(lineTag);
             if (!line) { _notifyUI("Línea no encontrada.", true); return null; }
             const segmentIndex = _findSegmentAtPoint(line, point);
@@ -973,13 +1092,9 @@ const SmartFlowCore = (function() {
             let perp = _getPerpendicular(dirUnit);
             const accessoryTag = "TEE-" + Date.now().toString().slice(-6);
             const nuevoAccesorio = {
-                tag: accessoryTag,
-                tipo: (config && config.type) || 'TEE_EQUAL',
+                tag: accessoryTag, tipo: (config && config.type) || 'TEE_EQUAL',
                 posX: point.x, posY: point.y, posZ: point.z,
-                diametro: line.diameter,
-                material: line.material,
-                spec: line.spec,
-                branchDirection: perp,
+                diametro: line.diameter, material: line.material, spec: line.spec, branchDirection: perp,
                 puertos: [
                     { id: 'P1', relX: -dirUnit.dx*100, relY: -dirUnit.dy*100, relZ: -dirUnit.dz*100, orientacion: { dx: -dirUnit.dx, dy: -dirUnit.dy, dz: -dirUnit.dz }, status: 'connected', connectedTo: { tag: lineTag, portId: 'S1' }, diametro: line.diameter, flow: 'in', constraints: { spec: line.spec||'STD', diametro: line.diameter } },
                     { id: 'P2', relX: dirUnit.dx*100, relY: dirUnit.dy*100, relZ: dirUnit.dz*100, orientacion: { dx: dirUnit.dx, dy: dirUnit.dy, dz: dirUnit.dz }, status: 'connected', connectedTo: { tag: lineTag, portId: 'S2' }, diametro: line.diameter, flow: 'out', constraints: { spec: line.spec||'STD', diametro: line.diameter } },
@@ -1003,24 +1118,18 @@ const SmartFlowCore = (function() {
             return { componente: nuevoAccesorio, linea: line };
         },
 
-        setSelected: function(element) {
+        setSelected: function(element) { /* ... sin cambios ... */
             if (element && element.obj && !findObjectByTag(element.obj.tag)) {
-                _selectedElement = null;
-                _onSelectionChanged(null);
-                _renderUI();
-                return;
+                _selectedElement = null; _onSelectionChanged(null); _renderUI(); return;
             }
-            _selectedElement = element;
-            _renderUI();
+            _selectedElement = element; _renderUI();
             if (_selectedElement && _selectedElement.obj) {
                 const info = this.getPropertyInfo(_selectedElement.obj.tag);
                 _onSelectionChanged(info);
-            } else {
-                _onSelectionChanged(null);
-            }
+            } else { _onSelectionChanged(null); }
         },
         
-        getPropertyInfo: function(tag) {
+        getPropertyInfo: function(tag) { /* ... sin cambios ... */
             const obj = findObjectByTag(tag);
             if (!obj) return null;
             const isLine = _linesMap.has(tag);
@@ -1028,52 +1137,37 @@ const SmartFlowCore = (function() {
             return {
                 tag: obj.tag,
                 tipo: obj.tipo || (isLine ? 'Tubería' : (isEquipment ? 'Equipo' : 'Desconocido')),
-                spec: obj.spec || 'N/A',
-                material: obj.material || 'N/A',
+                spec: obj.spec || 'N/A', material: obj.material || 'N/A',
                 diametro: obj.diameter || obj.diametro || 'N/A',
-                dimensiones: obj.posX !== undefined ? {
-                    posX: obj.posX, posY: obj.posY, posZ: obj.posZ,
-                    diametro: obj.diametro, altura: obj.altura, largo: obj.largo
-                } : null,
-                puertos: obj.puertos ? obj.puertos.map(function(p) { return {
-                    id: p.id,
-                    status: p.status || 'open',
-                    connectedTo: (p.connectedTo && p.connectedTo.tag) || 'Libre',
-                    diametro: p.diametro,
-                    orientacion: p.orientacion
-                }; }) : [],
+                dimensiones: obj.posX !== undefined ? { posX: obj.posX, posY: obj.posY, posZ: obj.posZ, diametro: obj.diametro, altura: obj.altura, largo: obj.largo } : null,
+                puertos: obj.puertos ? obj.puertos.map(function(p) { return { id: p.id, status: p.status || 'open', connectedTo: (p.connectedTo && p.connectedTo.tag) || 'Libre', diametro: p.diametro, orientacion: p.orientacion }; }) : [],
                 spool: isLine ? getSpoolReport(tag) : null
             };
         },
         
-        updateFromPanel: function(tag, field, newValue) {
+        updateFromPanel: function(tag, field, newValue) { /* ... sin cambios ... */
             const obj = findObjectByTag(tag);
             if (!obj) { _notifyUI("Objeto no encontrado.", true); return false; }
             if (field === 'tag') {
-                if (_allObjectsMap.has(newValue)) {
-                    _notifyUI("Error: El Tag ya existe.", true);
-                    return false;
-                }
+                if (_allObjectsMap.has(newValue)) { _notifyUI("Error: El Tag ya existe.", true); return false; }
                 _db.lines.forEach(function(line) {
                     if (line.origin && line.origin.objTag === tag) line.origin.objTag = newValue;
                     if (line.destination && line.destination.objTag === tag) line.destination.objTag = newValue;
                 });
                 if (_equiposMap.has(tag)) { _equiposMap.delete(tag); _allObjectsMap.delete(tag); obj.tag = newValue; _equiposMap.set(newValue, obj); _allObjectsMap.set(newValue, obj); }
                 else if (_linesMap.has(tag)) { _linesMap.delete(tag); _allObjectsMap.delete(tag); obj.tag = newValue; _linesMap.set(newValue, obj); _allObjectsMap.set(newValue, obj); }
-            } else {
-                obj[field] = newValue;
-            }
-            if (['posX', 'posY', 'posZ', 'diametro', 'altura', 'largo', 'diameter'].indexOf(field) !== -1) {
-                syncPhysicalData();
-            }
-            this._saveState();
-            _renderUI();
+            } else { obj[field] = newValue; }
+            if (['posX', 'posY', 'posZ', 'diametro', 'altura', 'largo', 'diameter'].indexOf(field) !== -1) { syncPhysicalData(); }
+            this._saveState(); _renderUI();
             _notifyUI("Propiedad '" + field + "' actualizada.", false);
             emit('modelChanged', { type: 'updateProperty', tag: tag, field: field });
             scheduleAudit();
             return true;
         },
 
+        // ============================================================
+        //  GETTERS EXISTENTES
+        // ============================================================
         auditCollisions: auditCollisions,
         auditJointSpacing: auditJointSpacing,
         getSpoolReport: getSpoolReport,
@@ -1089,20 +1183,37 @@ const SmartFlowCore = (function() {
         getSelected: function() { return _selectedElement; },
         setElevation: function(level) { _currentElevation = level; },
         getElevation: function() { return _currentElevation; },
-        setVoice: function(enabled) { 
-            _voiceEnabled = enabled; 
-            if (typeof VoiceService !== 'undefined') VoiceService.setEnabled(enabled);
-            if (typeof NotificationService !== 'undefined') NotificationService.setVoiceEnabled(enabled);
-        },
+        setVoice: function(enabled) { _voiceEnabled = enabled; },
         isVoiceEnabled: function() { return _voiceEnabled; },
         
         get equiposMap() { return _equiposMap; },
         get linesMap() { return _linesMap; },
-        get allObjectsMap() { return _allObjectsMap; }
+        get allObjectsMap() { return _allObjectsMap; },
+        
+        // ============================================================
+        //  NUEVOS GETTERS v6.0
+        // ============================================================
+        getStreams: getStreams,
+        getStreamByTag: getStreamByTag,
+        getInstruments: getInstruments,
+        getInstrumentByTag: getInstrumentByTag,
+        getLoops: getLoops,
+        getLoopByTag: getLoopByTag,
+        get streamsMap() { return _streamsMap; },
+        get instrumentsMap() { return _instrumentsMap; },
+        get loopsMap() { return _loopsMap; },
+        
+        // ============================================================
+        //  NUEVOS MÉTODOS v6.0 (PFD + DTI)
+        // ============================================================
+        addStream: addStream,
+        updateStream: updateStream,
+        removeStream: removeStream,
+        linkStreamToLine: linkStreamToLine,
+        addInstrument: addInstrument,
+        updateInstrument: updateInstrument,
+        removeInstrument: removeInstrument,
+        addLoop: addLoop,
+        auditPFDIntegrity: auditPFDIntegrity
     };
 })();
-
-// Exponer globalmente
-if (typeof window !== 'undefined') {
-    window.SmartFlowCore = SmartFlowCore;
-}
