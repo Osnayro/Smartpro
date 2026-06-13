@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>SmartEngp v3.1 | AcQuaBlue</title>
+    <title>SmartEngp v3.2 | AcQuaBlue</title>
     
     <!-- Three.js r160 con Import Map -->
     <script type="importmap">
@@ -48,9 +48,6 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* ═══════════════════════════════════════════ */
-        /* SPLASH SCREEN                              */
-        /* ═══════════════════════════════════════════ */
         #splash-screen {
             position: fixed; top: 0; left: 0;
             width: 100%; height: 100%;
@@ -87,9 +84,6 @@
         @keyframes fill-bar { 0% { width: 0%; } 100% { width: 100%; } }
         .splash-hidden { opacity: 0; visibility: hidden; }
 
-        /* ═══════════════════════════════════════════ */
-        /* WELCOME PANEL                              */
-        /* ═══════════════════════════════════════════ */
         #welcome-panel {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--primary-bg); z-index: 9000;
@@ -131,9 +125,6 @@
         .modal-btn { padding: 10px 24px; background: var(--accent-blue); border: none; color: white; font-weight: bold; border-radius: 6px; cursor: pointer; }
         .modal-btn.cancel { background: #334155; }
 
-        /* ═══════════════════════════════════════════ */
-        /* TOOLBAR PRINCIPAL                          */
-        /* ═══════════════════════════════════════════ */
         .toolbar {
             background: var(--toolbar-bg); padding: 6px 12px; display: flex;
             align-items: center; flex-wrap: wrap; gap: 6px;
@@ -143,9 +134,7 @@
         .toolbar-logo img { height: 24px; margin-right: 6px; }
         .toolbar-title { color: var(--accent-cyan); font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
 
-        .toolbar-separator {
-            width: 1px; height: 22px; background: var(--button-border); margin: 0 4px;
-        }
+        .toolbar-separator { width: 1px; height: 22px; background: var(--button-border); margin: 0 4px; }
 
         button {
             background: var(--button-bg); border: 1px solid var(--button-border); color: white;
@@ -182,9 +171,6 @@
         .dropdown-content button { width: 100%; text-align: left; border: none; border-radius: 0; }
         .dropdown.open > .dropdown-content { display: block; }
 
-        /* ═══════════════════════════════════════════ */
-        /* PESTAÑAS DE MÓDULO                         */
-        /* ═══════════════════════════════════════════ */
         .module-tabs {
             display: flex; gap: 2px; padding: 0 12px;
             background: var(--toolbar-bg); border-bottom: 2px solid var(--button-border);
@@ -196,22 +182,12 @@
             transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
         }
         .module-tab:hover { color: #e2e8f0; }
-        .module-tab.active { border-bottom-color: var(--accent-cyan); }
         .module-tab.pfd-tab.active { color: var(--accent-green); border-bottom-color: var(--accent-green); }
         .module-tab.dti-tab.active { color: var(--accent-purple); border-bottom-color: var(--accent-purple); }
         .module-tab.iso-tab.active { color: var(--accent-cyan); border-bottom-color: var(--accent-cyan); }
 
-        /* ═══════════════════════════════════════════ */
-        /* CANVAS / VISORES                           */
-        /* ═══════════════════════════════════════════ */
         .canvas-container { flex: 1; background: #fff; position: relative; overflow: hidden; }
-        canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
-        canvas:active { cursor: grabbing; }
-
-        #pfd-canvas, #dti-canvas {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;
-        }
-        #isoCanvas {
+        #pfd-canvas, #dti-canvas, #isoCanvas {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;
         }
         #viewer-3d {
@@ -293,9 +269,7 @@
 </head>
 <body>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- SPLASH SCREEN                              -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- SPLASH SCREEN -->
     <div id="splash-screen">
         <div class="splash-content">
             <div class="corporate-header">
@@ -308,7 +282,7 @@
             <h1 class="splash-title">SmartEngp</h1>
             <p class="splash-subtitle">INGENIERÍA INTELIGENTE</p>
             <div class="loading-bar-container"><div class="loading-bar-fill"></div></div>
-            <div class="splash-status" id="splash-status">Inicializando SmartEngp v3.1...</div>
+            <div class="splash-status" id="splash-status">Inicializando SmartEngp v3.2...</div>
             <div class="author-footer">
                 <span class="leader-by">Ingeniero Líder de Proyecto:</span>
                 <span class="engineer-name">Ing. Osnay Romero</span>
@@ -316,9 +290,7 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- WELCOME PANEL                              -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- WELCOME PANEL -->
     <div id="welcome-panel">
         <div class="welcome-container">
             <div class="home-logo-wrapper">
@@ -335,9 +307,7 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- MODAL NOMBRE PROYECTO                      -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- MODAL NOMBRE PROYECTO -->
     <div id="project-name-modal">
         <div class="modal-content">
             <h3>Nuevo Proyecto</h3>
@@ -349,18 +319,15 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- TOOLBAR PRINCIPAL                          -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- TOOLBAR PRINCIPAL -->
     <div class="toolbar" role="toolbar">
         <div class="toolbar-logo">
             <img src="img/logo.PNG" alt="Logo" style="height: 24px;" onerror="this.style.display='none'">
-            <span class="toolbar-title">SmartEngp v3.1</span>
+            <span class="toolbar-title">SmartEngp v3.2</span>
         </div>
         
         <div class="toolbar-separator"></div>
         
-        <!-- Archivo -->
         <div class="dropdown">
             <button id="btnFileMenu">📂 Archivo</button>
             <div class="dropdown-content">
@@ -378,28 +345,24 @@
         
         <div class="toolbar-separator"></div>
         
-        <!-- Módulos -->
-        <button id="btn-mode-pfd" class="btn-pfd active" title="Diagrama de Flujo de Proceso">📊 PFD</button>
-        <button id="btn-mode-dti" class="btn-dti" title="Diagrama de Tuberías e Instrumentación">🔧 DTI</button>
-        <button id="btn-mode-iso" class="btn-iso" title="Isométrico 3D">🧊 ISO</button>
+        <button id="btn-mode-pfd" class="btn-pfd active">📊 PFD</button>
+        <button id="btn-mode-dti" class="btn-dti">🔧 DTI</button>
+        <button id="btn-mode-iso" class="btn-iso">🧊 ISO</button>
         
         <div class="toolbar-separator"></div>
         
-        <!-- Validación -->
         <button id="btnValidate" title="Validación cruzada PFD↔DTI↔3D">🔍 Validar</button>
         <button id="btnSummary" title="Resumen del proyecto">📋 Resumen</button>
         
         <div class="toolbar-separator"></div>
         
-        <!-- Vista -->
         <button id="btnReset">🔄 Centrar</button>
         <button id="btnFullscreen">⛶ Full</button>
         <button id="btnCommand">🤖 Cmd</button>
-        <button id="btnTogglePanels" title="Mostrar/ocultar paneles">👁️</button>
+        <button id="btnTogglePanels">👁️</button>
         
         <div class="toolbar-separator"></div>
         
-        <!-- Más -->
         <div class="dropdown">
             <button id="btnMoreMenu">⚙️ +</button>
             <div class="dropdown-content">
@@ -412,29 +375,20 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- PESTAÑAS DE MÓDULO                         -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- PESTAÑAS DE MÓDULO -->
     <div class="module-tabs" id="moduleTabs">
         <button class="module-tab pfd-tab active" data-module="pfd">📊 PFD — Diagrama de Flujo</button>
         <button class="module-tab dti-tab" data-module="dti">🔧 DTI — Tubería e Instrumentación</button>
         <button class="module-tab iso-tab" data-module="iso">🧊 ISO — Isométrico 3D</button>
     </div>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- ÁREA DE VISUALIZACIÓN                      -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- ÁREA DE VISUALIZACIÓN -->
     <div class="canvas-container" id="canvas-container">
-        <!-- PFD Canvas -->
         <canvas id="pfd-canvas" style="display:block;"></canvas>
-        <!-- DTI Canvas -->
         <canvas id="dti-canvas" style="display:none;"></canvas>
-        <!-- ISO Canvas 2D -->
         <canvas id="isoCanvas" style="display:none;"></canvas>
-        <!-- Visor 3D -->
         <div id="viewer-3d" style="display:none;"></div>
         
-        <!-- Panel de propiedades -->
         <div id="side-panel" class="property-panel hidden">
             <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <span style="color:var(--accent-cyan); font-weight:bold;">PROPIEDADES TÉCNICAS</span>
@@ -444,12 +398,10 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- PANEL DE COMANDOS                          -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- PANEL DE COMANDOS -->
     <div id="commandPanel" class="command-panel">
         <div class="command-header">
-            <strong>🤖 Comandos IA — SmartEngp v3.1</strong>
+            <strong>🤖 Comandos IA — SmartEngp v3.2</strong>
             <button id="closeCommand" style="background:none;border:none;color:white;font-size:20px;padding:0;width:30px;">✖</button>
         </div>
         <textarea id="commandText" rows="4" placeholder="PFD: create stream S1 from TK-01 to B-01 fluid WATER flow 50&#10;DTI: create instrument PI-101 type PRESSURE_GAUGE on L-1 at 0.3&#10;3D:  connect TK-01 N1 to B-01 SUC diametro 6&#10;VAL: validate all | project summary | export db"></textarea>
@@ -460,15 +412,10 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- NOTIFICACIÓN Y STATUS                      -->
-    <!-- ═══════════════════════════════════════════ -->
     <div id="notification" class="notification"></div>
-    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartEngp v3.1</div>
+    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartEngp v3.2</div>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- PANEL DE HERRAMIENTAS (ISO 3D)             -->
-    <!-- ═══════════════════════════════════════════ -->
+    <!-- PANEL DE HERRAMIENTAS (ISO 3D) -->
     <div class="tools-panel" id="toolsPanel">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
             <span style="font-size:10px; color:var(--accent-cyan);">HERRAMIENTAS</span>
@@ -490,52 +437,45 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════ -->
-    <!-- FULLSCREEN CONTROLS                        -->
-    <!-- ═══════════════════════════════════════════ -->
     <div id="fullscreen-controls">
         <button id="btnFullscreenCenter" style="padding:12px 20px; border-radius:30px; background:var(--accent-cyan); color:#000; font-weight:bold; border:none;">🔄 Centrar</button>
         <button id="btnFullscreenExit" style="padding:12px 20px; border-radius:30px; background:#ef4444; color:white; font-weight:bold; border:none;">✕ Salir</button>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- SCRIPTS                                                   -->
+    <!-- SCRIPTS (Orden de carga correcto)                       -->
     <!-- ═══════════════════════════════════════════════════════ -->
     
-    <!-- Módulos base -->
     <script src="js/core.js"></script>
     <script src="js/catalog.js"></script>
     <script src="js/router.js"></script>
     
-    <!-- Módulos de Ingeniería -->
     <script src="js/modules/pfd_engine.js"></script>
     <script src="js/modules/pfd_renderer.js"></script>
     <script src="js/modules/dti_engine.js"></script>
     <script src="js/modules/dti_renderer.js"></script>
     <script src="js/modules/integrity.js"></script>
     
-    <!-- Módulos I/O -->
     <script src="js/modules/smartflow_io.js"></script>
     <script src="js/modules/smartflow_db_export.js"></script>
     
-    <!-- Renderer 2D y Comandos -->
     <script src="js/renderer.js"></script>
     <script src="js/commands.js"></script>
 
-    <!-- Sistema de Comandos Adaptativo -->
     <script src="js/adaptiveCommands.js"></script>
     <script src="js/adaptiveCommandsUI.js"></script>
+    
+    <!-- Puente Adaptativo por Módulo (NUEVO) -->
+    <script src="js/modules/adaptive_bridge.js"></script>
 
-    <!-- Módulos 3D (type="module") -->
     <script type="module" src="js/ThreeJsEngine.js"></script>
     <script type="module" src="js/render.js"></script>
     <script type="module" src="js/SmartFlowLabels3D.js"></script>
 
-    <!-- Main -->
     <script src="js/main.js"></script>
 
     <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- CONFIGURACIÓN FINAL                                        -->
+    <!-- CONFIGURACIÓN FINAL (Simplificada - sin switchModule)   -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <script>
         window.voiceEnabled = true;
@@ -545,143 +485,56 @@
 
         document.addEventListener("DOMContentLoaded", function() {
             
-            // ============================================================
-            //  CAMBIO DE MÓDULO (Pestañas y Botones)
-            // ============================================================
-            function switchModule(module) {
-                window.currentModule = module;
-                
-                // Ocultar todos los canvas
-                var pfdCanvas = document.getElementById('pfd-canvas');
-                var dtiCanvas = document.getElementById('dti-canvas');
-                var isoCanvas = document.getElementById('isoCanvas');
-                var viewer3d = document.getElementById('viewer-3d');
-                
-                if (pfdCanvas) pfdCanvas.style.display = 'none';
-                if (dtiCanvas) dtiCanvas.style.display = 'none';
-                if (isoCanvas) isoCanvas.style.display = 'none';
-                if (viewer3d) viewer3d.style.display = 'none';
-                
-                // Herramientas solo en ISO
-                var toolsPanel = document.getElementById('toolsPanel');
-                if (toolsPanel) toolsPanel.style.display = module === 'iso' ? '' : 'none';
-                
-                // Actualizar tabs
-                document.querySelectorAll('.module-tab').forEach(function(tab) {
-                    tab.classList.remove('active');
-                });
-                
-                // Actualizar botones toolbar
-                var btnPFD = document.getElementById('btn-mode-pfd');
-                var btnDTI = document.getElementById('btn-mode-dti');
-                var btnISO = document.getElementById('btn-mode-iso');
-                if (btnPFD) btnPFD.classList.remove('active');
-                if (btnDTI) btnDTI.classList.remove('active');
-                if (btnISO) btnISO.classList.remove('active');
-                
-                if (module === 'pfd') {
-                    if (pfdCanvas) pfdCanvas.style.display = 'block';
-                    document.querySelector('.pfd-tab').classList.add('active');
-                    if (btnPFD) btnPFD.classList.add('active');
-                    if (typeof SmartFlowPFDRenderer !== 'undefined') {
-                        SmartFlowPFDRenderer.resizeCanvas();
-                        SmartFlowPFDRenderer.render();
-                    }
-                } else if (module === 'dti') {
-                    if (dtiCanvas) dtiCanvas.style.display = 'block';
-                    document.querySelector('.dti-tab').classList.add('active');
-                    if (btnDTI) btnDTI.classList.add('active');
-                    if (typeof SmartFlowDTIRenderer !== 'undefined') {
-                        SmartFlowDTIRenderer.resizeCanvas();
-                        SmartFlowDTIRenderer.render();
-                    }
-                } else if (module === 'iso') {
-                    if (isoCanvas) isoCanvas.style.display = 'block';
-                    document.querySelector('.iso-tab').classList.add('active');
-                    if (btnISO) btnISO.classList.add('active');
-                    if (typeof SmartFlowRenderer !== 'undefined' && window.currentViewMode === '2d') {
-                        SmartFlowRenderer.resizeCanvas();
-                        SmartFlowRenderer.autoCenter();
-                    }
-                }
-            }
-            
-            // Eventos de pestañas
-            document.querySelectorAll('.module-tab').forEach(function(tab) {
-                tab.addEventListener('click', function() {
-                    switchModule(this.getAttribute('data-module'));
-                });
-            });
-            
-            // Eventos de botones de módulo
-            var btnPFD = document.getElementById('btn-mode-pfd');
-            var btnDTI = document.getElementById('btn-mode-dti');
-            var btnISO = document.getElementById('btn-mode-iso');
-            if (btnPFD) btnPFD.addEventListener('click', function() { switchModule('pfd'); });
-            if (btnDTI) btnDTI.addEventListener('click', function() { switchModule('dti'); });
-            if (btnISO) btnISO.addEventListener('click', function() { switchModule('iso'); });
-            
-            // ============================================================
-            //  BOTONES EXISTENTES
-            // ============================================================
+            // Cerrar panel de propiedades
             var btnClosePanel = document.getElementById('btnClosePanel');
             if (btnClosePanel) {
-                btnClosePanel.addEventListener('click', function() { togglePanel(false); });
+                btnClosePanel.addEventListener('click', function() { 
+                    if (typeof togglePanel === 'function') togglePanel(false); 
+                });
             }
 
+            // Botones de elevación
             ['btnElev0', 'btnElev2500', 'btnElev5000'].forEach(function(id) {
                 var btn = document.getElementById(id);
                 if (btn) {
                     btn.addEventListener('click', function() {
                         var level = parseInt(this.getAttribute('data-level'), 10);
-                        setElevation(level);
+                        if (typeof setElevation === 'function') setElevation(level);
                     });
                 }
             });
 
-            var btnCommand = document.getElementById('btnCommand');
-            if (btnCommand) {
-                var newBtn = btnCommand.cloneNode(true);
-                btnCommand.parentNode.replaceChild(newBtn, btnCommand);
-                newBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (typeof AdaptiveCommandUI !== 'undefined') {
-                        AdaptiveCommandUI.openPanel('assisted');
+            // Eventos de pestañas de módulo
+            document.querySelectorAll('.module-tab').forEach(function(tab) {
+                tab.addEventListener('click', function() {
+                    var module = this.getAttribute('data-module');
+                    if (typeof window.switchModule === 'function') {
+                        window.switchModule(module);
                     }
                 });
-            }
-
-            document.addEventListener('keydown', function(e) {
-                if (e.ctrlKey && e.shiftKey && e.key === 'C') {
-                    e.preventDefault();
-                    if (typeof AdaptiveCommandUI !== 'undefined') {
-                        AdaptiveCommandUI.openPanel('assisted');
-                    }
-                }
-                if (e.key === 'Escape') {
-                    var overlay = document.getElementById('adaptive-overlay');
-                    if (overlay && typeof AdaptiveCommandUI !== 'undefined') {
-                        AdaptiveCommandUI.closeOverlay();
-                    }
-                }
             });
+            
+            // Eventos de botones de módulo en toolbar
+            var btnPFD = document.getElementById('btn-mode-pfd');
+            var btnDTI = document.getElementById('btn-mode-dti');
+            var btnISO = document.getElementById('btn-mode-iso');
+            if (btnPFD) btnPFD.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('pfd'); });
+            if (btnDTI) btnDTI.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('dti'); });
+            if (btnISO) btnISO.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('iso'); });
 
-            // Redimensionar canvas PFD/DTI/ISO al cambiar ventana
+            // Redimensionar al cambiar ventana
             window.addEventListener('resize', function() {
-                if (window.currentModule === 'pfd' && typeof SmartFlowPFDRenderer !== 'undefined') {
+                var module = window.currentModule || 'pfd';
+                if (module === 'pfd' && typeof SmartFlowPFDRenderer !== 'undefined') {
                     SmartFlowPFDRenderer.resizeCanvas();
                     SmartFlowPFDRenderer.render();
-                } else if (window.currentModule === 'dti' && typeof SmartFlowDTIRenderer !== 'undefined') {
+                } else if (module === 'dti' && typeof SmartFlowDTIRenderer !== 'undefined') {
                     SmartFlowDTIRenderer.resizeCanvas();
                     SmartFlowDTIRenderer.render();
-                } else if (window.currentModule === 'iso' && typeof SmartFlowRenderer !== 'undefined') {
+                } else if (module === 'iso' && typeof SmartFlowRenderer !== 'undefined') {
                     SmartFlowRenderer.resizeCanvas();
                 }
             });
-            
-            // Iniciar en PFD
-            switchModule('pfd');
         });
 
         function setElevation(level) {
@@ -702,3 +555,4 @@
     </script>
 </body>
 </html>
+
