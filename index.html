@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>SmartEngp v3.0 | AcQuaBlue</title>
+    <title>SmartEngp v3.1 | AcQuaBlue</title>
     
     <!-- Three.js r160 con Import Map -->
     <script type="importmap">
@@ -141,10 +141,10 @@
         }
         .toolbar-logo { display: flex; align-items: center; margin-right: 10px; }
         .toolbar-logo img { height: 24px; margin-right: 6px; }
-        .toolbar-title { color: var(--accent-cyan); font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
+        .toolbar-title { color: var(--accent-cyan); font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
 
         .toolbar-separator {
-            width: 1px; height: 24px; background: var(--button-border); margin: 0 4px;
+            width: 1px; height: 22px; background: var(--button-border); margin: 0 4px;
         }
 
         button {
@@ -155,16 +155,12 @@
         button:hover { background: var(--accent-blue); border-color: var(--accent-cyan); }
         button.active { background: var(--accent-cyan); color: #000; border-color: var(--accent-cyan); }
 
-        /* Botones de módulo con colores distintivos */
         .btn-pfd { border-color: var(--accent-green); color: var(--accent-green); }
         .btn-pfd:hover, .btn-pfd.active { background: var(--accent-green); color: #000; border-color: var(--accent-green); }
-        
         .btn-dti { border-color: var(--accent-purple); color: var(--accent-purple); }
         .btn-dti:hover, .btn-dti.active { background: var(--accent-purple); color: #fff; border-color: var(--accent-purple); }
-        
-        .btn-3d { border-color: var(--accent-cyan); color: var(--accent-cyan); }
-        .btn-3d:hover, .btn-3d.active { background: var(--accent-cyan); color: #000; border-color: var(--accent-cyan); }
-        
+        .btn-iso { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+        .btn-iso:hover, .btn-iso.active { background: var(--accent-cyan); color: #000; border-color: var(--accent-cyan); }
         #btnExportPCF { border-color: var(--accent-green); color: var(--accent-green); }
         #btnExportPCF:hover { background: var(--accent-green); color: #000; }
         #btnImportPCF { border-color: var(--accent-orange); color: var(--accent-orange); }
@@ -179,7 +175,7 @@
         .dropdown { position: relative; display: inline-block; }
         .dropdown-content {
             display: none; position: absolute; background: var(--panel-bg);
-            min-width: 180px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            min-width: 190px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
             z-index: 1; border: 1px solid var(--accent-cyan); border-radius: 4px;
             backdrop-filter: blur(8px); right: 0;
         }
@@ -194,13 +190,13 @@
             background: var(--toolbar-bg); border-bottom: 2px solid var(--button-border);
         }
         .module-tab {
-            padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer;
+            padding: 8px 18px; font-size: 12px; font-weight: 700; cursor: pointer;
             background: transparent; border: none; color: #64748b;
             border-bottom: 2px solid transparent; margin-bottom: -2px;
             transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
         }
         .module-tab:hover { color: #e2e8f0; }
-        .module-tab.active { color: var(--accent-cyan); border-bottom-color: var(--accent-cyan); }
+        .module-tab.active { border-bottom-color: var(--accent-cyan); }
         .module-tab.pfd-tab.active { color: var(--accent-green); border-bottom-color: var(--accent-green); }
         .module-tab.dti-tab.active { color: var(--accent-purple); border-bottom-color: var(--accent-purple); }
         .module-tab.iso-tab.active { color: var(--accent-cyan); border-bottom-color: var(--accent-cyan); }
@@ -208,15 +204,17 @@
         /* ═══════════════════════════════════════════ */
         /* CANVAS / VISORES                           */
         /* ═══════════════════════════════════════════ */
-        .canvas-container { flex: 1; background: #000; position: relative; overflow: hidden; }
+        .canvas-container { flex: 1; background: #fff; position: relative; overflow: hidden; }
         canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
         canvas:active { cursor: grabbing; }
 
-        #viewer-3d {
+        #pfd-canvas, #dti-canvas {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;
         }
-        
-        #pfd-canvas, #dti-canvas {
+        #isoCanvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;
+        }
+        #viewer-3d {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;
         }
 
@@ -231,7 +229,7 @@
 
         #commandPanel {
             position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
-            width: 90%; max-width: 550px; background: rgba(15, 23, 42, 0.95);
+            width: 90%; max-width: 560px; background: rgba(15, 23, 42, 0.95);
             border-radius: 12px; border: 1px solid var(--accent-cyan);
             z-index: 1000; display: none; backdrop-filter: blur(10px); padding: 10px;
         }
@@ -239,7 +237,7 @@
         textarea {
             width: 100%; margin: 0; background: #0f0f17; color: #eee;
             border: 1px solid #3a3a4a; border-radius: 8px; padding: 10px;
-            font-family: 'Courier New', monospace; font-size: 13px; resize: vertical;
+            font-family: 'Courier New', monospace; font-size: 12px; resize: vertical;
         }
         .command-buttons { display: flex; gap: 8px; margin-top: 8px; }
         .history-indicator { font-size: 10px; color: #64748b; margin-top: 4px; text-align: right; }
@@ -286,9 +284,9 @@
 
         @media (max-width: 768px) {
             .toolbar button { font-size: 9px; padding: 4px 6px; }
-            .toolbar-title { font-size: 14px; }
+            .toolbar-title { font-size: 13px; }
             .module-tab { font-size: 10px; padding: 6px 10px; }
-            #side-panel { width: 260px; right: 5px; }
+            #side-panel { width: 240px; right: 5px; }
             .tools-panel { top: 100px; left: 4px; }
         }
     </style>
@@ -310,7 +308,7 @@
             <h1 class="splash-title">SmartEngp</h1>
             <p class="splash-subtitle">INGENIERÍA INTELIGENTE</p>
             <div class="loading-bar-container"><div class="loading-bar-fill"></div></div>
-            <div class="splash-status" id="splash-status">Inicializando SmartEngp v3.0...</div>
+            <div class="splash-status" id="splash-status">Inicializando SmartEngp v3.1...</div>
             <div class="author-footer">
                 <span class="leader-by">Ingeniero Líder de Proyecto:</span>
                 <span class="engineer-name">Ing. Osnay Romero</span>
@@ -357,7 +355,7 @@
     <div class="toolbar" role="toolbar">
         <div class="toolbar-logo">
             <img src="img/logo.PNG" alt="Logo" style="height: 24px;" onerror="this.style.display='none'">
-            <span class="toolbar-title">SmartEngp v3.0</span>
+            <span class="toolbar-title">SmartEngp v3.1</span>
         </div>
         
         <div class="toolbar-separator"></div>
@@ -383,7 +381,7 @@
         <!-- Módulos -->
         <button id="btn-mode-pfd" class="btn-pfd active" title="Diagrama de Flujo de Proceso">📊 PFD</button>
         <button id="btn-mode-dti" class="btn-dti" title="Diagrama de Tuberías e Instrumentación">🔧 DTI</button>
-        <button id="btn-mode-iso" class="btn-3d" title="Isométrico 3D">🧊 ISO</button>
+        <button id="btn-mode-iso" class="btn-iso" title="Isométrico 3D">🧊 ISO</button>
         
         <div class="toolbar-separator"></div>
         
@@ -409,6 +407,7 @@
                 <button id="btnRedo">↪️ Redo</button>
                 <button id="btnVoice">🔊 Voz ON</button>
                 <button id="btnRecalc">🔄 Recalcular</button>
+                <button id="btnSpeakSummary">📢 Resumen Voz</button>
             </div>
         </div>
     </div>
@@ -450,7 +449,7 @@
     <!-- ═══════════════════════════════════════════ -->
     <div id="commandPanel" class="command-panel">
         <div class="command-header">
-            <strong>🤖 Comandos IA — SmartEngp v3.0</strong>
+            <strong>🤖 Comandos IA — SmartEngp v3.1</strong>
             <button id="closeCommand" style="background:none;border:none;color:white;font-size:20px;padding:0;width:30px;">✖</button>
         </div>
         <textarea id="commandText" rows="4" placeholder="PFD: create stream S1 from TK-01 to B-01 fluid WATER flow 50&#10;DTI: create instrument PI-101 type PRESSURE_GAUGE on L-1 at 0.3&#10;3D:  connect TK-01 N1 to B-01 SUC diametro 6&#10;VAL: validate all | project summary | export db"></textarea>
@@ -465,7 +464,7 @@
     <!-- NOTIFICACIÓN Y STATUS                      -->
     <!-- ═══════════════════════════════════════════ -->
     <div id="notification" class="notification"></div>
-    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartEngp v3.0</div>
+    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartEngp v3.1</div>
 
     <!-- ═══════════════════════════════════════════ -->
     <!-- PANEL DE HERRAMIENTAS (ISO 3D)             -->
@@ -508,16 +507,18 @@
     <script src="js/catalog.js"></script>
     <script src="js/router.js"></script>
     
-    <!-- Módulos de Ingeniería (NUEVOS) -->
+    <!-- Módulos de Ingeniería -->
     <script src="js/modules/pfd_engine.js"></script>
+    <script src="js/modules/pfd_renderer.js"></script>
     <script src="js/modules/dti_engine.js"></script>
+    <script src="js/modules/dti_renderer.js"></script>
     <script src="js/modules/integrity.js"></script>
     
     <!-- Módulos I/O -->
     <script src="js/modules/smartflow_io.js"></script>
     <script src="js/modules/smartflow_db_export.js"></script>
     
-    <!-- Renderer y Comandos -->
+    <!-- Renderer 2D y Comandos -->
     <script src="js/renderer.js"></script>
     <script src="js/commands.js"></script>
 
@@ -539,57 +540,65 @@
     <script>
         window.voiceEnabled = true;
         window.currentProjectName = 'Proyecto_SmartEngp';
-        
-        // Variable global para el módulo activo
         window.currentModule = 'pfd';
+        window.currentViewMode = '2d';
 
         document.addEventListener("DOMContentLoaded", function() {
             
             // ============================================================
-            //  CAMBIO DE MÓDULO (Pestañas)
+            //  CAMBIO DE MÓDULO (Pestañas y Botones)
             // ============================================================
             function switchModule(module) {
                 window.currentModule = module;
                 
                 // Ocultar todos los canvas
-                document.getElementById('pfd-canvas').style.display = 'none';
-                document.getElementById('dti-canvas').style.display = 'none';
-                document.getElementById('isoCanvas').style.display = 'none';
-                document.getElementById('viewer-3d').style.display = 'none';
+                var pfdCanvas = document.getElementById('pfd-canvas');
+                var dtiCanvas = document.getElementById('dti-canvas');
+                var isoCanvas = document.getElementById('isoCanvas');
+                var viewer3d = document.getElementById('viewer-3d');
                 
-                // Mostrar herramientas solo en ISO
+                if (pfdCanvas) pfdCanvas.style.display = 'none';
+                if (dtiCanvas) dtiCanvas.style.display = 'none';
+                if (isoCanvas) isoCanvas.style.display = 'none';
+                if (viewer3d) viewer3d.style.display = 'none';
+                
+                // Herramientas solo en ISO
                 var toolsPanel = document.getElementById('toolsPanel');
-                if (toolsPanel) {
-                    toolsPanel.style.display = module === 'iso' ? '' : 'none';
-                }
+                if (toolsPanel) toolsPanel.style.display = module === 'iso' ? '' : 'none';
                 
                 // Actualizar tabs
                 document.querySelectorAll('.module-tab').forEach(function(tab) {
                     tab.classList.remove('active');
                 });
                 
+                // Actualizar botones toolbar
+                var btnPFD = document.getElementById('btn-mode-pfd');
+                var btnDTI = document.getElementById('btn-mode-dti');
+                var btnISO = document.getElementById('btn-mode-iso');
+                if (btnPFD) btnPFD.classList.remove('active');
+                if (btnDTI) btnDTI.classList.remove('active');
+                if (btnISO) btnISO.classList.remove('active');
+                
                 if (module === 'pfd') {
-                    document.getElementById('pfd-canvas').style.display = 'block';
+                    if (pfdCanvas) pfdCanvas.style.display = 'block';
                     document.querySelector('.pfd-tab').classList.add('active');
-                    document.getElementById('btn-mode-pfd').classList.add('active');
-                    document.getElementById('btn-mode-dti').classList.remove('active');
-                    document.getElementById('btn-mode-iso').classList.remove('active');
-                    initPFDCanvas();
+                    if (btnPFD) btnPFD.classList.add('active');
+                    if (typeof SmartFlowPFDRenderer !== 'undefined') {
+                        SmartFlowPFDRenderer.resizeCanvas();
+                        SmartFlowPFDRenderer.render();
+                    }
                 } else if (module === 'dti') {
-                    document.getElementById('dti-canvas').style.display = 'block';
+                    if (dtiCanvas) dtiCanvas.style.display = 'block';
                     document.querySelector('.dti-tab').classList.add('active');
-                    document.getElementById('btn-mode-pfd').classList.remove('active');
-                    document.getElementById('btn-mode-dti').classList.add('active');
-                    document.getElementById('btn-mode-iso').classList.remove('active');
-                    initDTICanvas();
+                    if (btnDTI) btnDTI.classList.add('active');
+                    if (typeof SmartFlowDTIRenderer !== 'undefined') {
+                        SmartFlowDTIRenderer.resizeCanvas();
+                        SmartFlowDTIRenderer.render();
+                    }
                 } else if (module === 'iso') {
-                    document.getElementById('isoCanvas').style.display = 'block';
-                    document.getElementById('viewer-3d').style.display = 'none';
+                    if (isoCanvas) isoCanvas.style.display = 'block';
                     document.querySelector('.iso-tab').classList.add('active');
-                    document.getElementById('btn-mode-pfd').classList.remove('active');
-                    document.getElementById('btn-mode-dti').classList.remove('active');
-                    document.getElementById('btn-mode-iso').classList.add('active');
-                    
+                    if (btnISO) btnISO.classList.add('active');
                     if (typeof SmartFlowRenderer !== 'undefined' && window.currentViewMode === '2d') {
                         SmartFlowRenderer.resizeCanvas();
                         SmartFlowRenderer.autoCenter();
@@ -604,83 +613,13 @@
                 });
             });
             
-            // Eventos de botones de módulo en toolbar
+            // Eventos de botones de módulo
             var btnPFD = document.getElementById('btn-mode-pfd');
             var btnDTI = document.getElementById('btn-mode-dti');
             var btnISO = document.getElementById('btn-mode-iso');
-            
             if (btnPFD) btnPFD.addEventListener('click', function() { switchModule('pfd'); });
             if (btnDTI) btnDTI.addEventListener('click', function() { switchModule('dti'); });
             if (btnISO) btnISO.addEventListener('click', function() { switchModule('iso'); });
-            
-            // ============================================================
-            //  INICIALIZACIÓN DE CANVAS PFD Y DTI
-            // ============================================================
-            function initPFDCanvas() {
-                var canvas = document.getElementById('pfd-canvas');
-                if (!canvas || canvas._initialized) return;
-                canvas._initialized = true;
-                
-                var ctx = canvas.getContext('2d');
-                resizeCanvasToContainer(canvas);
-                
-                // Dibujar grid simple
-                function draw() {
-                    if (window.currentModule !== 'pfd') return;
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = '#0a0e17';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    // Título
-                    ctx.fillStyle = '#10b981';
-                    ctx.font = 'bold 16px Segoe UI';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('DIAGRAMA DE FLUJO DE PROCESO (PFD)', canvas.width / 2, 30);
-                    ctx.fillStyle = '#64748b';
-                    ctx.font = '11px Segoe UI';
-                    ctx.fillText('Use: create equipo TIPO TAG | create stream TAG from X to Y', canvas.width / 2, 50);
-                    
-                    requestAnimationFrame(draw);
-                }
-                draw();
-            }
-            
-            function initDTICanvas() {
-                var canvas = document.getElementById('dti-canvas');
-                if (!canvas || canvas._initialized) return;
-                canvas._initialized = true;
-                
-                var ctx = canvas.getContext('2d');
-                resizeCanvasToContainer(canvas);
-                
-                function draw() {
-                    if (window.currentModule !== 'dti') return;
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = '#0a0e17';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    ctx.fillStyle = '#8b5cf6';
-                    ctx.font = 'bold 16px Segoe UI';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('DIAGRAMA DE TUBERÍAS E INSTRUMENTACIÓN (DTI)', canvas.width / 2, 30);
-                    ctx.fillStyle = '#64748b';
-                    ctx.font = '11px Segoe UI';
-                    ctx.fillText('Use: create instrument TAG type TIPO on LINEA | create loop TAG sensor X controller Y valve Z', canvas.width / 2, 50);
-                    
-                    requestAnimationFrame(draw);
-                }
-                draw();
-            }
-            
-            function resizeCanvasToContainer(canvas) {
-                var container = canvas.parentElement;
-                var dpr = window.devicePixelRatio || 1;
-                canvas.width = container.clientWidth * dpr;
-                canvas.height = container.clientHeight * dpr;
-                canvas.style.width = container.clientWidth + 'px';
-                canvas.style.height = container.clientHeight + 'px';
-                canvas.getContext('2d').scale(dpr, dpr);
-            }
             
             // ============================================================
             //  BOTONES EXISTENTES
@@ -728,12 +667,17 @@
                 }
             });
 
-            // Redimensionar canvas PFD/DTI al cambiar ventana
+            // Redimensionar canvas PFD/DTI/ISO al cambiar ventana
             window.addEventListener('resize', function() {
-                ['pfd-canvas', 'dti-canvas'].forEach(function(id) {
-                    var c = document.getElementById(id);
-                    if (c && c._initialized) resizeCanvasToContainer(c);
-                });
+                if (window.currentModule === 'pfd' && typeof SmartFlowPFDRenderer !== 'undefined') {
+                    SmartFlowPFDRenderer.resizeCanvas();
+                    SmartFlowPFDRenderer.render();
+                } else if (window.currentModule === 'dti' && typeof SmartFlowDTIRenderer !== 'undefined') {
+                    SmartFlowDTIRenderer.resizeCanvas();
+                    SmartFlowDTIRenderer.render();
+                } else if (window.currentModule === 'iso' && typeof SmartFlowRenderer !== 'undefined') {
+                    SmartFlowRenderer.resizeCanvas();
+                }
             });
             
             // Iniciar en PFD
