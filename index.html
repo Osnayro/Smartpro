@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>SmartEngp v3.2 | AcQuaBlue</title>
+    <title>SmartEngp v3.3 | AcQuaBlue</title>
     
     <!-- Three.js r160 con Import Map -->
     <script type="importmap">
@@ -282,7 +282,7 @@
             <h1 class="splash-title">SmartEngp</h1>
             <p class="splash-subtitle">INGENIERÍA INTELIGENTE</p>
             <div class="loading-bar-container"><div class="loading-bar-fill"></div></div>
-            <div class="splash-status" id="splash-status">Inicializando SmartEngp v3.2...</div>
+            <div class="splash-status" id="splash-status">Inicializando SmartEngp v3.3...</div>
             <div class="author-footer">
                 <span class="leader-by">Ingeniero Líder de Proyecto:</span>
                 <span class="engineer-name">Ing. Osnay Romero</span>
@@ -323,7 +323,7 @@
     <div class="toolbar" role="toolbar">
         <div class="toolbar-logo">
             <img src="img/logo.PNG" alt="Logo" style="height: 24px;" onerror="this.style.display='none'">
-            <span class="toolbar-title">SmartEngp v3.2</span>
+            <span class="toolbar-title">SmartEngp v3.3</span>
         </div>
         
         <div class="toolbar-separator"></div>
@@ -401,7 +401,7 @@
     <!-- PANEL DE COMANDOS -->
     <div id="commandPanel" class="command-panel">
         <div class="command-header">
-            <strong>🤖 Comandos IA — SmartEngp v3.2</strong>
+            <strong>🤖 Comandos IA — SmartEngp v3.3</strong>
             <button id="closeCommand" style="background:none;border:none;color:white;font-size:20px;padding:0;width:30px;">✖</button>
         </div>
         <textarea id="commandText" rows="4" placeholder="PFD: create stream S1 from TK-01 to B-01 fluid WATER flow 50&#10;DTI: create instrument PI-101 type PRESSURE_GAUGE on L-1 at 0.3&#10;3D:  connect TK-01 N1 to B-01 SUC diametro 6&#10;VAL: validate all | project summary | export db"></textarea>
@@ -413,7 +413,7 @@
     </div>
 
     <div id="notification" class="notification"></div>
-    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartEngp v3.2</div>
+    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartEngp v3.3</div>
 
     <!-- PANEL DE HERRAMIENTAS (ISO 3D) -->
     <div class="tools-panel" id="toolsPanel">
@@ -463,9 +463,9 @@
     <script src="js/commands.js"></script>
 
     <script src="js/adaptiveCommands.js"></script>
+    <script src="js/modules/adaptive_pfd_dti_flows.js"></script>
     <script src="js/adaptiveCommandsUI.js"></script>
     
-    <!-- Puente Adaptativo por Módulo (NUEVO) -->
     <script src="js/modules/adaptive_bridge.js"></script>
 
     <script type="module" src="js/ThreeJsEngine.js"></script>
@@ -475,7 +475,7 @@
     <script src="js/main.js"></script>
 
     <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- CONFIGURACIÓN FINAL (Simplificada - sin switchModule)   -->
+    <!-- CONFIGURACIÓN FINAL                                     -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <script>
         window.voiceEnabled = true;
@@ -485,7 +485,6 @@
 
         document.addEventListener("DOMContentLoaded", function() {
             
-            // Cerrar panel de propiedades
             var btnClosePanel = document.getElementById('btnClosePanel');
             if (btnClosePanel) {
                 btnClosePanel.addEventListener('click', function() { 
@@ -493,7 +492,6 @@
                 });
             }
 
-            // Botones de elevación
             ['btnElev0', 'btnElev2500', 'btnElev5000'].forEach(function(id) {
                 var btn = document.getElementById(id);
                 if (btn) {
@@ -504,7 +502,6 @@
                 }
             });
 
-            // Eventos de pestañas de módulo
             document.querySelectorAll('.module-tab').forEach(function(tab) {
                 tab.addEventListener('click', function() {
                     var module = this.getAttribute('data-module');
@@ -514,7 +511,6 @@
                 });
             });
             
-            // Eventos de botones de módulo en toolbar
             var btnPFD = document.getElementById('btn-mode-pfd');
             var btnDTI = document.getElementById('btn-mode-dti');
             var btnISO = document.getElementById('btn-mode-iso');
@@ -522,16 +518,15 @@
             if (btnDTI) btnDTI.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('dti'); });
             if (btnISO) btnISO.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('iso'); });
 
-            // Redimensionar al cambiar ventana
             window.addEventListener('resize', function() {
-                var module = window.currentModule || 'pfd';
-                if (module === 'pfd' && typeof SmartFlowPFDRenderer !== 'undefined') {
+                var m = window.currentModule || 'pfd';
+                if (m === 'pfd' && typeof SmartFlowPFDRenderer !== 'undefined') {
                     SmartFlowPFDRenderer.resizeCanvas();
                     SmartFlowPFDRenderer.render();
-                } else if (module === 'dti' && typeof SmartFlowDTIRenderer !== 'undefined') {
+                } else if (m === 'dti' && typeof SmartFlowDTIRenderer !== 'undefined') {
                     SmartFlowDTIRenderer.resizeCanvas();
                     SmartFlowDTIRenderer.render();
-                } else if (module === 'iso' && typeof SmartFlowRenderer !== 'undefined') {
+                } else if (m === 'iso' && typeof SmartFlowRenderer !== 'undefined') {
                     SmartFlowRenderer.resizeCanvas();
                 }
             });
@@ -555,4 +550,3 @@
     </script>
 </body>
 </html>
-
