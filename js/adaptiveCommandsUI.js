@@ -10,85 +10,7 @@ const AdaptiveCommandUI = (function() {
         if (document.getElementById(styleId)) return;
         const style = document.createElement('style');
         style.id = styleId;
-        style.textContent = `
-            #adaptive-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(2,6,23,0.85);z-index:8000;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(6px);animation:fadeIn 0.2s ease}
-            @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-            #adaptive-panel{width:95%;max-width:520px;max-height:85vh;background:rgba(15,23,42,0.98);border:1px solid var(--accent-cyan,#00f2ff);border-radius:16px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.7);overflow:hidden}
-            .adaptive-header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid rgba(0,242,255,0.2);background:rgba(0,242,255,0.03);flex-shrink:0}
-            .adaptive-header h3{color:var(--accent-cyan,#00f2ff);font-size:1em;margin:0;display:flex;align-items:center;gap:8px}
-            .adaptive-close{background:none;border:1px solid rgba(255,255,255,0.2);color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0}
-            .adaptive-close:hover{background:#ef4444;border-color:#ef4444}
-            .adaptive-body{flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch}
-            .adaptive-footer{padding:12px 16px;border-top:1px solid rgba(0,242,255,0.15);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0}
-            .mode-tabs{display:flex;background:rgba(255,255,255,0.05);border-radius:20px;padding:3px;margin-bottom:14px}
-            .mode-tab{flex:1;text-align:center;padding:8px 12px;border-radius:18px;border:none;background:transparent;color:#94a3b8;font-size:0.8em;font-weight:600;cursor:pointer;transition:all 0.2s;white-space:nowrap}
-            .mode-tab.active{background:var(--accent-cyan,#00f2ff);color:#000}
-            .mode-tab:hover:not(.active){color:#fff}
-            .cmd-categories{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
-            .cmd-cat{padding:5px 10px;border-radius:14px;font-size:0.7em;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#94a3b8;cursor:pointer;transition:all 0.2s;white-space:nowrap}
-            .cmd-cat.active{background:var(--accent-blue,#1e4eb8);border-color:var(--accent-cyan,#00f2ff);color:#fff}
-            .cmd-cat:hover{border-color:var(--accent-cyan,#00f2ff)}
-            .cmd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
-            @media(max-width:400px){.cmd-grid{grid-template-columns:repeat(2,1fr);gap:6px}}
-            .cmd-card{background:rgba(30,41,59,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px;cursor:pointer;transition:all 0.2s;text-align:center}
-            .cmd-card:hover{border-color:var(--accent-cyan,#00f2ff);transform:translateY(-1px)}
-            .cmd-card .cmd-icon{font-size:1.5em;margin-bottom:4px}
-            .cmd-card .cmd-name{font-size:0.75em;font-weight:600;color:#e0e6ed}
-            .cmd-card .cmd-badge{font-size:0.6em;color:var(--accent-cyan,#00f2ff);margin-top:3px}
-            .flow-progress{background:rgba(255,255,255,0.08);border-radius:6px;height:3px;margin-bottom:14px;overflow:hidden}
-            .flow-progress-fill{background:linear-gradient(90deg,var(--accent-cyan,#00f2ff),var(--accent-blue,#1e4eb8));height:100%;transition:width 0.3s ease}
-            .flow-back-btn{background:none;border:1px solid rgba(255,255,255,0.2);color:#94a3b8;padding:6px 12px;border-radius:6px;font-size:0.8em;cursor:pointer;margin-bottom:12px}
-            .flow-back-btn:hover{color:#fff;border-color:#fff}
-            .flow-title{font-size:0.95em;font-weight:600;color:#e0e6ed;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-            .flow-select-list{display:flex;flex-direction:column;gap:4px;max-height:45vh;overflow-y:auto}
-            .flow-select-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(30,41,59,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:8px;cursor:pointer;transition:all 0.15s}
-            .flow-select-item:active{background:rgba(0,242,255,0.1);border-color:var(--accent-cyan,#00f2ff)}
-            .flow-select-item.selected{border-color:var(--accent-blue,#1e4eb8);background:rgba(30,78,184,0.2)}
-            .flow-select-item .fsi-icon{font-size:1.2em;flex-shrink:0}
-            .flow-select-item .fsi-info{flex:1;min-width:0}
-            .flow-select-item .fsi-label{font-weight:500;font-size:0.85em}
-            .flow-select-item .fsi-desc{font-size:0.7em;color:#64748b}
-            .flow-select-item .fsi-abbr{font-size:0.65em;color:var(--accent-cyan,#00f2ff)}
-            .flow-cat-header{padding:6px 10px;font-size:0.7em;color:var(--accent-cyan,#00f2ff);font-weight:700;text-transform:uppercase;background:rgba(0,242,255,0.05);border-radius:4px;margin:6px 0 2px 0;position:sticky;top:0;z-index:1}
-            .flow-form-group{margin-bottom:10px}
-            .flow-form-group label{display:block;font-size:0.75em;color:#94a3b8;margin-bottom:4px}
-            .flow-form-group input,.flow-form-group select{width:100%;padding:10px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e0e6ed;font-size:0.9em;outline:none}
-            .flow-form-group input:focus,.flow-form-group select:focus{border-color:var(--accent-cyan,#00f2ff)}
-            .flow-coords{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-bottom:6px}
-            .flow-coords input{text-align:center}
-            .flow-slider-row{display:flex;align-items:center;gap:8px}
-            .flow-slider-row input[type="range"]{flex:1}
-            .flow-slider-val{color:var(--accent-cyan,#00f2ff);font-weight:600;font-size:0.85em;min-width:30px}
-            .flow-confirm{text-align:center;padding:20px;background:rgba(248,81,73,0.08);border:1px solid rgba(248,81,73,0.3);border-radius:10px;color:#fca5a5;font-size:0.9em;line-height:1.5;white-space:pre-line}
-            .flow-preview{margin-top:12px;padding:10px 14px;background:rgba(0,0,0,0.4);border-radius:8px;border:1px solid rgba(255,255,255,0.08)}
-            .flow-preview .fp-label{font-size:0.7em;color:#64748b;margin-bottom:3px}
-            .flow-preview code{color:var(--accent-cyan,#00f2ff);font-family:'Courier New',monospace;font-size:0.8em;word-break:break-all}
-            .flow-search{width:100%;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e0e6ed;font-size:0.85em;margin-bottom:8px;outline:none}
-            .flow-search:focus{border-color:var(--accent-cyan,#00f2ff)}
-            .text-console-output{background:rgba(0,0,0,0.4);border-radius:8px;padding:10px;max-height:25vh;overflow-y:auto;margin-bottom:10px;font-family:'Courier New',monospace;font-size:0.75em}
-            .text-console-output .tco-line{padding:1px 0}
-            .text-console-output .tco-cmd{color:var(--accent-cyan,#00f2ff)}
-            .text-console-output .tco-ok{color:#3fb950}
-            .text-console-output .tco-err{color:#f85149}
-            .text-console-output .tco-info{color:#8b949e}
-            .text-input-area{display:flex;gap:6px}
-            .text-input-area input{flex:1;padding:10px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e0e6ed;font-family:'Courier New',monospace;font-size:0.85em;outline:none}
-            .text-input-area input:focus{border-color:var(--accent-cyan,#00f2ff)}
-            .text-input-area button{padding:10px 14px;background:var(--accent-blue,#1e4eb8);border:none;border-radius:8px;color:#fff;font-weight:600;cursor:pointer;font-size:0.85em}
-            .text-hints{font-size:0.7em;color:#64748b;margin-top:8px;padding:8px;background:rgba(0,242,255,0.03);border-radius:6px;line-height:1.5}
-            .text-hints strong{color:var(--accent-cyan,#00f2ff)}
-            .af-btn{padding:8px 16px;border-radius:6px;border:none;font-size:0.8em;font-weight:600;cursor:pointer;transition:all 0.2s}
-            .af-btn-primary{background:var(--accent-blue,#1e4eb8);color:#fff}
-            .af-btn-primary:hover{background:#2563eb}
-            .af-btn-success{background:#238636;color:#fff}
-            .af-btn-ghost{background:transparent;color:#94a3b8;border:1px solid rgba(255,255,255,0.15)}
-            .af-btn-danger{background:transparent;color:#f87171;border:1px solid rgba(248,113,113,0.3)}
-            .af-btn:disabled{opacity:0.4;cursor:not-allowed}
-            .adaptive-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;z-index:9000;font-size:0.85em;font-weight:600;pointer-events:none;animation:slideUp 0.3s ease}
-            .adaptive-toast.ok{background:#1a3a2a;color:#3fb950;border:1px solid #3fb950}
-            .adaptive-toast.err{background:#3a1a1a;color:#f85149;border:1px solid #f85149}
-            @keyframes slideUp{from{transform:translate(-50%,20px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
-        `;
+        style.textContent = '#adaptive-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(2,6,23,0.85);z-index:8000;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(6px);animation:fadeIn .2s ease}@keyframes fadeIn{from{opacity:0}to{opacity:1}}#adaptive-panel{width:95%;max-width:520px;max-height:85vh;background:rgba(15,23,42,0.98);border:1px solid var(--accent-cyan,#00f2ff);border-radius:16px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.7);overflow:hidden}.adaptive-header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid rgba(0,242,255,0.2);background:rgba(0,242,255,0.03);flex-shrink:0}.adaptive-header h3{color:var(--accent-cyan,#00f2ff);font-size:1em;margin:0;display:flex;align-items:center;gap:8px}.adaptive-close{background:none;border:1px solid rgba(255,255,255,0.2);color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}.adaptive-close:hover{background:#ef4444;border-color:#ef4444}.adaptive-body{flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch}.adaptive-footer{padding:12px 16px;border-top:1px solid rgba(0,242,255,0.15);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0}.mode-tabs{display:flex;background:rgba(255,255,255,0.05);border-radius:20px;padding:3px;margin-bottom:14px}.mode-tab{flex:1;text-align:center;padding:8px 12px;border-radius:18px;border:none;background:transparent;color:#94a3b8;font-size:.8em;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}.mode-tab.active{background:var(--accent-cyan,#00f2ff);color:#000}.mode-tab:hover:not(.active){color:#fff}.cmd-categories{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}.cmd-cat{padding:5px 10px;border-radius:14px;font-size:.7em;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#94a3b8;cursor:pointer;transition:all .2s;white-space:nowrap}.cmd-cat.active{background:var(--accent-blue,#1e4eb8);border-color:var(--accent-cyan,#00f2ff);color:#fff}.cmd-cat:hover{border-color:var(--accent-cyan,#00f2ff)}.cmd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}@media(max-width:400px){.cmd-grid{grid-template-columns:repeat(2,1fr);gap:6px}}.cmd-card{background:rgba(30,41,59,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px;cursor:pointer;transition:all .2s;text-align:center}.cmd-card:hover{border-color:var(--accent-cyan,#00f2ff);transform:translateY(-1px)}.cmd-card .cmd-icon{font-size:1.5em;margin-bottom:4px}.cmd-card .cmd-name{font-size:.75em;font-weight:600;color:#e0e6ed}.flow-progress{background:rgba(255,255,255,0.08);border-radius:6px;height:3px;margin-bottom:14px;overflow:hidden}.flow-progress-fill{background:linear-gradient(90deg,var(--accent-cyan,#00f2ff),var(--accent-blue,#1e4eb8));height:100%;transition:width .3s ease}.flow-back-btn{background:none;border:1px solid rgba(255,255,255,0.2);color:#94a3b8;padding:6px 12px;border-radius:6px;font-size:.8em;cursor:pointer;margin-bottom:12px}.flow-back-btn:hover{color:#fff;border-color:#fff}.flow-title{font-size:.95em;font-weight:600;color:#e0e6ed;margin-bottom:12px;display:flex;align-items:center;gap:8px}.flow-select-list{display:flex;flex-direction:column;gap:4px;max-height:45vh;overflow-y:auto}.flow-select-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(30,41,59,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:8px;cursor:pointer;transition:all .15s}.flow-select-item:active{background:rgba(0,242,255,0.1);border-color:var(--accent-cyan,#00f2ff)}.flow-select-item.selected{border-color:var(--accent-blue,#1e4eb8);background:rgba(30,78,184,0.2)}.flow-select-item .fsi-icon{font-size:1.2em;flex-shrink:0}.flow-select-item .fsi-info{flex:1;min-width:0}.flow-select-item .fsi-label{font-weight:500;font-size:.85em}.flow-select-item .fsi-desc{font-size:.7em;color:#64748b}.flow-cat-header{padding:6px 10px;font-size:.7em;color:var(--accent-cyan,#00f2ff);font-weight:700;text-transform:uppercase;background:rgba(0,242,255,0.05);border-radius:4px;margin:6px 0 2px 0;position:sticky;top:0;z-index:1}.flow-form-group{margin-bottom:10px}.flow-form-group label{display:block;font-size:.75em;color:#94a3b8;margin-bottom:4px}.flow-form-group input,.flow-form-group select{width:100%;padding:10px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e0e6ed;font-size:.9em;outline:none}.flow-form-group input:focus,.flow-form-group select:focus{border-color:var(--accent-cyan,#00f2ff)}.flow-coords{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-bottom:6px}.flow-coords input{text-align:center}.flow-slider-row{display:flex;align-items:center;gap:8px}.flow-slider-row input[type="range"]{flex:1}.flow-slider-val{color:var(--accent-cyan,#00f2ff);font-weight:600;font-size:.85em;min-width:30px}.flow-confirm{text-align:center;padding:20px;background:rgba(248,81,73,0.08);border:1px solid rgba(248,81,73,0.3);border-radius:10px;color:#fca5a5;font-size:.9em;line-height:1.5;white-space:pre-line}.flow-preview{margin-top:12px;padding:10px 14px;background:rgba(0,0,0,0.4);border-radius:8px;border:1px solid rgba(255,255,255,0.08)}.flow-preview .fp-label{font-size:.7em;color:#64748b;margin-bottom:3px}.flow-preview code{color:var(--accent-cyan,#00f2ff);font-family:\'Courier New\',monospace;font-size:.8em;word-break:break-all}.flow-search{width:100%;padding:8px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e0e6ed;font-size:.85em;margin-bottom:8px;outline:none}.flow-search:focus{border-color:var(--accent-cyan,#00f2ff)}.text-console-output{background:rgba(0,0,0,0.4);border-radius:8px;padding:10px;max-height:25vh;overflow-y:auto;margin-bottom:10px;font-family:\'Courier New\',monospace;font-size:.75em}.text-console-output .tco-line{padding:1px 0}.text-console-output .tco-cmd{color:var(--accent-cyan,#00f2ff)}.text-console-output .tco-ok{color:#3fb950}.text-console-output .tco-err{color:#f85149}.text-console-output .tco-info{color:#8b949e}.text-input-area{display:flex;gap:6px}.text-input-area input{flex:1;padding:10px 12px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e0e6ed;font-family:\'Courier New\',monospace;font-size:.85em;outline:none}.text-input-area input:focus{border-color:var(--accent-cyan,#00f2ff)}.text-input-area button{padding:10px 14px;background:var(--accent-blue,#1e4eb8);border:none;border-radius:8px;color:#fff;font-weight:600;cursor:pointer;font-size:.85em}.text-hints{font-size:.7em;color:#64748b;margin-top:8px;padding:8px;background:rgba(0,242,255,0.03);border-radius:6px;line-height:1.5}.text-hints strong{color:var(--accent-cyan,#00f2ff)}.af-btn{padding:8px 16px;border-radius:6px;border:none;font-size:.8em;font-weight:600;cursor:pointer;transition:all .2s}.af-btn-primary{background:var(--accent-blue,#1e4eb8);color:#fff}.af-btn-primary:hover{background:#2563eb}.af-btn-success{background:#238636;color:#fff}.af-btn-ghost{background:transparent;color:#94a3b8;border:1px solid rgba(255,255,255,0.15)}.af-btn-danger{background:transparent;color:#f87171;border:1px solid rgba(248,113,113,0.3)}.af-btn:disabled{opacity:.4;cursor:not-allowed}.adaptive-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;z-index:9000;font-size:.85em;font-weight:600;pointer-events:none;animation:slideUp .3s ease}.adaptive-toast.ok{background:#1a3a2a;color:#3fb950;border:1px solid #3fb950}.adaptive-toast.err{background:#3a1a1a;color:#f85149;border:1px solid #f85149}@keyframes slideUp{from{transform:translate(-50%,20px);opacity:0}to{transform:translate(-50%,0);opacity:1}}';
         document.head.appendChild(style);
     }
 
@@ -154,20 +76,16 @@ const AdaptiveCommandUI = (function() {
         if (module === 'dti') {
             return { title: 'DTI - Tubería e Instrumentación', icon: '🔧', categories: {
                 'dti_field': { name: '⭕ Instrumentos Campo', cmds: [
-                    { command: 'create_instrument_pg', icon: '📟', name: 'Manómetro (PG)', category: 'dti_field' },
-                    { command: 'create_instrument_tg', icon: '🌡️', name: 'Termómetro (TG)', category: 'dti_field' },
-                    { command: 'create_instrument_pt', icon: '📡', name: 'Transmisor Presión (PT)', category: 'dti_field' },
-                    { command: 'create_instrument_ft', icon: '📡', name: 'Transmisor Flujo (FT)', category: 'dti_field' },
-                    { command: 'create_instrument_tt', icon: '📡', name: 'Transmisor Temp (TT)', category: 'dti_field' },
-                    { command: 'create_instrument_lt', icon: '📡', name: 'Transmisor Nivel (LT)', category: 'dti_field' },
-                    { command: 'create_instrument_ls', icon: '📏', name: 'Switch Nivel (LS)', category: 'dti_field' },
-                    { command: 'create_instrument_cv', icon: '🔧', name: 'Válvula Control (CV)', category: 'dti_field' }
+                    { command: 'create_instrument_pressure_gauge', icon: '📟', name: 'Manómetro (PG)', category: 'dti_field' },
+                    { command: 'create_instrument_temperature_gauge', icon: '🌡️', name: 'Termómetro (TG)', category: 'dti_field' },
+                    { command: 'create_instrument_pressure_transmitter', icon: '📡', name: 'Transmisor Presión (PT)', category: 'dti_field' },
+                    { command: 'create_instrument_flow_transmitter', icon: '📡', name: 'Transmisor Flujo (FT)', category: 'dti_field' },
+                    { command: 'create_instrument_level_switch', icon: '📏', name: 'Switch Nivel (LS)', category: 'dti_field' },
+                    { command: 'create_instrument_control_valve', icon: '🔧', name: 'Válvula Control (CV)', category: 'dti_field' }
                 ]},
                 'dti_panel': { name: '📋 Instrumentos Panel', cmds: [
-                    { command: 'create_instrument_pic', icon: '🎛️', name: 'Controlador Presión (PIC)', category: 'dti_panel' },
-                    { command: 'create_instrument_fic', icon: '🎛️', name: 'Controlador Flujo (FIC)', category: 'dti_panel' },
-                    { command: 'create_instrument_tic', icon: '🎛️', name: 'Controlador Temp (TIC)', category: 'dti_panel' },
-                    { command: 'create_instrument_lic', icon: '🎛️', name: 'Controlador Nivel (LIC)', category: 'dti_panel' }
+                    { command: 'create_instrument_pressure_controller', icon: '🎛️', name: 'Controlador Presión (PIC)', category: 'dti_panel' },
+                    { command: 'create_instrument_flow_controller', icon: '🎛️', name: 'Controlador Flujo (FIC)', category: 'dti_panel' }
                 ]},
                 'dti_loops': { name: '🔄 Lazos de Control', cmds: [
                     { command: 'create_loop', icon: '🔁', name: 'Nuevo Lazo PID', category: 'dti_loops' }
@@ -232,17 +150,15 @@ const AdaptiveCommandUI = (function() {
             'autolink': 'autolink', 'list_instruments': 'list instruments', 'list_loops': 'list loops',
             'list_instrument_types': 'list instrument types', 'validate_dti': 'validate dti',
             'validate_all': 'validate all', 'project_summary': 'project summary', 'autofix': 'autofix',
-            'export_db': 'export db', 'export_pcf': 'export pcf', 'export_mto': 'export mto'
+            'export_db': 'export db', 'export_pcf': 'export pcf', 'export_mto': 'export mto',
+            'balance_masa': 'balance masa '
         };
         if (directMap[commandPath]) { executeTextCommand(directMap[commandPath]); return; }
-        if (AdaptiveCommandSystem.COMMAND_FLOWS[commandPath]) {
-            var flow = AdaptiveCommandSystem.COMMAND_FLOWS[commandPath];
-            if (flow.steps && flow.steps.length > 0) {
-                var stepData = AdaptiveCommandSystem.startCommandFlow(commandPath);
-                if (!stepData) { showToast('Comando no disponible', 'err'); return; }
-                if (stepData.direct) { executeTextCommand(stepData.command); return; }
-                currentFlow = stepData; renderFlowStep(); return;
-            }
+        if (AdaptiveCommandSystem.COMMAND_FLOWS[commandPath] && AdaptiveCommandSystem.COMMAND_FLOWS[commandPath].steps) {
+            var stepData = AdaptiveCommandSystem.startCommandFlow(commandPath);
+            if (!stepData) { showToast('Comando no disponible', 'err'); return; }
+            if (stepData.direct) { executeTextCommand(stepData.command); return; }
+            currentFlow = stepData; renderFlowStep(); return;
         }
         if (AdaptiveCommandSystem.DIRECT_COMMANDS[commandPath]) { executeTextCommand(AdaptiveCommandSystem.DIRECT_COMMANDS[commandPath].command); return; }
         showToast('Comando no disponible', 'err');
@@ -253,8 +169,8 @@ const AdaptiveCommandUI = (function() {
         updateTitle((currentFlow.commandIcon || '📋') + ' ' + (currentFlow.commandName || ''));
         var bodyHtml = '<div class="flow-progress"><div class="flow-progress-fill" style="width:' + (currentFlow.progress || 0) + '%"></div></div><button class="flow-back-btn" onclick="AdaptiveCommandUI.flowBack()">← Volver a comandos</button><div class="flow-title">' + (currentFlow.title || '') + '</div>';
         switch (currentFlow.type) {
-            case 'select': bodyHtml += renderFlowSelect(currentFlow, false); break;
-            case 'dynamicSelect': bodyHtml += renderFlowSelect(currentFlow, true); break;
+            case 'select': bodyHtml += renderFlowSelect(currentFlow); break;
+            case 'dynamicSelect': bodyHtml += renderFlowSelect(currentFlow); break;
             case 'multiSelect': bodyHtml += renderFlowMultiSelect(currentFlow); break;
             case 'multiComponentSelect': bodyHtml += renderFlowComponentMultiSelect(currentFlow); break;
             case 'form': bodyHtml += renderFlowForm(currentFlow); break;
@@ -280,55 +196,28 @@ const AdaptiveCommandUI = (function() {
         setTimeout(function() { var searchInput = document.getElementById('flow-search'); if (searchInput) searchInput.focus(); }, 100);
     }
 
-    function renderFlowSelect(stepData, searchable) {
-        var options = stepData.options || [];
-        var hasCategories = options.length > 0 && options[0].category !== undefined;
-        var html = '';
-        if (searchable) { html += '<input type="text" class="flow-search" id="flow-search" placeholder="🔍 Buscar... (' + options.length + ' opciones)" oninput="AdaptiveCommandUI.filterFlowItems()">'; }
-        if (hasCategories) {
-            var grouped = {};
-            options.forEach(function(opt) { var cat = opt.category || 'other'; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(opt); });
-            var catNames = { 'VALVE': '🔧 Válvulas', 'ELBOW': '🔀 Codos', 'TEE': '🔱 Tees', 'REDUCER': '🔽 Reductores', 'FLANGE': '⭕ Bridas', 'STRAINER': '🔍 Filtros', 'INSTRUMENT': '📊 Instrumentos', 'PIPE': '📏 Tubería', 'SUPPORT': '📌 Soportes', 'other': '📦 Otros' };
-            html += '<div class="flow-select-list" id="flowSelectList" style="max-height:50vh">';
-            Object.entries(grouped).forEach(function(entry) { var cat = entry[0]; var items = entry[1]; html += '<div class="flow-cat-header">' + (catNames[cat] || cat) + ' (' + items.length + ')</div>';
-                items.forEach(function(opt) { html += '<div class="flow-select-item" data-value="' + opt.value + '" data-search="' + (opt.label || '').toLowerCase() + '" onclick="AdaptiveCommandUI.selectFlowOption(\'' + opt.value + '\', this)">' + (opt.icon ? '<span class="fsi-icon">' + opt.icon + '</span>' : '<span class="fsi-icon">🔩</span>') + '<div class="fsi-info"><div class="fsi-label">' + opt.label + '</div>' + (opt.description ? '<div class="fsi-desc">' + opt.description + '</div>' : '') + '</div></div>'; }); });
-            html += '</div>';
-        } else {
-            html += '<div class="flow-select-list" id="flowSelectList">';
-            options.forEach(function(opt) { html += '<div class="flow-select-item" data-value="' + opt.value + '" data-search="' + (opt.label || '').toLowerCase() + '" onclick="AdaptiveCommandUI.selectFlowOption(\'' + opt.value + '\', this)">' + (opt.icon ? '<span class="fsi-icon">' + opt.icon + '</span>' : '') + '<div class="fsi-info"><div class="fsi-label">' + opt.label + '</div>' + (opt.description ? '<div class="fsi-desc">' + opt.description + '</div>' : '') + '</div>' + (opt.status === 'open' ? '<span style="color:#3fb950">🟢</span>' : '') + '</div>'; });
-            html += '</div>';
-        }
+    function renderFlowSelect(stepData) {
+        var options = typeof stepData.options === 'function' ? stepData.options() : (stepData.options || []);
+        var html = '<div class="flow-select-list" id="flowSelectList">';
+        options.forEach(function(opt) {
+            html += '<div class="flow-select-item" data-value="' + opt.value + '" onclick="AdaptiveCommandUI.selectFlowOption(\'' + opt.value + '\', this)">' + (opt.icon ? '<span class="fsi-icon">' + opt.icon + '</span>' : '') + '<div class="fsi-info"><div class="fsi-label">' + opt.label + '</div>' + (opt.description ? '<div class="fsi-desc">' + opt.description + '</div>' : '') + '</div>' + (opt.status === 'open' ? '<span style="color:#3fb950">🟢</span>' : '') + '</div>';
+        });
+        html += '</div>';
         return html;
     }
 
     function renderFlowMultiSelect(stepData) {
-        var html = '<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">Seleccione ' + (stepData.minSelect || 2) + '+ elementos</p>';
-        html += '<div class="flow-select-list" id="flowMultiSelectList">';
-        (stepData.options || []).forEach(function(opt) {
-            html += '<div class="flow-select-item" data-value="' + opt.value + '" onclick="AdaptiveCommandUI.toggleMultiSelect(\'' + opt.value + '\', this)">' + (opt.icon ? '<span class="fsi-icon">' + opt.icon + '</span>' : '') + '<div class="fsi-label">' + opt.label + '</div><span class="multi-check" style="display:none;color:#3fb950">✅</span></div>';
-        });
+        var html = '<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">Seleccione ' + (stepData.minSelect || 2) + '+ elementos</p><div class="flow-select-list" id="flowMultiSelectList">';
+        (stepData.options || []).forEach(function(opt) { html += '<div class="flow-select-item" data-value="' + opt.value + '" onclick="AdaptiveCommandUI.toggleMultiSelect(\'' + opt.value + '\', this)">' + (opt.icon ? '<span class="fsi-icon">' + opt.icon + '</span>' : '') + '<div class="fsi-label">' + opt.label + '</div><span class="multi-check" style="display:none;color:#3fb950">✅</span></div>'; });
         html += '</div><button class="af-btn af-btn-primary" onclick="AdaptiveCommandUI.confirmMultiSelect()" style="margin-top:8px;width:100%">Confirmar Selección</button>';
         return html;
     }
 
     function renderFlowComponentMultiSelect(stepData) {
         var options = stepData.options || [];
-        var hasCategories = options.length > 0 && options[0].category !== undefined;
-        var html = '<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">Seleccione los componentes deseados</p>';
-        if (hasCategories) {
-            var grouped = {};
-            options.forEach(function(opt) { var cat = opt.category || 'other'; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(opt); });
-            var catNames = { 'VALVE': '🔧 Válvulas', 'ELBOW': '🔀 Codos', 'TEE': '🔱 Tees', 'REDUCER': '🔽 Reductores', 'FLANGE': '⭕ Bridas', 'STRAINER': '🔍 Filtros', 'INSTRUMENT': '📊 Instrumentos', 'SUPPORT': '📌 Soportes', 'other': '📦 Otros' };
-            html += '<div class="flow-select-list" id="flowMultiSelectList" style="max-height:40vh">';
-            Object.entries(grouped).forEach(function(entry) { var cat = entry[0]; var items = entry[1]; html += '<div class="flow-cat-header">' + (catNames[cat] || cat) + ' (' + items.length + ')</div>';
-                items.forEach(function(opt) { html += '<div class="flow-select-item" data-value="' + opt.value + '" onclick="AdaptiveCommandUI.toggleMultiSelect(\'' + opt.value + '\', this)">🔩<div class="fsi-info"><div class="fsi-label">' + opt.label + '</div></div><span class="multi-check" style="display:none;color:#3fb950">✅</span></div>'; }); });
-            html += '</div>';
-        } else {
-            html += '<div class="flow-select-list" id="flowMultiSelectList">';
-            options.forEach(function(opt) { html += '<div class="flow-select-item" data-value="' + opt.value + '" onclick="AdaptiveCommandUI.toggleMultiSelect(\'' + opt.value + '\', this)"><div class="fsi-label">' + opt.label + '</div><span class="multi-check" style="display:none;color:#3fb950">✅</span></div>'; });
-            html += '</div>';
-        }
-        html += '<button class="af-btn af-btn-primary" onclick="AdaptiveCommandUI.confirmMultiSelect()" style="margin-top:8px;width:100%">Confirmar Selección</button>';
+        var html = '<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">Seleccione los componentes deseados</p><div class="flow-select-list" id="flowMultiSelectList">';
+        options.forEach(function(opt) { html += '<div class="flow-select-item" data-value="' + opt.value + '" onclick="AdaptiveCommandUI.toggleMultiSelect(\'' + opt.value + '\', this)">🔩<div class="fsi-info"><div class="fsi-label">' + opt.label + '</div></div><span class="multi-check" style="display:none;color:#3fb950">✅</span></div>'; });
+        html += '</div><button class="af-btn af-btn-primary" onclick="AdaptiveCommandUI.confirmMultiSelect()" style="margin-top:8px;width:100%">Confirmar Selección</button>';
         return html;
     }
 
@@ -338,9 +227,8 @@ const AdaptiveCommandUI = (function() {
             html += '<div class="flow-form-group"><label>' + field.label + '</label>';
             if (field.type === 'select') {
                 html += '<select id="field-' + field.id + '" data-field="' + field.id + '"><option value="">Seleccionar...</option>';
-                var opts = field.options;
-                if (typeof opts === 'function') { var sel = AdaptiveCommandSystem.getSelections ? AdaptiveCommandSystem.getSelections() : {}; opts = opts(null, sel); }
-                (opts || []).forEach(function(opt) { var val = typeof opt === 'object' ? opt.value : opt; var lbl = typeof opt === 'object' ? (opt.label || opt.value) : opt; html += '<option value="' + val + '">' + lbl + '</option>'; });
+                var opts = typeof field.options === 'function' ? field.options() : (field.options || []);
+                opts.forEach(function(opt) { var val = typeof opt === 'object' ? opt.value : opt; var lbl = typeof opt === 'object' ? (opt.label || opt.value) : opt; html += '<option value="' + val + '">' + lbl + '</option>'; });
                 html += '</select>';
             } else if (field.type === 'checkbox') {
                 html += '<input type="checkbox" id="field-' + field.id + '" data-field="' + field.id + '" style="width:auto">';
@@ -360,7 +248,7 @@ const AdaptiveCommandUI = (function() {
     function renderFlowCoordinateList(stepData) {
         var html = '<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">' + (stepData.description || 'Agregue puntos') + ' (mín: ' + (stepData.minPoints || 2) + ')</p><div id="coordListContainer">';
         var pts = stepData.default || [{ x: 0, y: 0, z: 0 }, { x: 1000, y: 0, z: 0 }];
-        pts.forEach(function(p, i) { html += '<div class="flow-coords" data-cidx="' + i + '"><input type="number" placeholder="X" value="' + (p.x || 0) + '" data-axis="x"><input type="number" placeholder="Y" value="' + (p.y || 0) + '" data-axis="y"><input type="number" placeholder="Z" value="' + (p.z || 0) + '" data-axis="z"><button class="af-btn af-btn-ghost" onclick="this.parentElement.remove()" style="padding:4px 6px;font-size:0.7em">✕</button></div>'; });
+        pts.forEach(function(p, i) { html += '<div class="flow-coords" data-cidx="' + i + '"><input type="number" placeholder="X" value="' + (p.x || 0) + '" data-axis="x"><input type="number" placeholder="Y" value="' + (p.y || 0) + '" data-axis="y"><input type="number" placeholder="Z" value="' + (p.z || 0) + '" data-axis="z"><button class="af-btn af-btn-ghost" onclick="this.parentElement.remove()" style="padding:4px 6px;font-size:.7em">✕</button></div>'; });
         html += '</div><button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.addCoordRow()" style="margin-top:6px">+ Agregar Punto</button>';
         return html;
     }
@@ -382,7 +270,7 @@ const AdaptiveCommandUI = (function() {
     }
 
     function renderFlowInfo(stepData) {
-        return '<div style="text-align:center;padding:20px;color:var(--accent-cyan,#00f2ff);white-space:pre-line;font-size:0.9em">' + (stepData.message || '') + '</div>';
+        return '<div style="text-align:center;padding:20px;color:var(--accent-cyan,#00f2ff);white-space:pre-line;font-size:.9em">' + (stepData.message || '') + '</div>';
     }
 
     function renderFlowDynamic(stepData) {
@@ -429,10 +317,10 @@ const AdaptiveCommandUI = (function() {
                 else value[field] = input.type === 'number' ? (parseFloat(input.value) || 0) : input.value;
             });
         } else if (currentFlow.type === 'coordinate') {
-            value = { x: parseFloat(document.getElementById('coord-x') ? document.getElementById('coord-x').value : 0), y: parseFloat(document.getElementById('coord-y') ? document.getElementById('coord-y').value : 0), z: parseFloat(document.getElementById('coord-z') ? document.getElementById('coord-z').value : 0) };
+            value = { x: parseFloat((document.getElementById('coord-x')||{}).value || 0), y: parseFloat((document.getElementById('coord-y')||{}).value || 0), z: parseFloat((document.getElementById('coord-z')||{}).value || 0) };
         } else if (currentFlow.type === 'coordinateList') {
             value = [];
-            document.querySelectorAll('#coordListContainer .flow-coords').forEach(function(row) { value.push({ x: parseFloat(row.querySelector('[data-axis="x"]') ? row.querySelector('[data-axis="x"]').value : 0), y: parseFloat(row.querySelector('[data-axis="y"]') ? row.querySelector('[data-axis="y"]').value : 0), z: parseFloat(row.querySelector('[data-axis="z"]') ? row.querySelector('[data-axis="z"]').value : 0) }); });
+            document.querySelectorAll('#coordListContainer .flow-coords').forEach(function(row) { value.push({ x: parseFloat((row.querySelector('[data-axis="x"]')||{}).value || 0), y: parseFloat((row.querySelector('[data-axis="y"]')||{}).value || 0), z: parseFloat((row.querySelector('[data-axis="z"]')||{}).value || 0) }); });
         } else if (currentFlow.type === 'text') {
             var textInput = document.getElementById('flow-text-input');
             value = textInput ? textInput.value : '';
@@ -491,10 +379,8 @@ const AdaptiveCommandUI = (function() {
     }
 
     function filterFlowItems() {
-        var searchInput = document.getElementById('flow-search');
-        var search = searchInput ? searchInput.value.toLowerCase() : '';
-        document.querySelectorAll('#flowSelectList .flow-select-item, #flowMultiSelectList .flow-select-item').forEach(function(item) { var searchText = item.dataset.search || ''; item.style.display = searchText.includes(search) ? '' : 'none'; });
-        document.querySelectorAll('.flow-cat-header').forEach(function(header) { var hasVisible = false; var next = header.nextElementSibling; while (next && !next.classList.contains('flow-cat-header')) { if (next.style.display !== 'none') hasVisible = true; next = next.nextElementSibling; } header.style.display = hasVisible ? '' : 'none'; });
+        var search = (document.getElementById('flow-search')||{}).value || '';
+        document.querySelectorAll('#flowSelectList .flow-select-item, #flowMultiSelectList .flow-select-item').forEach(function(item) { item.style.display = (item.dataset.search || '').includes(search.toLowerCase()) ? '' : 'none'; });
     }
 
     function addCoordRow() {
@@ -502,8 +388,7 @@ const AdaptiveCommandUI = (function() {
         if (!container) return;
         var row = document.createElement('div');
         row.className = 'flow-coords';
-        row.dataset.cidx = container.children.length;
-        row.innerHTML = '<input type="number" placeholder="X" value="0" data-axis="x"><input type="number" placeholder="Y" value="0" data-axis="y"><input type="number" placeholder="Z" value="0" data-axis="z"><button class="af-btn af-btn-ghost" onclick="this.parentElement.remove()" style="padding:4px 6px;font-size:0.7em">✕</button>';
+        row.innerHTML = '<input type="number" placeholder="X" value="0" data-axis="x"><input type="number" placeholder="Y" value="0" data-axis="y"><input type="number" placeholder="Z" value="0" data-axis="z"><button class="af-btn af-btn-ghost" onclick="this.parentElement.remove()" style="padding:4px 6px;font-size:.7em">✕</button>';
         container.appendChild(row);
     }
 
@@ -541,7 +426,7 @@ const AdaptiveCommandUI = (function() {
         if (typeof SmartFlowCommands !== 'undefined' && typeof SmartFlowCommands.executeCommand === 'function') {
             var result = SmartFlowCommands.executeCommand(cmd);
             if (result) { addConsoleLine('✅ Ejecutado correctamente', 'ok'); showToast('Comando ejecutado', 'ok'); }
-            else { addConsoleLine('❌ Comando no reconocido o sin efecto', 'err'); showToast('Comando no reconocido', 'err'); }
+            else { addConsoleLine('❌ Comando no reconocido', 'err'); showToast('Comando no reconocido', 'err'); }
         } else {
             var textarea = document.getElementById('commandText');
             if (textarea) { textarea.value = cmd; var runBtn = document.getElementById('runCommands'); if (runBtn) runBtn.click(); }
