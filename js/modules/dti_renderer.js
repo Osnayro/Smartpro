@@ -741,20 +741,4 @@ const SmartFlowDTIRenderer = (function() {
         getSignalRoutes: function() { return _signalRoutes; }
     };
 })();
-```
 
----
-
-Actualizar index.html — Función initDTICanvas()
-
-```javascript
-function initDTICanvas() {
-    var canvas = document.getElementById('dti-canvas');
-    if (!canvas || canvas._initialized) return;
-    canvas._initialized = true;
-    
-    if (typeof SmartFlowDTIRenderer !== 'undefined') {
-        SmartFlowDTIRenderer.init(canvas, SmartFlowCore, notify);
-        console.log('✅ DTI Renderer inicializado');
-    }
-}
