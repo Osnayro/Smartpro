@@ -758,11 +758,3 @@ function initDTICanvas() {
         console.log('✅ DTI Renderer inicializado');
     }
 }
-```
-
----
-
-Agregar script en index.html
-
-```html
-<script src="js/modules/dti_renderer.js"></script>
