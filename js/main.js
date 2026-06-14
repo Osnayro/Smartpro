@@ -1,13 +1,7 @@
-// ============================================================
-// SMARTFLOW MAIN v3.2 - Punto de Entrada Principal
-// Archivo: js/main.js
-// Corrección v3.2: switchModule unificado en window
-// ============================================================
 
 (function() {
     "use strict";
     
-    // -------------------- 1. REFERENCIAS AL DOM --------------------
     const canvas = document.getElementById('isoCanvas');
     const notificationEl = document.getElementById('notification');
     const statusMsgEl = document.getElementById('statusMsg');
@@ -16,13 +10,11 @@
     const customElev = document.getElementById('customElev');
     const sidePanel = document.getElementById('side-panel');
     const panelContent = document.getElementById('panel-content');
-    
     const splashScreen = document.getElementById('splash-screen');
     const welcomePanel = document.getElementById('welcome-panel');
     const projectModal = document.getElementById('project-name-modal');
     const projectInput = document.getElementById('project-name-input');
     
-    // -------------------- 2. ESTADO --------------------
     let toolMode = 'select';
     let voiceEnabled = true;
     let _is2DInitialized = false;
@@ -33,7 +25,6 @@
     let draggedEquipTag = null;
     let dragLastPos = { x: 0, y: 0 };
     
-    // -------------------- 3. HISTORIAL --------------------
     const _commandHistory = [];
     const MAX_HISTORY = 50;
     let _historyIndex = -1;
@@ -52,9 +43,7 @@
     
     function updateHistoryIndicator() {
         const indicator = document.getElementById('historyIndicator');
-        if (indicator) {
-            indicator.textContent = _commandHistory.length > 0 ? '⏺ Historial: ' + _commandHistory.length + ' comandos' : '';
-        }
+        if (indicator) { indicator.textContent = _commandHistory.length > 0 ? '⏺ Historial: ' + _commandHistory.length + ' comandos' : ''; }
     }
     
     function navigateHistory(direction) {
@@ -67,16 +56,15 @@
         setTimeout(function() { _isNavigatingHistory = false; }, 50);
     }
     
-    // -------------------- 4. UI --------------------
     function notify(msg, isErr) {
         if (isErr === undefined) isErr = false;
         if (notificationEl) { notificationEl.textContent = msg; notificationEl.style.backgroundColor = isErr ? '#da3633' : '#238636'; notificationEl.style.display = 'block'; }
         if (statusMsgEl) statusMsgEl.textContent = msg;
-        if (voiceEnabled && window.speechSynthesis) { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(msg); u.lang = 'es-ES'; setTimeout(function() { window.speechSynthesis.speak(u); }, 50); }
+        if (voiceEnabled && window.speechSynthesis) { window.speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(msg); u.lang = 'es-ES'; setTimeout(function() { window.speechSynthesis.speak(u); }, 50); }
         setTimeout(function() { if (notificationEl) notificationEl.style.display = 'none'; }, 5000);
     }
     
-    function voiceFn(msg) { if (voiceEnabled && window.speechSynthesis) { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(msg); u.lang = 'es-ES'; window.speechSynthesis.speak(u); } }
+    function voiceFn(msg) { if (voiceEnabled && window.speechSynthesis) { window.speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(msg); u.lang = 'es-ES'; window.speechSynthesis.speak(u); } }
     
     function scheduleRender() {
         var m = window.currentModule || 'pfd';
@@ -97,73 +85,54 @@
     function toggleFullscreen() { document.body.classList.add('fullscreen-mode'); autoCenter(); }
     function exitFullscreen() { document.body.classList.remove('fullscreen-mode'); autoCenter(); }
     function togglePanel(show) { if (sidePanel) { if (show) sidePanel.classList.remove('hidden'); else sidePanel.classList.add('hidden'); } }
-    function toggleAllPanels() { const panels = [sidePanel, document.getElementById('toolsPanel')]; const visible = sidePanel && sidePanel.style.display !== 'none'; panels.forEach(function(p) { if (p) p.style.display = visible ? 'none' : ''; }); }
+    function toggleAllPanels() { var panels = [sidePanel, document.getElementById('toolsPanel')]; var visible = sidePanel && sidePanel.style.display !== 'none'; panels.forEach(function(p) { if (p) p.style.display = visible ? 'none' : ''; }); }
     
     function updatePropertyPanel(info) {
         if (!panelContent) return;
         if (!info) { togglePanel(false); return; }
         togglePanel(true);
-        panelContent.innerHTML = `
-            <div class="prop-group"><span class="prop-label">TAG</span><span class="prop-value">${info.tag || 'N/A'}</span></div>
-            <div class="prop-group"><span class="prop-label">TIPO</span><span class="prop-value">${info.tipo || 'Desconocido'}</span></div>
-            <div class="prop-group"><span class="prop-label">MATERIAL</span><span class="prop-value">${info.material || 'N/A'}</span></div>
-            <div class="prop-group"><span class="prop-label">DIÁMETRO</span><span class="prop-value">${info.diametro || 'N/A'}</span></div>
-            <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin:15px 0;">
-            <div class="prop-group"><span class="prop-label">PUERTOS</span>${info.puertos && info.puertos.length ? info.puertos.map(function(p) { return `<div class="port-item"><span>${p.id}</span><span class="${p.status === 'open' ? 'port-open' : 'port-connected'}">${p.status === 'open' ? 'DISPONIBLE' : 'CONECTADO'}</span></div>`; }).join('') : '<p>Sin puertos</p>'}</div>`;
+        panelContent.innerHTML = '<div class="prop-group"><span class="prop-label">TAG</span><span class="prop-value">' + (info.tag || 'N/A') + '</span></div><div class="prop-group"><span class="prop-label">TIPO</span><span class="prop-value">' + (info.tipo || 'Desconocido') + '</span></div><div class="prop-group"><span class="prop-label">MATERIAL</span><span class="prop-value">' + (info.material || 'N/A') + '</span></div><div class="prop-group"><span class="prop-label">DIÁMETRO</span><span class="prop-value">' + (info.diametro || 'N/A') + '</span></div><hr style="border:0;border-top:1px solid rgba(255,255,255,0.1);margin:15px 0"><div class="prop-group"><span class="prop-label">PUERTOS</span>' + (info.puertos && info.puertos.length ? info.puertos.map(function(p) { return '<div class="port-item"><span>' + p.id + '</span><span class="' + (p.status === 'open' ? 'port-open' : 'port-connected') + '">' + (p.status === 'open' ? 'DISPONIBLE' : 'CONECTADO') + '</span></div>'; }).join('') : '<p>Sin puertos</p>') + '</div>';
     }
     
-    // -------------------- 5. INICIALIZACIÓN DE MÓDULOS --------------------
     function initModules() {
         SmartFlowCore.init(notify, scheduleRender, updatePropertyPanel);
         console.log('✅ Core v6.0');
-        
         if (typeof SmartFlowIO !== 'undefined' && !_ioInitialized) { SmartFlowIO.init(SmartFlowCore, notify); _ioInitialized = true; console.log('✅ I/O'); }
         if (typeof SmartFlowDBExport !== 'undefined') { SmartFlowDBExport.init(SmartFlowCore, typeof SmartFlowIO !== 'undefined' ? SmartFlowIO : null, notify); console.log('✅ DB Export'); }
         if (typeof SmartFlowPFD !== 'undefined') { SmartFlowPFD.init(SmartFlowCore, typeof SmartFlowCatalog !== 'undefined' ? SmartFlowCatalog : null, notify); console.log('✅ PFD Engine'); }
         if (typeof SmartFlowDTI !== 'undefined') { SmartFlowDTI.init(SmartFlowCore, typeof SmartFlowCatalog !== 'undefined' ? SmartFlowCatalog : null, notify); console.log('✅ DTI Engine'); }
         if (typeof SmartFlowIntegrity !== 'undefined') { SmartFlowIntegrity.init(SmartFlowCore, typeof SmartFlowPFD !== 'undefined' ? SmartFlowPFD : null, typeof SmartFlowDTI !== 'undefined' ? SmartFlowDTI : null, notify); console.log('✅ Integrity'); }
-        
         var pfdCanvas = document.getElementById('pfd-canvas');
         if (typeof SmartFlowPFDRenderer !== 'undefined' && pfdCanvas) { SmartFlowPFDRenderer.init(pfdCanvas, SmartFlowCore, notify); console.log('✅ PFD Renderer'); }
-        
         var dtiCanvas = document.getElementById('dti-canvas');
         if (typeof SmartFlowDTIRenderer !== 'undefined' && dtiCanvas) { SmartFlowDTIRenderer.init(dtiCanvas, SmartFlowCore, notify); console.log('✅ DTI Renderer'); }
-        
         if (typeof SmartFlowRenderer !== 'undefined' && canvas) { SmartFlowRenderer.init(canvas, SmartFlowCore, notify); _is2DInitialized = true; console.log('✅ ISO Renderer'); }
         if (typeof SmartFlowRouter !== 'undefined') { SmartFlowRouter.init(SmartFlowCore, SmartFlowCatalog, notify, scheduleRender); }
-        
         SmartFlowCommands.init(SmartFlowCore, SmartFlowCatalog, SmartFlowRenderer, notify, scheduleRender, voiceFn);
         SmartFlowCore.setVoice(voiceEnabled);
         _modulesInitialized = true;
-        notify('SmartEngp v3.2 listo | PFD + DTI + ISO', false);
+        notify('SmartEngp v3.4 listo | PFD + DTI + ISO', false);
     }
     
-    // -------------------- 6. SWITCH DE MÓDULO (DEFINIDO UNA SOLA VEZ) --------------------
     window.switchModule = function(module) {
         window.currentModule = module;
-        
         var pfdCanvas = document.getElementById('pfd-canvas');
         var dtiCanvas = document.getElementById('dti-canvas');
         var isoCanvas = document.getElementById('isoCanvas');
         var viewer3d = document.getElementById('viewer-3d');
-        
         if (pfdCanvas) pfdCanvas.style.display = 'none';
         if (dtiCanvas) dtiCanvas.style.display = 'none';
         if (isoCanvas) isoCanvas.style.display = 'none';
         if (viewer3d) viewer3d.style.display = 'none';
-        
         var toolsPanel = document.getElementById('toolsPanel');
         if (toolsPanel) toolsPanel.style.display = module === 'iso' ? '' : 'none';
-        
         document.querySelectorAll('.module-tab').forEach(function(t) { t.classList.remove('active'); });
-        
         var bp = document.getElementById('btn-mode-pfd');
         var bd = document.getElementById('btn-mode-dti');
         var bi = document.getElementById('btn-mode-iso');
         if (bp) bp.classList.remove('active');
         if (bd) bd.classList.remove('active');
         if (bi) bi.classList.remove('active');
-        
         if (module === 'pfd') {
             if (pfdCanvas) pfdCanvas.style.display = 'block';
             var tp = document.querySelector('.pfd-tab'); if (tp) tp.classList.add('active');
@@ -182,21 +151,34 @@
         }
     };
     
-    // -------------------- 7. PROYECTOS --------------------
-    function guardarProyecto() { if (typeof SmartFlowIO !== 'undefined') { SmartFlowIO.downloadJSON(); return; } localStorage.setItem('smartengp_v3_project', SmartFlowCore.exportProject()); notify("✅ Guardado.", false); }
-    function cargarProyecto() { if (typeof SmartFlowIO !== 'undefined') { SmartFlowIO.uploadAndImportJSON(); return; } const d = localStorage.getItem('smartengp_v3_project'); if (d) { try { SmartFlowCore.importState(JSON.parse(d)); autoCenter(); } catch(e) { notify("Error.", true); } } else { notify("Sin proyecto.", true); } }
+    function guardarProyecto() {
+        var state = SmartFlowCore.exportProject();
+        localStorage.setItem('smartengp_v3_project', state);
+        notify("✅ Proyecto guardado en el navegador.", false);
+    }
+    
+    function cargarProyecto() {
+        var data = localStorage.getItem('smartengp_v3_project');
+        if (data) {
+            try {
+                var state = JSON.parse(data);
+                SmartFlowCore.importState(state.data || state);
+                autoCenter();
+                notify("✅ Proyecto cargado correctamente.", false);
+            } catch (e) { notify("Error al cargar el proyecto.", true); }
+        } else { notify("No hay proyecto guardado en el navegador.", true); }
+    }
+    
     function exportarProyectoArchivo() { if (typeof SmartFlowIO !== 'undefined') SmartFlowIO.downloadJSON(); }
     function importarProyectoArchivo() { if (typeof SmartFlowIO !== 'undefined') SmartFlowIO.uploadAndImportJSON(); }
-    function nuevoProyecto() { if (confirm("¿Nuevo proyecto?")) { SmartFlowCore.nuevoProyecto(); autoCenter(); } }
-    function iniciarNuevoProyecto() { const n = projectInput ? projectInput.value.trim() : ''; if (n) window.currentProjectName = n; if (projectModal) projectModal.style.display = 'none'; if (welcomePanel) welcomePanel.classList.add('welcome-hidden'); SmartFlowCore.nuevoProyecto(); if (statusMsgEl) statusMsgEl.textContent = 'Proyecto: ' + window.currentProjectName; autoCenter(); }
+    function nuevoProyecto() { if (confirm("¿Crear nuevo proyecto? Se perderán los cambios no guardados.")) { SmartFlowCore.nuevoProyecto(); autoCenter(); } }
+    function iniciarNuevoProyecto() { var n = projectInput ? projectInput.value.trim() : ''; if (n) window.currentProjectName = n; if (projectModal) projectModal.style.display = 'none'; if (welcomePanel) welcomePanel.classList.add('welcome-hidden'); SmartFlowCore.nuevoProyecto(); if (statusMsgEl) statusMsgEl.textContent = 'Proyecto: ' + window.currentProjectName; autoCenter(); }
     function saltarNombreProyecto() { if (projectModal) projectModal.style.display = 'none'; if (welcomePanel) welcomePanel.classList.add('welcome-hidden'); if (statusMsgEl) statusMsgEl.textContent = 'Proyecto: ' + window.currentProjectName; }
     
-    // -------------------- 8. HERRAMIENTAS --------------------
     function setTool(mode) { toolMode = mode; var ids = { select: 'toolSelect', moveEq: 'toolMoveEq', editPipe: 'toolEditPipe', addPoint: 'toolAddPoint' }; Object.keys(ids).forEach(function(k) { var b = document.getElementById(ids[k]); if (b) b.classList.toggle('active', mode === k); }); }
     window.setElevation = function(level) { SmartFlowCore.setElevation(level); if (window.currentModule === 'iso' && window.currentViewMode === '2d' && window.SmartFlowRenderer) window.SmartFlowRenderer.setElevation(level); if (customElev) customElev.value = level; };
     function toggleVoice() { voiceEnabled = !voiceEnabled; SmartFlowCore.setVoice(voiceEnabled); var b = document.getElementById('btnVoice'); if (b) b.textContent = voiceEnabled ? '🔊 Voz ON' : '🔇 Voz OFF'; }
     
-    // -------------------- 9. ATAJOS --------------------
     function setupKeyboardShortcuts() {
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.shiftKey) {
@@ -218,24 +200,22 @@
         });
     }
     
-    // -------------------- 10. COMANDOS --------------------
     function abrirPanelComandos() { if (commandPanel) { commandPanel.style.display = 'block'; if (commandText) commandText.focus(); } }
     function ejecutarComando() {
         if (!commandText) return;
-        const txt = commandText.value.trim();
+        var txt = commandText.value.trim();
         if (!txt) return;
-        const lineas = txt.split('\n').filter(function(l) { return l.trim(); });
-        let ok = lineas.length === 1 ? SmartFlowCommands.executeCommand(lineas[0]) !== false : SmartFlowCommands.executeBatch(lineas.join('\n')) > 0;
+        var lineas = txt.split('\n').filter(function(l) { return l.trim(); });
+        var ok = lineas.length === 1 ? SmartFlowCommands.executeCommand(lineas[0]) !== false : SmartFlowCommands.executeBatch(lineas.join('\n')) > 0;
         if (ok) addToHistory(txt);
         commandText.value = ''; _historyIndex = _commandHistory.length; _tempCommand = '';
-        const first = lineas[0].toLowerCase();
-        if (!['info', 'list', 'help', 'ayuda', 'validate', 'validar', 'summary', 'resumen', 'balance'].some(function(k) { return first.startsWith(k); })) { if (commandPanel) commandPanel.style.display = 'none'; }
+        var first = lineas[0].toLowerCase();
+        if (!['info','list','help','ayuda','validate','validar','summary','resumen','balance'].some(function(k) { return first.startsWith(k); })) { if (commandPanel) commandPanel.style.display = 'none'; }
         scheduleRender();
     }
     
-    // -------------------- 11. BOTONES --------------------
     function bindEvents() {
-        const v = function(id, accion) { const el = document.getElementById(id); if (el) el.onclick = accion; };
+        var v = function(id, accion) { var el = document.getElementById(id); if (el) el.onclick = accion; };
         v('welcome-new-project', function() { if (projectModal) projectModal.style.display = 'flex'; });
         v('welcome-open-project', function() { cargarProyecto(); if (welcomePanel) welcomePanel.classList.add('welcome-hidden'); });
         v('modal-accept', iniciarNuevoProyecto);
@@ -271,37 +251,27 @@
         v('btnVoice', toggleVoice);
         v('btnRecalc', function() { SmartFlowCore.syncPhysicalData(); scheduleRender(); });
         v('btnSpeakSummary', function() { if (typeof SmartFlowIntegrity !== 'undefined') SmartFlowIntegrity.quickSummary(); });
-        v('btnSetElev', function() { const val = parseInt(customElev ? customElev.value : 0); if (!isNaN(val)) window.setElevation(val); });
-        
-        function setupDropdown(id) { const b = document.getElementById(id); if (!b) return; b.addEventListener('click', function(e) { e.stopPropagation(); const p = this.closest('.dropdown'); if (p) p.classList.toggle('open'); }); }
+        v('btnSetElev', function() { var val = parseInt(customElev ? customElev.value : 0); if (!isNaN(val)) window.setElevation(val); });
+        function setupDropdown(id) { var b = document.getElementById(id); if (!b) return; b.addEventListener('click', function(e) { e.stopPropagation(); var p = this.closest('.dropdown'); if (p) p.classList.toggle('open'); }); }
         setupDropdown('btnFileMenu');
         setupDropdown('btnMoreMenu');
         document.addEventListener('click', function(e) { if (!e.target.closest('.dropdown')) document.querySelectorAll('.dropdown.open').forEach(function(d) { d.classList.remove('open'); }); });
-        
         if (commandText) {
-            commandText.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ejecutarComando(); }
-                else if (e.key === 'ArrowUp') { e.preventDefault(); navigateHistory('up'); }
-                else if (e.key === 'ArrowDown') { e.preventDefault(); navigateHistory('down'); }
-            });
+            commandText.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ejecutarComando(); } else if (e.key === 'ArrowUp') { e.preventDefault(); navigateHistory('up'); } else if (e.key === 'ArrowDown') { e.preventDefault(); navigateHistory('down'); } });
         }
-        
-        let rt;
+        var rt;
         window.addEventListener('resize', function() { clearTimeout(rt); rt = setTimeout(function() { var m = window.currentModule || 'pfd'; if (m === 'pfd' && typeof SmartFlowPFDRenderer !== 'undefined') { SmartFlowPFDRenderer.resizeCanvas(); SmartFlowPFDRenderer.render(); } else if (m === 'dti' && typeof SmartFlowDTIRenderer !== 'undefined') { SmartFlowDTIRenderer.resizeCanvas(); SmartFlowDTIRenderer.render(); } else if (m === 'iso' && typeof SmartFlowRenderer !== 'undefined') { SmartFlowRenderer.resizeCanvas(); } }, 150); });
     }
     
-    // -------------------- 12. ARRANQUE --------------------
     function init() {
         window.currentProjectName = window.currentProjectName || 'Proyecto_SmartEngp';
         window.voiceEnabled = true;
         window.currentModule = 'pfd';
         window.currentViewMode = '2d';
-        
-        const ss = document.getElementById('splash-status');
-        const msgs = ["Cargando...", "Core v6.0...", "PFD Engine...", "DTI Engine...", "Integrity...", "PFD Renderer...", "DTI Renderer...", "¡SmartEngp v3.2!"];
-        let mi = 0;
-        const iv = setInterval(function() { if (mi < msgs.length && ss) { ss.textContent = msgs[mi]; mi++; } }, 600);
-        
+        var ss = document.getElementById('splash-status');
+        var msgs = ["Cargando...", "Core v6.0...", "PFD Engine...", "DTI Engine...", "Integrity...", "PFD Renderer...", "DTI Renderer...", "¡SmartEngp v3.4!"];
+        var mi = 0;
+        var iv = setInterval(function() { if (mi < msgs.length && ss) { ss.textContent = msgs[mi]; mi++; } }, 600);
         function bootstrap() {
             if (typeof SmartFlowCore === 'undefined' || typeof SmartFlowCommands === 'undefined') { setTimeout(bootstrap, 100); return; }
             initModules();
