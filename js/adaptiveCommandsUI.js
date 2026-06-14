@@ -1,5 +1,6 @@
 
 // Archivo: js/adaptiveCommandsUI.js
+// Versión: 3.0 — Soporte PFD + DTI + ISO
 
 const AdaptiveCommandUI = (function() {
     
@@ -309,50 +310,179 @@ const AdaptiveCommandUI = (function() {
         if (el) el.textContent = title || 'Comandos Inteligentes';
     }
 
+    // ================================================================
+    //  NUEVO: DETECTAR MÓDULO ACTIVO Y RETORNAR COMANDOS
+    // ================================================================
+    
+    function getModuleCommands() {
+        var module = window.currentModule || 'pfd';
+        
+        if (module === 'pfd') {
+            return {
+                title: 'PFD - Diagrama de Flujo',
+                icon: '📊',
+                categories: {
+                    'pfd_equipos': {
+                        name: '🏗️ Equipos Lógicos',
+                        cmds: [
+                            { command: 'create_equipo_tanque_v', icon: '🛢️', name: 'Tanque Vertical', category: 'pfd_equipos' },
+                            { command: 'create_equipo_bomba', icon: '⚙️', name: 'Bomba', category: 'pfd_equipos' },
+                            { command: 'create_equipo_intercambiador', icon: '🔥', name: 'Intercambiador', category: 'pfd_equipos' },
+                            { command: 'create_equipo_tanque_h', icon: '🛢️', name: 'Tanque Horizontal', category: 'pfd_equipos' },
+                            { command: 'create_equipo_reactor', icon: '⚗️', name: 'Reactor', category: 'pfd_equipos' },
+                            { command: 'create_equipo_torre', icon: '🗼', name: 'Torre', category: 'pfd_equipos' },
+                            { command: 'create_equipo_compresor', icon: '💨', name: 'Compresor', category: 'pfd_equipos' },
+                            { command: 'create_equipo_separador', icon: '🔻', name: 'Separador', category: 'pfd_equipos' }
+                        ]
+                    },
+                    'pfd_streams': {
+                        name: '🔗 Corrientes',
+                        cmds: [
+                            { command: 'create_stream', icon: '➡️', name: 'Nueva Corriente', category: 'pfd_streams' }
+                        ]
+                    },
+                    'pfd_query': {
+                        name: '🔍 Consultas PFD',
+                        cmds: [
+                            { command: 'list_streams', icon: '📋', name: 'Listar Corrientes', category: 'pfd_query' },
+                            { command: 'list_equipos', icon: '📦', name: 'Listar Equipos', category: 'pfd_query' },
+                            { command: 'balance_masa', icon: '⚖️', name: 'Balance de Masa', category: 'pfd_query' },
+                            { command: 'validate_pfd', icon: '🔍', name: 'Validar PFD', category: 'pfd_query' },
+                            { command: 'autolink', icon: '🔗', name: 'Auto-Vincular', category: 'pfd_query' }
+                        ]
+                    }
+                }
+            };
+        }
+        
+        if (module === 'dti') {
+            return {
+                title: 'DTI - Tubería e Instrumentación',
+                icon: '🔧',
+                categories: {
+                    'dti_field': {
+                        name: '⭕ Instrumentos Campo',
+                        cmds: [
+                            { command: 'create_instrument_pg', icon: '📟', name: 'Manómetro (PG)', category: 'dti_field' },
+                            { command: 'create_instrument_tg', icon: '🌡️', name: 'Termómetro (TG)', category: 'dti_field' },
+                            { command: 'create_instrument_pt', icon: '📡', name: 'Transmisor Presión (PT)', category: 'dti_field' },
+                            { command: 'create_instrument_ft', icon: '📡', name: 'Transmisor Flujo (FT)', category: 'dti_field' },
+                            { command: 'create_instrument_tt', icon: '📡', name: 'Transmisor Temp (TT)', category: 'dti_field' },
+                            { command: 'create_instrument_lt', icon: '📡', name: 'Transmisor Nivel (LT)', category: 'dti_field' },
+                            { command: 'create_instrument_ls', icon: '📏', name: 'Switch Nivel (LS)', category: 'dti_field' },
+                            { command: 'create_instrument_cv', icon: '🔧', name: 'Válvula Control (CV)', category: 'dti_field' }
+                        ]
+                    },
+                    'dti_panel': {
+                        name: '📋 Instrumentos Panel',
+                        cmds: [
+                            { command: 'create_instrument_pic', icon: '🎛️', name: 'Controlador Presión (PIC)', category: 'dti_panel' },
+                            { command: 'create_instrument_fic', icon: '🎛️', name: 'Controlador Flujo (FIC)', category: 'dti_panel' },
+                            { command: 'create_instrument_tic', icon: '🎛️', name: 'Controlador Temp (TIC)', category: 'dti_panel' },
+                            { command: 'create_instrument_lic', icon: '🎛️', name: 'Controlador Nivel (LIC)', category: 'dti_panel' }
+                        ]
+                    },
+                    'dti_loops': {
+                        name: '🔄 Lazos de Control',
+                        cmds: [
+                            { command: 'create_loop', icon: '🔁', name: 'Nuevo Lazo PID', category: 'dti_loops' }
+                        ]
+                    },
+                    'dti_query': {
+                        name: '🔍 Consultas DTI',
+                        cmds: [
+                            { command: 'list_instruments', icon: '📋', name: 'Listar Instrumentos', category: 'dti_query' },
+                            { command: 'list_loops', icon: '🔄', name: 'Listar Lazos', category: 'dti_query' },
+                            { command: 'list_instrument_types', icon: '📁', name: 'Tipos Disponibles', category: 'dti_query' },
+                            { command: 'validate_dti', icon: '🔍', name: 'Validar DTI', category: 'dti_query' }
+                        ]
+                    }
+                }
+            };
+        }
+        
+        // ISO - comandos originales
+        var isoCommands = AdaptiveCommandSystem.getCommandsByCategory();
+        return {
+            title: 'ISO - Isométrico 3D',
+            icon: '🧊',
+            categories: isoCommands
+        };
+    }
+
+    // ================================================================
+    //  NUEVO: RENDERIZADO DE GRILLA ASISTIDA (SENSIBLE AL MÓDULO)
+    // ================================================================
+
     function renderAssistedGrid() {
-        updateTitle('Comandos Inteligentes');
+        var moduleData = getModuleCommands();
+        updateTitle(moduleData.icon + ' ' + moduleData.title);
         currentFlow = null;
         AdaptiveCommandSystem.resetFlow();
         
-        const commands = AdaptiveCommandSystem.getCommandsByCategory();
-        const allCmds = Object.values(commands).flat();
-        
-        const catNames = {
-            'config': '⚙️ Config', 'create': '🏗️ Crear', 'connect': '🔗 Conectar',
-            'edit': '✏️ Editar', 'query': '🔍 Consultar', 'utility': '📦 Util', 'direct': '⚡ Directo'
-        };
-
-        let bodyHtml = `
-            <div class="mode-tabs">
-                <button class="mode-tab active" data-mode="assisted" onclick="AdaptiveCommandUI.switchTab('assisted')">🧭 Asistido</button>
-                <button class="mode-tab" data-mode="text" onclick="AdaptiveCommandUI.switchTab('text')">⌨️ Texto</button>
-            </div>
-            <div class="cmd-categories">
-                <button class="cmd-cat active" data-cat="all" onclick="AdaptiveCommandUI.filterCategory('all')">📋 Todos (${allCmds.length})</button>
-        `;
-
-        Object.entries(commands).forEach(([cat, cmds]) => {
-            bodyHtml += `<button class="cmd-cat" data-cat="${cat}" onclick="AdaptiveCommandUI.filterCategory('${cat}')">${catNames[cat] || cat} (${cmds.length})</button>`;
+        var categories = moduleData.categories;
+        var allCmds = [];
+        Object.values(categories).forEach(function(cat) {
+            if (cat.cmds) allCmds = allCmds.concat(cat.cmds);
         });
-
-        bodyHtml += `</div><div class="cmd-grid" id="cmdGrid">${renderCmdCards(allCmds)}</div>`;
-
+        
+        var bodyHtml = '';
+        
+        // Tabs de modo (Asistido | Texto)
+        bodyHtml += '<div class="mode-tabs">';
+        bodyHtml += '<button class="mode-tab active" data-mode="assisted" onclick="AdaptiveCommandUI.switchTab(\'assisted\')">🧭 Asistido</button>';
+        bodyHtml += '<button class="mode-tab" data-mode="text" onclick="AdaptiveCommandUI.switchTab(\'text\')">⌨️ Texto</button>';
+        bodyHtml += '</div>';
+        
+        // Mini tabs de módulo (PFD | DTI | ISO)
+        bodyHtml += '<div class="cmd-categories" style="margin-bottom:8px;">';
+        var modules = [
+            { id: 'pfd', name: '📊 PFD', color: '#10b981' },
+            { id: 'dti', name: '🔧 DTI', color: '#8b5cf6' },
+            { id: 'iso', name: '🧊 ISO', color: '#00f2ff' }
+        ];
+        var currentMod = window.currentModule || 'pfd';
+        modules.forEach(function(mod) {
+            var isActive = mod.id === currentMod;
+            bodyHtml += '<button class="cmd-cat' + (isActive ? ' active' : '') + '" ';
+            bodyHtml += 'style="' + (isActive ? 'border-color:' + mod.color + ';color:' + mod.color : '') + '" ';
+            bodyHtml += 'onclick="AdaptiveCommandUI.switchModule(\'' + mod.id + '\')">';
+            bodyHtml += mod.name;
+            bodyHtml += '</button>';
+        });
+        bodyHtml += '</div>';
+        
+        // Categorías de comandos
+        bodyHtml += '<div class="cmd-categories">';
+        bodyHtml += '<button class="cmd-cat active" data-cat="all" onclick="AdaptiveCommandUI.filterCategory(\'all\')">📋 Todos (' + allCmds.length + ')</button>';
+        Object.entries(categories).forEach(function(entry) {
+            var catKey = entry[0];
+            var catData = entry[1];
+            var count = catData.cmds ? catData.cmds.length : 0;
+            bodyHtml += '<button class="cmd-cat" data-cat="' + catKey + '" onclick="AdaptiveCommandUI.filterCategory(\'' + catKey + '\')">' + catData.name + ' (' + count + ')</button>';
+        });
+        bodyHtml += '</div>';
+        
+        // Grid de comandos
+        bodyHtml += '<div class="cmd-grid" id="cmdGrid">' + renderCmdCards(allCmds) + '</div>';
+        
         document.getElementById('adaptive-body').innerHTML = bodyHtml;
-
-        document.getElementById('adaptive-footer').innerHTML = `
-            <button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand('undo')">↩️ Deshacer</button>
-            <button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand('redo')">↪️ Rehacer</button>
-            <button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand('help')">❓ Ayuda</button>
-            <button class="af-btn af-btn-danger" onclick="AdaptiveCommandUI.closeOverlay()">Cerrar</button>
-        `;
+        
+        document.getElementById('adaptive-footer').innerHTML = 
+            '<button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand(\'undo\')">↩️ Deshacer</button>' +
+            '<button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand(\'redo\')">↪️ Rehacer</button>' +
+            '<button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand(\'help\')">❓ Ayuda</button>' +
+            '<button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand(\'validate all\')">🔍 Validar</button>' +
+            '<button class="af-btn af-btn-danger" onclick="AdaptiveCommandUI.closeOverlay()">Cerrar</button>';
     }
 
     function renderCmdCards(cmds) {
+        if (!cmds || cmds.length === 0) return '<p style="color:#64748b;text-align:center;">Sin comandos disponibles</p>';
         return cmds.map(cmd => {
-            const variantCount = getVariantCount(cmd.command);
+            var variantCount = getVariantCount(cmd.command);
             return `
                 <div class="cmd-card" data-category="${cmd.category}" onclick="AdaptiveCommandUI.startFlow('${cmd.command}')">
-                    <div class="cmd-icon">${cmd.icon}</div>
+                    <div class="cmd-icon">${cmd.icon || '📋'}</div>
                     <div class="cmd-name">${cmd.name}</div>
                     <div class="cmd-badge">${variantCount} opciones</div>
                 </div>
@@ -361,7 +491,7 @@ const AdaptiveCommandUI = (function() {
     }
 
     function getVariantCount(cmd) {
-        const flow = AdaptiveCommandSystem.COMMAND_FLOWS[cmd];
+        var flow = AdaptiveCommandSystem.COMMAND_FLOWS[cmd];
         if (!flow) return 1;
         var count = 0;
         flow.steps.forEach(function(s) {
@@ -396,35 +526,68 @@ const AdaptiveCommandUI = (function() {
         }
     }
 
+    // ================================================================
+    //  NUEVO: START FLOW (MANEJA PFD + DTI + ISO)
+    // ================================================================
+
     function startFlow(commandPath) {
+        // Comandos directos (PFD, DTI, Global)
+        var directMap = {
+            'list_streams': 'list streams',
+            'list_equipos': 'list equipos',
+            'validate_pfd': 'validate pfd',
+            'autolink': 'autolink',
+            'list_instruments': 'list instruments',
+            'list_loops': 'list loops',
+            'list_instrument_types': 'list instrument types',
+            'validate_dti': 'validate dti',
+            'validate_all': 'validate all',
+            'project_summary': 'project summary',
+            'autofix': 'autofix',
+            'export_db': 'export db',
+            'export_pcf': 'export pcf',
+            'export_mto': 'export mto'
+        };
+        
+        if (directMap[commandPath]) {
+            executeTextCommand(directMap[commandPath]);
+            return;
+        }
+        
+        // Si tiene flujo definido en AdaptiveCommandSystem (ISO o PFD/DTI)
+        if (AdaptiveCommandSystem.COMMAND_FLOWS[commandPath]) {
+            var flow = AdaptiveCommandSystem.COMMAND_FLOWS[commandPath];
+            
+            // Si el flujo tiene steps, iniciar flujo asistido
+            if (flow.steps && flow.steps.length > 0) {
+                var stepData = AdaptiveCommandSystem.startCommandFlow(commandPath);
+                if (!stepData) {
+                    showToast('Comando no disponible', 'err');
+                    return;
+                }
+                if (stepData.direct) {
+                    executeTextCommand(stepData.command);
+                    return;
+                }
+                currentFlow = stepData;
+                renderFlowStep();
+                return;
+            }
+        }
+        
+        // Fallback: comando original del sistema ISO
         if (AdaptiveCommandSystem.DIRECT_COMMANDS[commandPath]) {
-            const cmd = AdaptiveCommandSystem.DIRECT_COMMANDS[commandPath].command;
-            executeTextCommand(cmd);
+            executeTextCommand(AdaptiveCommandSystem.DIRECT_COMMANDS[commandPath].command);
             return;
         }
-
-        const stepData = AdaptiveCommandSystem.startCommandFlow(commandPath);
-        if (!stepData) {
-            showToast('Comando no disponible', 'err');
-            return;
-        }
-
-        if (stepData.direct) {
-            executeTextCommand(stepData.command);
-            return;
-        }
-
-        currentFlow = stepData;
-        renderFlowStep();
+        
+        showToast('Comando no disponible', 'err');
     }
 
     function renderFlowStep() {
-        if (!currentFlow) {
-            renderAssistedGrid();
-            return;
-        }
+        if (!currentFlow) { renderAssistedGrid(); return; }
 
-        updateTitle(`${currentFlow.commandIcon} ${currentFlow.commandName}`);
+        updateTitle(`${currentFlow.commandIcon || '📋'} ${currentFlow.commandName || ''}`);
 
         let bodyHtml = `
             <div class="flow-progress">
@@ -463,19 +626,9 @@ const AdaptiveCommandUI = (function() {
 
         document.getElementById('adaptive-body').innerHTML = bodyHtml;
 
-        setTimeout(function() {
-            var materialField = document.getElementById('field-material');
-            if (materialField) {
-                materialField.addEventListener('change', function() {
-                    refreshSpecField();
-                });
-            }
-        }, 50);
-
         let isFinalStep = currentFlow.isFinal;
         if (typeof isFinalStep === 'function') {
-            isFinalStep = isFinalStep(AdaptiveCommandSystem.getSelections ? 
-                AdaptiveCommandSystem.getSelections() : {});
+            isFinalStep = isFinalStep(AdaptiveCommandSystem.getSelections ? AdaptiveCommandSystem.getSelections() : {});
         }
 
         let footerHtml = `
@@ -492,30 +645,29 @@ const AdaptiveCommandUI = (function() {
         document.getElementById('adaptive-footer').innerHTML = footerHtml;
 
         setTimeout(() => {
-            const searchInput = document.getElementById('flow-search');
+            var searchInput = document.getElementById('flow-search');
             if (searchInput) searchInput.focus();
         }, 100);
     }
 
     function renderFlowSelect(stepData, searchable) {
-        const options = stepData.options || [];
-        const hasCategories = options.length > 0 && options[0].category !== undefined;
-        
-        let html = '';
+        var options = stepData.options || [];
+        var hasCategories = options.length > 0 && options[0].category !== undefined;
+        var html = '';
         
         if (searchable) {
             html += `<input type="text" class="flow-search" id="flow-search" placeholder="🔍 Buscar... (${options.length} opciones)" oninput="AdaptiveCommandUI.filterFlowItems()">`;
         }
         
         if (hasCategories) {
-            const grouped = {};
-            options.forEach(opt => {
-                const cat = opt.category || 'other';
+            var grouped = {};
+            options.forEach(function(opt) {
+                var cat = opt.category || 'other';
                 if (!grouped[cat]) grouped[cat] = [];
                 grouped[cat].push(opt);
             });
             
-            const catNames = {
+            var catNames = {
                 'VALVE': '🔧 Válvulas', 'ELBOW': '🔀 Codos', 'TEE': '🔱 Tees',
                 'REDUCER': '🔽 Reductores', 'FLANGE': '⭕ Bridas', 'STRAINER': '🔍 Filtros',
                 'STEAM_TRAP': '💨 Trampas de Vapor', 'INSTRUMENT': '📊 Instrumentos',
@@ -525,80 +677,81 @@ const AdaptiveCommandUI = (function() {
                 'SANITARY': '🧼 Sanitario', 'SPECIAL': '⚙️ Especiales', 'other': '📦 Otros'
             };
             
-            html += `<div class="flow-select-list" id="flowSelectList" style="max-height:50vh">`;
+            html += '<div class="flow-select-list" id="flowSelectList" style="max-height:50vh">';
             
-            Object.entries(grouped).forEach(([cat, items]) => {
-                html += `<div class="flow-cat-header">${catNames[cat] || cat} (${items.length})</div>`;
+            Object.entries(grouped).forEach(function(entry) {
+                var cat = entry[0];
+                var items = entry[1];
+                html += '<div class="flow-cat-header">' + (catNames[cat] || cat) + ' (' + items.length + ')</div>';
                 
-                items.forEach(opt => {
-                    const searchText = (opt.label + ' ' + (opt.abbr || '') + ' ' + (opt.material || '') + ' ' + (opt.spec || '')).toLowerCase();
+                items.forEach(function(opt) {
+                    var searchText = (opt.label + ' ' + (opt.abbr || '') + ' ' + (opt.material || '') + ' ' + (opt.spec || '')).toLowerCase();
                     html += `
                         <div class="flow-select-item" data-value="${opt.value}" data-search="${searchText}" onclick="AdaptiveCommandUI.selectFlowOption('${opt.value}', this)">
-                            ${opt.icon ? `<span class="fsi-icon">${opt.icon}</span>` : '<span class="fsi-icon">🔩</span>'}
+                            ${opt.icon ? '<span class="fsi-icon">' + opt.icon + '</span>' : '<span class="fsi-icon">🔩</span>'}
                             <div class="fsi-info">
                                 <div class="fsi-label">${opt.label}</div>
-                                ${opt.description ? `<div class="fsi-desc">${opt.description}</div>` : ''}
-                                ${opt.abbr ? `<div class="fsi-abbr">ABBR: ${opt.abbr}</div>` : ''}
+                                ${opt.description ? '<div class="fsi-desc">' + opt.description + '</div>' : ''}
+                                ${opt.abbr ? '<div class="fsi-abbr">ABBR: ' + opt.abbr + '</div>' : ''}
                             </div>
                         </div>
                     `;
                 });
             });
             
-            html += `</div>`;
+            html += '</div>';
         } else {
-            html += `<div class="flow-select-list" id="flowSelectList">`;
-            options.forEach(opt => {
+            html += '<div class="flow-select-list" id="flowSelectList">';
+            options.forEach(function(opt) {
                 html += `
                     <div class="flow-select-item" data-value="${opt.value}" data-search="${(opt.label || '').toLowerCase()}" onclick="AdaptiveCommandUI.selectFlowOption('${opt.value}', this)">
-                        ${opt.icon ? `<span class="fsi-icon">${opt.icon}</span>` : ''}
+                        ${opt.icon ? '<span class="fsi-icon">' + opt.icon + '</span>' : ''}
                         <div class="fsi-info">
                             <div class="fsi-label">${opt.label}</div>
-                            ${opt.description ? `<div class="fsi-desc">${opt.description}</div>` : ''}
-                            ${opt.warning ? `<div class="fsi-desc" style="color:#f59e0b">⚠️ ${opt.warning}</div>` : ''}
+                            ${opt.description ? '<div class="fsi-desc">' + opt.description + '</div>' : ''}
+                            ${opt.warning ? '<div class="fsi-desc" style="color:#f59e0b">⚠️ ' + opt.warning + '</div>' : ''}
                         </div>
                         ${opt.status === 'open' ? '<span style="color:#3fb950">🟢</span>' : ''}
                     </div>
                 `;
             });
-            html += `</div>`;
+            html += '</div>';
         }
         
         return html;
     }
 
     function renderFlowMultiSelect(stepData) {
-        let html = `<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">Seleccione ${stepData.minSelect || 2}+ elementos</p>`;
-        html += `<div class="flow-select-list" id="flowMultiSelectList">`;
-        (stepData.options || []).forEach(opt => {
+        var html = '<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">Seleccione ' + (stepData.minSelect || 2) + '+ elementos</p>';
+        html += '<div class="flow-select-list" id="flowMultiSelectList">';
+        (stepData.options || []).forEach(function(opt) {
             html += `
                 <div class="flow-select-item" data-value="${opt.value}" onclick="AdaptiveCommandUI.toggleMultiSelect('${opt.value}', this)">
-                    ${opt.icon ? `<span class="fsi-icon">${opt.icon}</span>` : ''}
+                    ${opt.icon ? '<span class="fsi-icon">' + opt.icon + '</span>' : ''}
                     <div class="fsi-label">${opt.label}</div>
                     <span class="multi-check" style="display:none;color:#3fb950">✅</span>
                 </div>
             `;
         });
-        html += `</div>`;
-        html += `<button class="af-btn af-btn-primary" onclick="AdaptiveCommandUI.confirmMultiSelect()" style="margin-top:8px;width:100%">Confirmar Selección</button>`;
+        html += '</div>';
+        html += '<button class="af-btn af-btn-primary" onclick="AdaptiveCommandUI.confirmMultiSelect()" style="margin-top:8px;width:100%">Confirmar Selección</button>';
         return html;
     }
 
     function renderFlowComponentMultiSelect(stepData) {
-        const options = stepData.options || [];
-        const hasCategories = options.length > 0 && options[0].category !== undefined;
-        
-        let html = `<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">Seleccione los componentes deseados</p>`;
+        var options = stepData.options || [];
+        var hasCategories = options.length > 0 && options[0].category !== undefined;
+        var html = '<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">Seleccione los componentes deseados</p>';
         
         if (hasCategories) {
-            const grouped = {};
-            options.forEach(opt => {
-                const cat = opt.category || 'other';
+            var grouped = {};
+            options.forEach(function(opt) {
+                var cat = opt.category || 'other';
                 if (!grouped[cat]) grouped[cat] = [];
                 grouped[cat].push(opt);
             });
             
-            const catNames = {
+            var catNames = {
                 'VALVE': '🔧 Válvulas', 'ELBOW': '🔀 Codos', 'TEE': '🔱 Tees',
                 'REDUCER': '🔽 Reductores', 'FLANGE': '⭕ Bridas', 'STRAINER': '🔍 Filtros',
                 'STEAM_TRAP': '💨 Trampas de Vapor', 'INSTRUMENT': '📊 Instrumentos',
@@ -607,17 +760,19 @@ const AdaptiveCommandUI = (function() {
                 'SANITARY': '🧼 Sanitario', 'SPECIAL': '⚙️ Especiales', 'other': '📦 Otros'
             };
             
-            html += `<div class="flow-select-list" id="flowMultiSelectList" style="max-height:40vh">`;
+            html += '<div class="flow-select-list" id="flowMultiSelectList" style="max-height:40vh">';
             
-            Object.entries(grouped).forEach(([cat, items]) => {
-                html += `<div class="flow-cat-header">${catNames[cat] || cat} (${items.length})</div>`;
-                items.forEach(opt => {
+            Object.entries(grouped).forEach(function(entry) {
+                var cat = entry[0];
+                var items = entry[1];
+                html += '<div class="flow-cat-header">' + (catNames[cat] || cat) + ' (' + items.length + ')</div>';
+                items.forEach(function(opt) {
                     html += `
                         <div class="flow-select-item" data-value="${opt.value}" onclick="AdaptiveCommandUI.toggleMultiSelect('${opt.value}', this)">
                             🔩
                             <div class="fsi-info">
                                 <div class="fsi-label">${opt.label}</div>
-                                ${opt.abbr ? `<div class="fsi-abbr">ABBR: ${opt.abbr}</div>` : ''}
+                                ${opt.abbr ? '<div class="fsi-abbr">ABBR: ' + opt.abbr + '</div>' : ''}
                             </div>
                             <span class="multi-check" style="display:none;color:#3fb950">✅</span>
                         </div>
@@ -625,10 +780,10 @@ const AdaptiveCommandUI = (function() {
                 });
             });
             
-            html += `</div>`;
+            html += '</div>';
         } else {
-            html += `<div class="flow-select-list" id="flowMultiSelectList">`;
-            options.forEach(opt => {
+            html += '<div class="flow-select-list" id="flowMultiSelectList">';
+            options.forEach(function(opt) {
                 html += `
                     <div class="flow-select-item" data-value="${opt.value}" onclick="AdaptiveCommandUI.toggleMultiSelect('${opt.value}', this)">
                         <div class="fsi-label">${opt.label}</div>
@@ -636,10 +791,10 @@ const AdaptiveCommandUI = (function() {
                     </div>
                 `;
             });
-            html += `</div>`;
+            html += '</div>';
         }
         
-        html += `<button class="af-btn af-btn-primary" onclick="AdaptiveCommandUI.confirmMultiSelect()" style="margin-top:8px;width:100%">Confirmar Selección</button>`;
+        html += '<button class="af-btn af-btn-primary" onclick="AdaptiveCommandUI.confirmMultiSelect()" style="margin-top:8px;width:100%">Confirmar Selección</button>';
         return html;
     }
 
@@ -654,9 +809,8 @@ const AdaptiveCommandUI = (function() {
                 html += '<option value="">Seleccionar...</option>';
                 var opts = field.options;
                 if (typeof opts === 'function') {
-                    var sel = null;
-                    var st = AdaptiveCommandSystem.getSelections ? AdaptiveCommandSystem.getSelections() : {};
-                    opts = opts(sel, st);
+                    var sel = AdaptiveCommandSystem.getSelections ? AdaptiveCommandSystem.getSelections() : {};
+                    opts = opts(null, sel);
                 }
                 (opts || []).forEach(function(opt) {
                     var val = typeof opt === 'object' ? opt.value : opt;
@@ -677,7 +831,7 @@ const AdaptiveCommandUI = (function() {
     }
 
     function renderFlowCoordinate(stepData) {
-        const def = stepData.default || { x: 0, y: 0, z: 0 };
+        var def = stepData.default || { x: 0, y: 0, z: 0 };
         return `
             <div class="flow-form-group">
                 <label>Coordenadas (X, Y, Z) en mm</label>
@@ -691,10 +845,10 @@ const AdaptiveCommandUI = (function() {
     }
 
     function renderFlowCoordinateList(stepData) {
-        let html = `<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">${stepData.description || 'Agregue puntos'} (mín: ${stepData.minPoints || 2})</p>`;
-        html += `<div id="coordListContainer">`;
-        const pts = stepData.default || [{ x: 0, y: 0, z: 0 }, { x: 1000, y: 0, z: 0 }];
-        pts.forEach((p, i) => {
+        var html = '<p style="font-size:0.8em;color:#94a3b8;margin-bottom:8px">' + (stepData.description || 'Agregue puntos') + ' (mín: ' + (stepData.minPoints || 2) + ')</p>';
+        html += '<div id="coordListContainer">';
+        var pts = stepData.default || [{ x: 0, y: 0, z: 0 }, { x: 1000, y: 0, z: 0 }];
+        pts.forEach(function(p, i) {
             html += `
                 <div class="flow-coords" data-cidx="${i}">
                     <input type="number" placeholder="X" value="${p.x || 0}" data-axis="x">
@@ -704,8 +858,8 @@ const AdaptiveCommandUI = (function() {
                 </div>
             `;
         });
-        html += `</div>`;
-        html += `<button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.addCoordRow()" style="margin-top:6px">+ Agregar Punto</button>`;
+        html += '</div>';
+        html += '<button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.addCoordRow()" style="margin-top:6px">+ Agregar Punto</button>';
         return html;
     }
 
@@ -742,18 +896,18 @@ const AdaptiveCommandUI = (function() {
     }
 
     function renderFlowConfirm(stepData) {
-        return `<div class="flow-confirm">${stepData.message || '¿Confirmar esta acción?'}</div>`;
+        return '<div class="flow-confirm">' + (stepData.message || '¿Confirmar esta acción?') + '</div>';
     }
 
     function renderFlowInfo(stepData) {
-        return `<div style="text-align:center;padding:20px;color:var(--accent-cyan, #00f2ff);white-space:pre-line;font-size:0.9em">${stepData.message || ''}</div>`;
+        return '<div style="text-align:center;padding:20px;color:var(--accent-cyan, #00f2ff);white-space:pre-line;font-size:0.9em">' + (stepData.message || '') + '</div>';
     }
 
     function renderFlowDynamic(stepData) {
         if (stepData.resolver) {
-            const flowData = AdaptiveCommandSystem.getCurrentStepData();
-            const selections = flowData?.selections || {};
-            const resolved = stepData.resolver(selections);
+            var flowData = AdaptiveCommandSystem.getCurrentStepData();
+            var selections = flowData ? flowData.selections : {};
+            var resolved = stepData.resolver(selections);
             if (resolved.type === 'coordinate') {
                 return renderFlowCoordinate({ default: resolved.default });
             } else if (resolved.type === 'number') {
@@ -764,46 +918,46 @@ const AdaptiveCommandUI = (function() {
     }
 
     function selectFlowOption(value, element) {
-        document.querySelectorAll('#flowSelectList .flow-select-item').forEach(item => {
+        document.querySelectorAll('#flowSelectList .flow-select-item').forEach(function(item) {
             item.classList.remove('selected');
         });
         if (element) element.classList.add('selected');
 
-        const nextData = AdaptiveCommandSystem.nextStep(value);
+        var nextData = AdaptiveCommandSystem.nextStep(value);
         handleNextStep(nextData);
     }
 
     function toggleMultiSelect(value, element) {
         element.classList.toggle('selected');
-        const check = element.querySelector('.multi-check');
+        var check = element.querySelector('.multi-check');
         if (check) check.style.display = element.classList.contains('selected') ? 'inline' : 'none';
     }
 
     function confirmMultiSelect() {
-        const selected = [];
-        document.querySelectorAll('#flowMultiSelectList .flow-select-item.selected').forEach(item => {
+        var selected = [];
+        document.querySelectorAll('#flowMultiSelectList .flow-select-item.selected').forEach(function(item) {
             selected.push(item.dataset.value);
         });
         
-        const minSelect = currentFlow?.minSelect || 1;
+        var minSelect = currentFlow ? currentFlow.minSelect || 1 : 1;
         if (selected.length < minSelect) {
-            showToast(`Seleccione al menos ${minSelect} elemento(s)`, 'err');
+            showToast('Seleccione al menos ' + minSelect + ' elemento(s)', 'err');
             return;
         }
 
-        const nextData = AdaptiveCommandSystem.nextStep(selected);
+        var nextData = AdaptiveCommandSystem.nextStep(selected);
         handleNextStep(nextData);
     }
 
     function flowNext() {
         if (!currentFlow) return;
         
-        let value = null;
+        var value = null;
 
         if (currentFlow.type === 'form') {
             value = {};
-            document.querySelectorAll('[data-field]').forEach(input => {
-                const field = input.dataset.field;
+            document.querySelectorAll('[data-field]').forEach(function(input) {
+                var field = input.dataset.field;
                 if (input.type === 'checkbox') {
                     value[field] = input.checked;
                 } else {
@@ -812,38 +966,38 @@ const AdaptiveCommandUI = (function() {
             });
         } else if (currentFlow.type === 'coordinate') {
             value = {
-                x: parseFloat(document.getElementById('coord-x')?.value || 0),
-                y: parseFloat(document.getElementById('coord-y')?.value || 0),
-                z: parseFloat(document.getElementById('coord-z')?.value || 0)
+                x: parseFloat(document.getElementById('coord-x') ? document.getElementById('coord-x').value : 0),
+                y: parseFloat(document.getElementById('coord-y') ? document.getElementById('coord-y').value : 0),
+                z: parseFloat(document.getElementById('coord-z') ? document.getElementById('coord-z').value : 0)
             };
         } else if (currentFlow.type === 'coordinateList') {
             value = [];
-            document.querySelectorAll('#coordListContainer .flow-coords').forEach(row => {
+            document.querySelectorAll('#coordListContainer .flow-coords').forEach(function(row) {
                 value.push({
-                    x: parseFloat(row.querySelector('[data-axis="x"]')?.value || 0),
-                    y: parseFloat(row.querySelector('[data-axis="y"]')?.value || 0),
-                    z: parseFloat(row.querySelector('[data-axis="z"]')?.value || 0)
+                    x: parseFloat(row.querySelector('[data-axis="x"]') ? row.querySelector('[data-axis="x"]').value : 0),
+                    y: parseFloat(row.querySelector('[data-axis="y"]') ? row.querySelector('[data-axis="y"]').value : 0),
+                    z: parseFloat(row.querySelector('[data-axis="z"]') ? row.querySelector('[data-axis="z"]').value : 0)
                 });
             });
         } else if (currentFlow.type === 'text') {
-            value = document.getElementById('flow-text-input')?.value || '';
+            var textInput = document.getElementById('flow-text-input');
+            value = textInput ? textInput.value : '';
         } else if (currentFlow.type === 'number') {
-            value = parseFloat(document.getElementById('flow-number-input')?.value || 0);
+            var numInput = document.getElementById('flow-number-input');
+            value = numInput ? parseFloat(numInput.value) || 0 : 0;
         } else if (currentFlow.type === 'slider') {
-            value = document.getElementById('flow-slider')?.value || '0.5';
+            var slider = document.getElementById('flow-slider');
+            value = slider ? slider.value : '0.5';
         } else if (currentFlow.type === 'confirm') {
             value = true;
         }
 
-        const nextData = AdaptiveCommandSystem.nextStep(value);
+        var nextData = AdaptiveCommandSystem.nextStep(value);
         handleNextStep(nextData);
     }
 
     function handleNextStep(nextData) {
-        if (!nextData) {
-            renderAssistedGrid();
-            return;
-        }
+        if (!nextData) { renderAssistedGrid(); return; }
 
         if (nextData.finished) {
             if (nextData.executeImmediately && nextData.command) {
@@ -851,12 +1005,14 @@ const AdaptiveCommandUI = (function() {
                 renderAssistedGrid();
             } else if (nextData.command) {
                 currentFlow = {
-                    ...currentFlow,
+                    type: 'confirm',
+                    title: nextData.title || 'Confirmar',
+                    commandPath: currentFlow ? currentFlow.commandPath : '',
                     isFinal: true,
                     command: nextData.command,
                     executeImmediately: nextData.executeImmediately,
-                    commandName: nextData.commandName || currentFlow.commandName,
-                    commandIcon: nextData.commandIcon || currentFlow.commandIcon,
+                    commandName: nextData.commandName || (currentFlow ? currentFlow.commandName : ''),
+                    commandIcon: nextData.commandIcon || (currentFlow ? currentFlow.commandIcon : ''),
                     progress: 100
                 };
                 renderFlowStep();
@@ -871,12 +1027,9 @@ const AdaptiveCommandUI = (function() {
     }
 
     function flowBack() {
-        if (!currentFlow) {
-            renderAssistedGrid();
-            return;
-        }
+        if (!currentFlow) { renderAssistedGrid(); return; }
         
-        const prevData = AdaptiveCommandSystem.previousStep();
+        var prevData = AdaptiveCommandSystem.previousStep();
         if (prevData) {
             currentFlow = prevData;
             renderFlowStep();
@@ -892,24 +1045,21 @@ const AdaptiveCommandUI = (function() {
     }
 
     function executeFlowCommand() {
-        let cmd = null;
+        var cmd = null;
         
         if (currentFlow && currentFlow.command) {
             cmd = currentFlow.command;
         } else {
-            const stepData = AdaptiveCommandSystem.getCurrentStepData();
-            if (stepData && stepData.command) {
-                cmd = stepData.command;
-            }
+            var stepData = AdaptiveCommandSystem.getCurrentStepData();
+            if (stepData && stepData.command) cmd = stepData.command;
         }
         
         if (!cmd && currentFlow && currentFlow.commandPath) {
-            const flow = AdaptiveCommandSystem.COMMAND_FLOWS[currentFlow.commandPath];
+            var flow = AdaptiveCommandSystem.COMMAND_FLOWS[currentFlow.commandPath];
             if (flow) {
-                const finalStep = flow.steps.find(s => s.isFinal && s.buildCommand);
+                var finalStep = flow.steps.find(function(s) { return s.isFinal && s.buildCommand; });
                 if (finalStep && finalStep.buildCommand) {
-                    const selections = AdaptiveCommandSystem.getSelections ? 
-                        AdaptiveCommandSystem.getSelections() : {};
+                    var selections = AdaptiveCommandSystem.getSelections ? AdaptiveCommandSystem.getSelections() : {};
                     cmd = finalStep.buildCommand(null, selections);
                 }
             }
@@ -925,14 +1075,15 @@ const AdaptiveCommandUI = (function() {
     }
 
     function filterFlowItems() {
-        const search = document.getElementById('flow-search')?.value?.toLowerCase() || '';
-        document.querySelectorAll('#flowSelectList .flow-select-item, #flowMultiSelectList .flow-select-item').forEach(item => {
-            const searchText = item.dataset.search || '';
+        var searchInput = document.getElementById('flow-search');
+        var search = searchInput ? searchInput.value.toLowerCase() : '';
+        document.querySelectorAll('#flowSelectList .flow-select-item, #flowMultiSelectList .flow-select-item').forEach(function(item) {
+            var searchText = item.dataset.search || '';
             item.style.display = searchText.includes(search) ? '' : 'none';
         });
-        document.querySelectorAll('.flow-cat-header').forEach(header => {
-            let hasVisible = false;
-            let next = header.nextElementSibling;
+        document.querySelectorAll('.flow-cat-header').forEach(function(header) {
+            var hasVisible = false;
+            var next = header.nextElementSibling;
             while (next && !next.classList.contains('flow-cat-header')) {
                 if (next.style.display !== 'none') hasVisible = true;
                 next = next.nextElementSibling;
@@ -942,10 +1093,10 @@ const AdaptiveCommandUI = (function() {
     }
 
     function addCoordRow() {
-        const container = document.getElementById('coordListContainer');
+        var container = document.getElementById('coordListContainer');
         if (!container) return;
-        const idx = container.children.length;
-        const row = document.createElement('div');
+        var idx = container.children.length;
+        var row = document.createElement('div');
         row.className = 'flow-coords';
         row.dataset.cidx = idx;
         row.innerHTML = `
@@ -955,25 +1106,6 @@ const AdaptiveCommandUI = (function() {
             <button class="af-btn af-btn-ghost" onclick="this.parentElement.remove()" style="padding:4px 6px;font-size:0.7em">✕</button>
         `;
         container.appendChild(row);
-    }
-
-    function refreshSpecField() {
-        var materialField = document.getElementById('field-material');
-        var specSelect = document.getElementById('field-spec');
-        if (!specSelect) return;
-        
-        var material = materialField ? materialField.value : '';
-        
-        var specs = AdaptiveCommandSystem.getSpecOptions(material);
-        
-        specSelect.innerHTML = '<option value="">Seleccionar...</option>';
-        
-        specs.forEach(function(spec) {
-            var opt = document.createElement('option');
-            opt.value = spec.value;
-            opt.textContent = spec.label;
-            specSelect.appendChild(opt);
-        });
     }
 
     function renderTextMode() {
@@ -990,36 +1122,37 @@ const AdaptiveCommandUI = (function() {
                 <div class="tco-line tco-info">   Escriba "help" para ver todos los comandos disponibles.</div>
             </div>
             <div class="text-input-area">
-                <input type="text" id="textCommandInput" placeholder="Ej: crear tanque_v TK-01 at (1000,2000,0) diam 1500 altura 2000 material PPR" 
+                <input type="text" id="textCommandInput" placeholder="PFD: create stream S1 from TK-01 to B-01 fluid WATER&#10;DTI: create instrument PI-101 type PRESSURE_GAUGE on L-1 at 0.3&#10;3D:  create tanque_v TK-01 at (5000,1450,0) diam 2380 altura 2900" 
                        onkeydown="if(event.key==='Enter')AdaptiveCommandUI.executeTextInput()">
                 <button onclick="AdaptiveCommandUI.executeTextInput()">▶</button>
             </div>
             <div class="text-hints">
-                <strong>Atajos:</strong> undo | redo | help | bom | audit<br>
-                <strong>Crear:</strong> create [tipo] [tag] at (x,y,z) diam [d] altura [h] material [m]<br>
-                <strong>Conectar:</strong> connect [origen] [puerto] to [destino] [puerto] diameter [d]<br>
-                <strong>Línea:</strong> line [tag] from [eq] [port] to [eq] [port] diameter [d]<br>
-                <strong>Info:</strong> info line/equipment [tag] | nodos [tag] | list equipos/lineas<br>
-                <strong>Editar:</strong> edit line [tag] set material/diameter/spec [valor]
+                <strong>📊 PFD:</strong> create equipo TIPO TAG | create stream TAG from X to Y fluid Z flow N<br>
+                <strong>🔧 DTI:</strong> create instrument TAG type TIPO on LINEA at POS range RANGO<br>
+                <strong>🧊 3D:</strong> create [tipo] [tag] at (x,y,z) diam D altura H<br>
+                <strong>🔗 Conectar:</strong> connect ORIGEN PUERTO to DESTINO PUERTO diameter D<br>
+                <strong>🔍 Validar:</strong> validate all | validate pfd | validate dti | project summary<br>
+                <strong>📁 Exportar:</strong> export pcf | export mto | export json | export db
             </div>
         `;
 
         document.getElementById('adaptive-footer').innerHTML = `
             <button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand('help')">❓ Ayuda</button>
-            <button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand('audit')">🔍 Auditar</button>
-            <button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand('bom')">📊 BOM</button>
+            <button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand('validate all')">🔍 Validar</button>
+            <button class="af-btn af-btn-ghost" onclick="AdaptiveCommandUI.runQuickCommand('project summary')">📋 Resumen</button>
             <button class="af-btn af-btn-danger" onclick="AdaptiveCommandUI.closeOverlay()">Cerrar</button>
         `;
 
-        setTimeout(() => {
-            document.getElementById('textCommandInput')?.focus();
+        setTimeout(function() {
+            var input = document.getElementById('textCommandInput');
+            if (input) input.focus();
         }, 100);
     }
 
     function executeTextInput() {
-        const input = document.getElementById('textCommandInput');
+        var input = document.getElementById('textCommandInput');
         if (!input) return;
-        const cmd = input.value.trim();
+        var cmd = input.value.trim();
         if (!cmd) return;
         
         addConsoleLine(cmd, 'cmd');
@@ -1029,11 +1162,11 @@ const AdaptiveCommandUI = (function() {
     }
 
     function addConsoleLine(text, type) {
-        const consoleEl = document.getElementById('textConsoleOutput');
+        var consoleEl = document.getElementById('textConsoleOutput');
         if (!consoleEl) return;
         
-        const line = document.createElement('div');
-        line.className = `tco-line tco-${type || 'info'}`;
+        var line = document.createElement('div');
+        line.className = 'tco-line tco-' + (type || 'info');
         line.textContent = (type === 'cmd' ? '> ' : '') + text;
         consoleEl.appendChild(line);
         consoleEl.scrollTop = consoleEl.scrollHeight;
@@ -1043,7 +1176,7 @@ const AdaptiveCommandUI = (function() {
         if (!cmd) return;
         
         if (typeof SmartFlowCommands !== 'undefined' && typeof SmartFlowCommands.executeCommand === 'function') {
-            const result = SmartFlowCommands.executeCommand(cmd);
+            var result = SmartFlowCommands.executeCommand(cmd);
             if (result) {
                 addConsoleLine('✅ Ejecutado correctamente', 'ok');
                 showToast('Comando ejecutado', 'ok');
@@ -1052,10 +1185,10 @@ const AdaptiveCommandUI = (function() {
                 showToast('Comando no reconocido', 'err');
             }
         } else {
-            const textarea = document.getElementById('commandText');
+            var textarea = document.getElementById('commandText');
             if (textarea) {
                 textarea.value = cmd;
-                const runBtn = document.getElementById('runCommands');
+                var runBtn = document.getElementById('runCommands');
                 if (runBtn) runBtn.click();
             }
         }
@@ -1066,37 +1199,48 @@ const AdaptiveCommandUI = (function() {
     }
 
     function showToast(msg, type) {
-        const existing = document.querySelector('.adaptive-toast');
+        var existing = document.querySelector('.adaptive-toast');
         if (existing) existing.remove();
 
-        const toast = document.createElement('div');
-        toast.className = `adaptive-toast ${type}`;
+        var toast = document.createElement('div');
+        toast.className = 'adaptive-toast ' + type;
         toast.textContent = msg;
         document.body.appendChild(toast);
 
-        setTimeout(() => toast.remove(), 2500);
+        setTimeout(function() { toast.remove(); }, 2500);
     }
 
+    // ================================================================
+    //  API PÚBLICA
+    // ================================================================
+
     return {
-        openPanel,
-        closeOverlay,
-        switchTab,
-        filterCategory,
-        startFlow,
-        flowNext,
-        flowBack,
-        cancelFlow,
-        executeFlowCommand,
-        selectFlowOption,
-        toggleMultiSelect,
-        confirmMultiSelect,
-        filterFlowItems,
-        addCoordRow,
-        executeTextInput,
-        executeTextCommand,
-        runQuickCommand,
-        showToast,
-        refreshSpecField
+        openPanel: openPanel,
+        closeOverlay: closeOverlay,
+        switchTab: switchTab,
+        filterCategory: filterCategory,
+        startFlow: startFlow,
+        flowNext: flowNext,
+        flowBack: flowBack,
+        cancelFlow: cancelFlow,
+        executeFlowCommand: executeFlowCommand,
+        selectFlowOption: selectFlowOption,
+        toggleMultiSelect: toggleMultiSelect,
+        confirmMultiSelect: confirmMultiSelect,
+        filterFlowItems: filterFlowItems,
+        addCoordRow: addCoordRow,
+        executeTextInput: executeTextInput,
+        executeTextCommand: executeTextCommand,
+        runQuickCommand: runQuickCommand,
+        showToast: showToast,
+        getModuleCommands: getModuleCommands,
+        switchModule: function(module) {
+            if (typeof window.switchModule === 'function') {
+                window.switchModule(module);
+            }
+            window.currentModule = module;
+            setTimeout(function() { renderAssistedGrid(); }, 150);
+        }
     };
 
 })();
