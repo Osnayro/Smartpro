@@ -1,13 +1,3 @@
-// ============================================================
-// SMARTFLOW COMMANDS v4.0 - Intérprete de Comandos Unificado
-// Archivo: js/commands.js
-// Compatible: SmartFlowCore v6.0+, SmartFlowPFD, SmartFlowDTI, SmartFlowIntegrity
-// Novedades v4.0:
-//   - Comandos PFD: create stream, info stream, list streams, balance masa
-//   - Comandos DTI: create instrument, create loop, list instruments
-//   - Comandos Integrity: validate all, project summary, autofix
-//   - Comandos Export: export pcf, export mto, export json, export db
-// ============================================================
 
 const SmartFlowCommands = (function() {
     
@@ -18,9 +8,6 @@ const SmartFlowCommands = (function() {
     let _renderUI = () => {};
     let _voiceFn = null;
 
-    // ================================================================
-    //  DICCIONARIO DE INTENCIONES MULTILINGÜE
-    // ================================================================
     const IntentDictionary = {
         'crear': 'create', 'nuevo': 'create', 'añadir': 'create', 'instalar': 'create', 'pon': 'create', 'crea': 'create',
         'create': 'create', 'add': 'create',
@@ -61,7 +48,8 @@ const SmartFlowCommands = (function() {
         'proyecto': 'project', 'project': 'project',
         'validar': 'validate', 'validate': 'validate',
         'resumen': 'summary', 'summary': 'summary',
-        'balance': 'balance', 'balance': 'balance'
+        'balance': 'balance', 'balance': 'balance',
+        'actualizar': 'update', 'posicionar': 'update'
     };
 
     function getIntent(word) {
@@ -78,9 +66,6 @@ const SmartFlowCommands = (function() {
         return cmd;
     }
 
-    // ================================================================
-    //  DEFAULTS DEL PROYECTO
-    // ================================================================
     let _projectDefaults = { material: 'PPR', spec: 'PPR_PN12_5' };
 
     function getProjectDefaultMaterial() { return _projectDefaults.material; }
@@ -100,22 +85,9 @@ const SmartFlowCommands = (function() {
         notifyWithVoice("📐 Defaults: " + _projectDefaults.material + " / " + _projectDefaults.spec, false);
     }
 
-    // ================================================================
-    //  UTILIDADES (comunes)
-    // ================================================================
     function extractCoords(str) {
         const m = str.match(/\((-?\d+\.?\d*)\s*,?\s*(-?\d+\.?\d*)\s*,?\s*(-?\d+\.?\d*)\)/);
         return m ? { x: parseFloat(m[1]), y: parseFloat(m[2]), z: parseFloat(m[3]) } : null;
-    }
-
-    function extractValue(parts, keys) {
-        if (!Array.isArray(parts)) return null;
-        for (let i = 0; i < parts.length; i++) {
-            if (keys.includes(parts[i].toLowerCase()) && i + 1 < parts.length) {
-                return parts[i + 1];
-            }
-        }
-        return null;
     }
 
     function extractNamedParams(parts, startIndex) {
@@ -123,7 +95,10 @@ const SmartFlowCommands = (function() {
         const keywords = ['material', 'spec', 'diameter', 'diametro', 'type', 'tipo', 'orient', 'direccion', 'via',
                           'fluid', 'fluido', 'flow', 'flujo', 'pressure', 'presion', 'temperature', 'temperatura',
                           'phase', 'fase', 'range', 'rango', 'signal', 'señal', 'service', 'servicio',
-                          'sensor', 'controller', 'controlador', 'valve', 'valvula', 'setpoint', 'location'];
+                          'sensor', 'controller', 'controlador', 'valve', 'valvula', 'setpoint', 'location',
+                          'posx', 'posy', 'posz', 'altura', 'largo', 'ancho', 'diametro_succion', 'diametro_descarga',
+                          'diametro_entrada', 'diametro_salida', 'altura_salida_desde_base', 'baranda', 'escalera',
+                          'agitador', 'chaqueta'];
         const skipWords = ['to', 'from', 'at', 'in', 'on', 'by', 'with', 'and', 'route', 'ruta', 'via', 'as', 'like', 'auto'];
         
         for (let i = startIndex || 0; i < parts.length; i++) {
@@ -133,18 +108,19 @@ const SmartFlowCommands = (function() {
                 if (next && !keywords.includes(next.toLowerCase()) && !skipWords.includes(next.toLowerCase())) {
                     const keyMap = {
                         'material': 'material', 'spec': 'spec', 'diameter': 'diameter', 'diametro': 'diameter',
-                        'type': 'type', 'tipo': 'type',
-                        'fluid': 'fluid', 'fluido': 'fluid',
-                        'flow': 'flow', 'flujo': 'flow',
-                        'pressure': 'pressure', 'presion': 'pressure',
-                        'temperature': 'temperature', 'temperatura': 'temperature',
-                        'phase': 'phase', 'fase': 'phase',
-                        'range': 'range', 'rango': 'range',
-                        'signal': 'signal', 'señal': 'signal',
-                        'service': 'service', 'servicio': 'service',
-                        'sensor': 'sensor', 'controller': 'controller', 'controlador': 'controller',
-                        'valve': 'valve', 'valvula': 'valve',
-                        'setpoint': 'setpoint', 'location': 'location'
+                        'type': 'type', 'tipo': 'type', 'fluid': 'fluid', 'fluido': 'fluid',
+                        'flow': 'flow', 'flujo': 'flow', 'pressure': 'pressure', 'presion': 'pressure',
+                        'temperature': 'temperature', 'temperatura': 'temperature', 'phase': 'phase', 'fase': 'phase',
+                        'range': 'range', 'rango': 'range', 'signal': 'signal', 'señal': 'signal',
+                        'service': 'service', 'servicio': 'service', 'sensor': 'sensor',
+                        'controller': 'controller', 'controlador': 'controller', 'valve': 'valve', 'valvula': 'valve',
+                        'setpoint': 'setpoint', 'location': 'location',
+                        'posx': 'posX', 'posy': 'posY', 'posz': 'posZ',
+                        'altura': 'altura', 'largo': 'largo', 'ancho': 'ancho',
+                        'diametro_succion': 'diametro_succion', 'diametro_descarga': 'diametro_descarga',
+                        'diametro_entrada': 'diametro_entrada', 'diametro_salida': 'diametro_salida',
+                        'altura_salida_desde_base': 'altura_salida_desde_base',
+                        'baranda': 'baranda', 'escalera': 'escalera', 'agitador': 'agitador', 'chaqueta': 'chaqueta'
                     };
                     const mappedKey = keyMap[w] || w;
                     if (['diameter', 'flow', 'pressure', 'temperature'].includes(mappedKey)) {
@@ -319,91 +295,6 @@ const SmartFlowCommands = (function() {
         return warnings;
     }
 
-    function addComponentToLine(line, lineTag, compType, position) {
-        let finalType = compType;
-        const compDef = _catalog ? _catalog.getComponent(compType) : null;
-        if (!compDef) {
-            if (typeof SmartFlowRouter !== 'undefined' && SmartFlowRouter.findComponentInCatalog) {
-                const found = SmartFlowRouter.findComponentInCatalog(compType, line.material || 'PPR', []);
-                if (!found) { notifyWithVoice("⚠️ Componente no encontrado: " + compType, true); return false; }
-                finalType = found;
-            } else { notifyWithVoice("⚠️ Componente no encontrado: " + compType, true); return false; }
-        }
-        const existe = line.components && line.components.some(c => c.type && c.type.toUpperCase().indexOf(finalType.toUpperCase()) !== -1 && Math.abs((c.param || 0) - position) < 0.01);
-        if (existe) { notifyWithVoice("⚠️ Ya existe " + finalType + " en pos " + position.toFixed(2), false); return false; }
-        if (!line.components) line.components = [];
-        line.components.push({ type: finalType, tag: finalType + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 4), param: position });
-        return true;
-    }
-
-    const SPACING_RULES = {
-        'VALVE': { spaceBefore: 150, spaceAfter: 150, category: 'inline' },
-        'GATE_VALVE': { spaceBefore: 150, spaceAfter: 150, category: 'inline' },
-        'GLOBE_VALVE': { spaceBefore: 180, spaceAfter: 150, category: 'inline' },
-        'BALL_VALVE': { spaceBefore: 120, spaceAfter: 120, category: 'inline' },
-        'BUTTERFLY_VALVE': { spaceBefore: 120, spaceAfter: 120, category: 'inline' },
-        'CHECK_VALVE': { spaceBefore: 150, spaceAfter: 150, category: 'inline' },
-        'STRAINER': { spaceBefore: 200, spaceAfter: 200, category: 'inline' },
-        'FLANGE': { spaceBefore: 50, spaceAfter: 50, category: 'connection' },
-        'WELD_NECK_FLANGE': { spaceBefore: 50, spaceAfter: 50, category: 'connection' },
-        'SLIP_ON_FLANGE': { spaceBefore: 50, spaceAfter: 50, category: 'connection' },
-        'BLIND_FLANGE': { spaceBefore: 30, spaceAfter: 0, category: 'connection' },
-        'REDUCER': { spaceBefore: 100, spaceAfter: 80, category: 'transition' },
-        'CONCENTRIC_REDUCER': { spaceBefore: 100, spaceAfter: 80, category: 'transition' },
-        'ECCENTRIC_REDUCER': { spaceBefore: 100, spaceAfter: 80, category: 'transition' },
-        'TEE_REDUCING': { spaceBefore: 120, spaceAfter: 100, category: 'branch' },
-        'ELBOW': { spaceBefore: 80, spaceAfter: 80, category: 'directional' },
-        'ELBOW_90_LR': { spaceBefore: 80, spaceAfter: 80, category: 'directional' },
-        'ELBOW_90_SR': { spaceBefore: 60, spaceAfter: 60, category: 'directional' },
-        'ELBOW_45': { spaceBefore: 60, spaceAfter: 60, category: 'directional' },
-        'TEE': { spaceBefore: 120, spaceAfter: 120, category: 'branch' },
-        'TEE_EQUAL': { spaceBefore: 120, spaceAfter: 120, category: 'branch' },
-        'EXPANSION_JOINT': { spaceBefore: 250, spaceAfter: 250, category: 'expansion' },
-        'PIPE_GUIDE': { spaceBefore: 50, spaceAfter: 50, category: 'support' },
-        'CAP': { spaceBefore: 30, spaceAfter: 0, category: 'end' },
-        'CROSS': { spaceBefore: 150, spaceAfter: 150, category: 'branch' },
-        'PRESSURE_GAUGE': { spaceBefore: 60, spaceAfter: 0, category: 'instrument' },
-        'TEMPERATURE_GAUGE': { spaceBefore: 60, spaceAfter: 0, category: 'instrument' },
-        'FLOW_METER': { spaceBefore: 200, spaceAfter: 200, category: 'instrument' },
-        'DEFAULT': { spaceBefore: 100, spaceAfter: 100, category: 'general' }
-    };
-
-    function getSpacingRules(componentType) {
-        const typeUpper = (componentType || '').toUpperCase();
-        if (SPACING_RULES[typeUpper]) return SPACING_RULES[typeUpper];
-        for (let key in SPACING_RULES) {
-            if (typeUpper.indexOf(key) !== -1 || key.indexOf(typeUpper) !== -1) return SPACING_RULES[key];
-        }
-        if (typeUpper.indexOf('VALVE') !== -1) return SPACING_RULES['VALVE'];
-        if (typeUpper.indexOf('FLANGE') !== -1) return SPACING_RULES['FLANGE'];
-        if (typeUpper.indexOf('REDUC') !== -1) return SPACING_RULES['REDUCER'];
-        if (typeUpper.indexOf('ELBOW') !== -1) return SPACING_RULES['ELBOW'];
-        if (typeUpper.indexOf('TEE') !== -1) return SPACING_RULES['TEE'];
-        return SPACING_RULES['DEFAULT'];
-    }
-
-    function calculateAccessoryPositions(componentTypes, startPosition, totalLength, diameter) {
-        const positions = [];
-        let currentPos = startPosition;
-        for (let i = 0; i < componentTypes.length; i++) {
-            const compType = componentTypes[i];
-            const rules = getSpacingRules(compType);
-            let spaceBefore = rules.spaceBefore;
-            if (diameter > 6) spaceBefore *= 1.5;
-            if (diameter > 12) spaceBefore *= 2.0;
-            if (i > 0) {
-                const prevRules = getSpacingRules(componentTypes[i - 1]);
-                if (prevRules.category === 'connection' && rules.category === 'inline') spaceBefore = Math.max(spaceBefore, 50);
-                if (prevRules.category === 'inline' && rules.category === 'inline') spaceBefore *= 1.5;
-            }
-            const spaceParam = spaceBefore / totalLength;
-            currentPos += spaceParam;
-            if (currentPos > 0.99) currentPos = 0.99;
-            positions.push({ type: compType, position: currentPos, spaceBeforeMM: spaceBefore, category: rules.category });
-        }
-        return positions;
-    }
-
     function notifyWithVoice(message, isError) {
         isError = isError || false;
         if (typeof _notifyUI === 'function') _notifyUI(message, isError);
@@ -428,10 +319,15 @@ const SmartFlowCommands = (function() {
         return { added: [], message: '' };
     }
 
-    // ================================================================
-    //  COMANDOS PFD
-    // ================================================================
-    
+    function getEquipmentTypeName(tipo) {
+        const names = {
+            'tanque_v': 'Tanque Vertical', 'tanque_h': 'Tanque Horizontal', 'bomba': 'Bomba Centrífuga',
+            'intercambiador': 'Intercambiador de Calor', 'condensador': 'Condensador', 'torre': 'Torre de Destilación',
+            'reactor': 'Reactor', 'compresor': 'Compresor', 'separador': 'Separador Bifásico', 'plataforma': 'Plataforma Estructural'
+        };
+        return names[tipo] || tipo || 'Equipo';
+    }
+
     function parseCreateEquipoPFD(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'create' || parts[1] !== 'equipo') return false;
@@ -504,10 +400,6 @@ const SmartFlowCommands = (function() {
         return false;
     }
 
-    // ================================================================
-    //  COMANDOS DTI
-    // ================================================================
-    
     function parseCreateInstrument(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'create' || parts[1] !== 'instrument') return false;
@@ -582,10 +474,6 @@ const SmartFlowCommands = (function() {
         return false;
     }
 
-    // ================================================================
-    //  COMANDOS INTEGRITY
-    // ================================================================
-    
     function parseValidateAll(cmd) {
         const trimmed = cmd.trim().toLowerCase();
         if (trimmed === 'validate all' || trimmed === 'validar todo' || trimmed === 'validar proyecto') {
@@ -625,10 +513,6 @@ const SmartFlowCommands = (function() {
         }
         return false;
     }
-
-    // ================================================================
-    //  COMANDOS EXPORT / IMPORT
-    // ================================================================
     
     function parseExportCommand(cmd) {
         const parts = cmd.trim().split(/\s+/);
@@ -681,13 +565,13 @@ const SmartFlowCommands = (function() {
         return true;
     }
 
-    // ================================================================
-    //  COMANDOS ISOMÉTRICO 3D (heredados v3.7)
-    // ================================================================
-    
     function parseCreate(cmd) {
         const parts = cmd.split(/\s+/);
         if (parts[0] !== 'create') return false;
+        if (parts[1] === 'equipo') return parseCreateEquipoPFD(cmd);
+        if (parts[1] === 'stream') return parseCreateStream(cmd);
+        if (parts[1] === 'instrument') return parseCreateInstrument(cmd);
+        if (parts[1] === 'loop') return parseCreateLoop(cmd);
         const tipo = parts[1]; const tag = parts[2];
         if (!tipo || !tag || parts[3] !== 'at') return false;
         let coordStr = '';
@@ -707,8 +591,6 @@ const SmartFlowCommands = (function() {
             else if (key === 'height' || key === 'altura') params.altura = parseFloat(parts[++i]);
             else if (key === 'largo') params.largo = parseFloat(parts[++i]);
             else if (key === 'ancho') params.ancho = parseFloat(parts[++i]);
-            else if (key === 'diametro_succion' || key === 'succion') params.diametro_succion = parseFloat(parts[++i]);
-            else if (key === 'diametro_descarga' || key === 'descarga') params.diametro_descarga = parseFloat(parts[++i]);
             else if (key === 'material') { if (params.material === undefined) params.material = parts[++i].toUpperCase(); else i++; }
             else if (key === 'spec') { if (params.spec === undefined) params.spec = parts[++i]; else i++; }
         }
@@ -717,6 +599,52 @@ const SmartFlowCommands = (function() {
         if (_core && _core.findObjectByTag(tag)) { notifyWithVoice("❌ Error: El tag " + tag + " ya existe", true); return true; }
         const equipo = _catalog.createEquipment(tipo, tag, x, y, z, params);
         if (equipo) { _core.addEquipment(equipo); if (_core.setSelected) _core.setSelected({ type: 'equipment', obj: equipo }); notifyWithVoice("✅ Equipo " + tag + " (" + (equipoDef.nombre || tipo) + ") creado en (" + x + "," + y + "," + z + ")", false); }
+        return true;
+    }
+
+    function parseUpdateEquipment(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'update' || parts[1] !== 'equipment') return false;
+        const tag = parts[2];
+        if (!tag) { notifyWithVoice('❌ Uso: update equipment TAG posX X posY Y posZ Z [diametro D] [altura H] [material M]', true); return true; }
+        if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
+        const eq = _core.findObjectByTag(tag);
+        if (!eq) { notifyWithVoice('❌ Equipo "' + tag + '" no encontrado. Créelo primero en PFD con: create equipo TIPO ' + tag, true); return true; }
+        const updateData = {};
+        for (let i = 3; i < parts.length; i++) {
+            const key = parts[i];
+            const val = parts[i + 1];
+            if (key === 'posX') updateData.posX = parseFloat(val);
+            else if (key === 'posY') updateData.posY = parseFloat(val);
+            else if (key === 'posZ') updateData.posZ = parseFloat(val);
+            else if (key === 'diametro' || key === 'diam') updateData.diametro = parseFloat(val);
+            else if (key === 'altura' || key === 'height') updateData.altura = parseFloat(val);
+            else if (key === 'largo') updateData.largo = parseFloat(val);
+            else if (key === 'ancho') updateData.ancho = parseFloat(val);
+            else if (key === 'material') updateData.material = (val || '').toUpperCase();
+            else if (key === 'spec') updateData.spec = val;
+            else if (key === 'diametro_succion' || key === 'succion') updateData.diametro_succion = parseFloat(val);
+            else if (key === 'diametro_descarga' || key === 'descarga') updateData.diametro_descarga = parseFloat(val);
+            else if (key === 'diametro_entrada' || key === 'entrada') updateData.diametro_entrada = parseFloat(val);
+            else if (key === 'diametro_salida' || key === 'salida') updateData.diametro_salida = parseFloat(val);
+            else if (key === 'altura_salida_desde_base' || key === 'altura_salida') updateData.altura_salida_desde_base = parseFloat(val);
+            else if (key === 'baranda') updateData.baranda = (val === 'true' || val === 'si' || val === 'yes');
+            else if (key === 'escalera') updateData.escalera = (val === 'true' || val === 'si' || val === 'yes');
+            else if (key === 'agitador') updateData.agitador = (val === 'true' || val === 'si' || val === 'yes');
+            else if (key === 'chaqueta') updateData.chaqueta = (val === 'true' || val === 'si' || val === 'yes');
+        }
+        if (Object.keys(updateData).length === 0) { notifyWithVoice('❌ Debe especificar al menos un parámetro para actualizar', true); return true; }
+        saveStateBeforeMutation();
+        _core.updateEquipment(tag, updateData);
+        _core.syncPhysicalData();
+        if (_renderUI) _renderUI();
+        let changes = [];
+        if (updateData.posX !== undefined) changes.push('pos=(' + updateData.posX + ',' + (updateData.posY||0) + ',' + (updateData.posZ||0) + ')');
+        if (updateData.diametro) changes.push('⌀' + updateData.diametro + 'mm');
+        if (updateData.altura) changes.push('H=' + updateData.altura + 'mm');
+        if (updateData.material) changes.push(updateData.material);
+        if (updateData.spec) changes.push(updateData.spec);
+        notifyWithVoice('✅ Equipo ' + tag + ' actualizado: ' + changes.join(', '), false);
         return true;
     }
 
@@ -737,7 +665,7 @@ const SmartFlowCommands = (function() {
                 while (i < parts.length) {
                     const m = parts[i].match(/\((-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)\)/);
                     if (m) { points.push({ x: parseFloat(m[1]), y: parseFloat(m[2]), z: parseFloat(m[3]) }); i++; }
-                    else { const lower = (parts[i] || '').toLowerCase(); if (['material', 'spec', 'diameter', 'diametro'].indexOf(lower) !== -1) { i += 2; } else { i++; } }
+                    else { const lower = (parts[i] || '').toLowerCase(); if (['material', 'spec', 'diameter', 'diametro'].indexOf(lower) !== -1) i += 2; else i++; }
                 }
                 break;
             }
@@ -764,7 +692,7 @@ const SmartFlowCommands = (function() {
         const viaIdx = parts.indexOf('via');
         let waypoints = [];
         if (viaIdx !== -1) {
-            const endKeywords = ['to', 'a', 'diameter', 'diametro', 'material', 'spec', 'orient', 'direccion', 'branchup', 'branchdown', 'branchnorth', 'branchsouth', 'brancheast', 'branchwest', 'up', 'down', 'north', 'south', 'east', 'west'];
+            const endKeywords = ['to', 'a', 'diameter', 'diametro', 'material', 'spec', 'orient', 'direccion'];
             let endIdx = parts.length;
             for (let i = viaIdx + 1; i < parts.length; i++) { if (endKeywords.includes(parts[i].toLowerCase())) { endIdx = i; break; } }
             waypoints = extractWaypoints(parts, viaIdx + 1, endIdx);
@@ -777,12 +705,7 @@ const SmartFlowCommands = (function() {
         if (!branchOrientation) branchOrientation = extractBranchOrientation(parts, 5);
         let paramsStartIndex = 5;
         if (toNozzleRaw) paramsStartIndex = 6;
-        if (viaIdx !== -1 && viaIdx >= paramsStartIndex) {
-            paramsStartIndex = viaIdx;
-            let skipCount = 1;
-            for (let i = viaIdx + 1; i < parts.length; i++) { if (parts[i].startsWith('(')) skipCount++; else break; }
-            paramsStartIndex += skipCount;
-        }
+        if (viaIdx !== -1 && viaIdx >= paramsStartIndex) { paramsStartIndex = viaIdx; let skipCount = 1; for (let i = viaIdx + 1; i < parts.length; i++) { if (parts[i].startsWith('(')) skipCount++; else break; } paramsStartIndex += skipCount; }
         const namedParams = extractNamedParams(parts, paramsStartIndex);
         if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
         const fromObj = _core.findObjectByTag(fromEquip);
@@ -810,19 +733,17 @@ const SmartFlowCommands = (function() {
             const targetLen = totalLen * numPosFrom;
             let accum = 0, segIdx = 0, t = 0;
             for (let i = 0; i < lengths.length; i++) { if (accum + lengths[i] >= targetLen || i === lengths.length - 1) { segIdx = i; t = (targetLen - accum) / (lengths[i] || 1); break; } accum += lengths[i]; }
-            const pA = pts[segIdx], pB = pts[segIdx + 1];
-            startPos = { x: pA.x + (pB.x - pA.x) * t, y: pA.y + (pB.y - pA.y) * t, z: pA.z + (pB.z - pA.z) * t };
+            startPos = { x: pts[segIdx].x + (pts[segIdx+1].x - pts[segIdx].x) * t, y: pts[segIdx].y + (pts[segIdx+1].y - pts[segIdx].y) * t, z: pts[segIdx].z + (pts[segIdx+1].z - pts[segIdx].z) * t };
             fromDiameter = fromObj.diameter || 4;
         } else if (_core.getLinePoints(fromObj) && (fromNozzle === '0' || fromNozzle === '1')) {
             const pts = _core.getLinePoints(fromObj);
-            if (pts && pts.length >= 2) startPos = fromNozzle === '0' ? { x: pts[0].x, y: pts[0].y, z: pts[0].z } : { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y, z: pts[pts.length - 1].z };
+            if (pts && pts.length >= 2) startPos = fromNozzle === '0' ? { x: pts[0].x, y: pts[0].y, z: pts[0].z } : { x: pts[pts.length-1].x, y: pts[pts.length-1].y, z: pts[pts.length-1].z };
             fromDiameter = fromObj.diameter || 4;
         } else {
             const nzFrom = fromObj.puertos && fromObj.puertos.find(n => n.id === fromNozzle);
             if (!nzFrom) { notifyWithVoice("Puerto origen '" + fromNozzle + "' no encontrado", true); return true; }
             fromDiameter = nzFrom.diametro || 4;
-            if (typeof SmartFlowRouter !== 'undefined' && SmartFlowRouter.getPortPosition) startPos = SmartFlowRouter.getPortPosition(fromObj, fromNozzle);
-            else { const basePos = getBasePosition(fromObj); startPos = { x: basePos.x + (nzFrom.relX || 0), y: basePos.y + (nzFrom.relY || 0), z: basePos.z + (nzFrom.relZ || 0) }; }
+            startPos = (typeof SmartFlowRouter !== 'undefined' && SmartFlowRouter.getPortPosition) ? SmartFlowRouter.getPortPosition(fromObj, fromNozzle) : (() => { const bp = getBasePosition(fromObj); return { x: bp.x + (nzFrom.relX||0), y: bp.y + (nzFrom.relY||0), z: bp.z + (nzFrom.relZ||0) }; })();
         }
         if (!startPos) { notifyWithVoice("No se pudo obtener la posición del puerto origen", true); return true; }
         let endPos = null, nuevoPuertoId = toNozzleRaw;
@@ -832,13 +753,11 @@ const SmartFlowCommands = (function() {
             if (!pts || pts.length < 2) { notifyWithVoice("La línea destino no tiene geometría", true); return true; }
             let minDist = Infinity, bestPoint = pts[0];
             for (let i = 0; i < pts.length - 1; i++) {
-                const a = pts[i], b = pts[i+1];
-                const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
-                const ap = { x: startPos.x - a.x, y: startPos.y - a.y, z: startPos.z - a.z };
+                const a = pts[i], b = pts[i+1], ab = { x: b.x-a.x, y: b.y-a.y, z: b.z-a.z }, ap = { x: startPos.x-a.x, y: startPos.y-a.y, z: startPos.z-a.z };
                 const len2 = ab.x*ab.x + ab.y*ab.y + ab.z*ab.z;
-                let t2 = len2 !== 0 ? Math.max(0, Math.min(1, (ap.x*ab.x + ap.y*ab.y + ap.z*ab.z) / len2)) : 0;
-                const proj = { x: a.x + ab.x * t2, y: a.y + ab.y * t2, z: a.z + ab.z * t2 };
-                const dist = Math.hypot(startPos.x - proj.x, startPos.y - proj.y, startPos.z - proj.z);
+                let t2 = len2 !== 0 ? Math.max(0, Math.min(1, (ap.x*ab.x+ap.y*ab.y+ap.z*ab.z)/len2)) : 0;
+                const proj = { x: a.x+ab.x*t2, y: a.y+ab.y*t2, z: a.z+ab.z*t2 };
+                const dist = Math.hypot(startPos.x-proj.x, startPos.y-proj.y, startPos.z-proj.z);
                 if (dist < minDist) { minDist = dist; bestPoint = proj; }
             }
             endPos = bestPoint;
@@ -846,20 +765,18 @@ const SmartFlowCommands = (function() {
         } else if (isToLine && isParametricPortId(toNozzleRaw)) {
             const pts = _core.getLinePoints(toObj);
             if (!pts || pts.length < 2) { notifyWithVoice("Geometría inválida", true); return true; }
-            const paramValue = parseFloat(toNozzleRaw);
-            endPos = getPointAtParam(pts, paramValue);
+            endPos = getPointAtParam(pts, parseFloat(toNozzleRaw));
             if (!endPos) { notifyWithVoice("No se pudo calcular punto en posición " + toNozzleRaw, true); return true; }
             destBranchDirection = calculateBranchDirection(endPos, startPos);
         } else if (isToLine && (toNozzleRaw === '0' || toNozzleRaw === '1')) {
             const pts = _core.getLinePoints(toObj);
             if (!pts || pts.length < 2) { notifyWithVoice("La línea destino no tiene geometría", true); return true; }
-            endPos = toNozzleRaw === '0' ? { x: pts[0].x, y: pts[0].y, z: pts[0].z } : { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y, z: pts[pts.length - 1].z };
+            endPos = toNozzleRaw === '0' ? { x: pts[0].x, y: pts[0].y, z: pts[0].z } : { x: pts[pts.length-1].x, y: pts[pts.length-1].y, z: pts[pts.length-1].z };
         } else {
             if (!toObj.puertos) toObj.puertos = [];
             const nzTo = toObj.puertos && toObj.puertos.find(n => n.id === toNozzleRaw);
             if (!nzTo) { notifyWithVoice("Puerto destino '" + toNozzleRaw + "' no encontrado", true); return true; }
-            if (typeof SmartFlowRouter !== 'undefined' && SmartFlowRouter.getPortPosition) endPos = SmartFlowRouter.getPortPosition(toObj, toNozzleRaw);
-            else { const basePos = getBasePosition(toObj); endPos = { x: basePos.x + (nzTo.relX || 0), y: basePos.y + (nzTo.relY || 0), z: basePos.z + (nzTo.relZ || 0) }; }
+            endPos = (typeof SmartFlowRouter !== 'undefined' && SmartFlowRouter.getPortPosition) ? SmartFlowRouter.getPortPosition(toObj, toNozzleRaw) : (() => { const bp = getBasePosition(toObj); return { x: bp.x+(nzTo.relX||0), y: bp.y+(nzTo.relY||0), z: bp.z+(nzTo.relZ||0) }; })();
         }
         if (!endPos) { notifyWithVoice("No se pudo determinar el punto de destino", true); return true; }
         let originBranchDirection = null;
@@ -869,15 +786,15 @@ const SmartFlowCommands = (function() {
         }
         if (isFromLine && isNumericFrom && numPosFrom > 0.01 && numPosFrom < 0.99) {
             if (typeof SmartFlowRouter !== 'undefined' && typeof SmartFlowRouter.insertarAccesorioEnLinea === 'function') {
-                const nuevoPuertoIdTemp = SmartFlowRouter.insertarAccesorioEnLinea(fromEquip, startPos, diameter, true, originBranchDirection);
-                if (nuevoPuertoIdTemp) effectiveFromNozzle = nuevoPuertoIdTemp;
+                const npId = SmartFlowRouter.insertarAccesorioEnLinea(fromEquip, startPos, diameter, true, originBranchDirection);
+                if (npId) effectiveFromNozzle = npId;
                 else { notifyWithVoice("No se pudo insertar TEE en la línea origen", true); return true; }
             }
         }
         if (isToLine && (isParametricPortId(toNozzleRaw) || !toNozzleRaw || toNozzleRaw === '')) {
             if (typeof SmartFlowRouter !== 'undefined' && typeof SmartFlowRouter.insertarAccesorioEnLinea === 'function') {
-                const puertoIdTemp = SmartFlowRouter.insertarAccesorioEnLinea(toEquip, endPos, diameter, true, destBranchDirection);
-                if (puertoIdTemp) nuevoPuertoId = puertoIdTemp;
+                const pId = SmartFlowRouter.insertarAccesorioEnLinea(toEquip, endPos, diameter, true, destBranchDirection);
+                if (pId) nuevoPuertoId = pId;
                 else { notifyWithVoice("No se pudo insertar el accesorio automáticamente", true); return true; }
             }
         }
@@ -891,9 +808,7 @@ const SmartFlowCommands = (function() {
             tag: newTag, diameter: diameter, material: material, spec: spec,
             origin: { objType: isFromLine ? 'line' : 'equipment', equipTag: fromEquip, portId: effectiveFromNozzle },
             destination: { objType: isToLine ? 'line' : 'equipment', equipTag: toEquip, portId: nuevoPuertoId },
-            waypoints: linePoints.slice(1, -1), _cachedPoints: linePoints.slice(), components: [],
-            fittingInsertedAtOrigin: isFromLine && isNumericFrom && numPosFrom > 0.01 && numPosFrom < 0.99,
-            fittingInsertedAtDestination: !isToLine
+            waypoints: linePoints.slice(1, -1), _cachedPoints: linePoints.slice(), components: []
         };
         _core.addLine(nuevaLinea);
         const lineaRegistrada = _core.getDb().lines.find(l => l.tag === newTag) || nuevaLinea;
@@ -919,7 +834,7 @@ const SmartFlowCommands = (function() {
             if ((w === 'to' || w === 'a' || w === 'hasta') && toIdx === -1) toIdx = i;
             if (w === 'via' && viaIdx === -1) viaIdx = i;
         }
-        if (fromIdx === -1 || toIdx === -1) { notifyWithVoice("Uso: route from [origen] [puerto] [via (x,y,z)...] to [destino] [puerto] [diameter X] [material X]", true); return true; }
+        if (fromIdx === -1 || toIdx === -1) { notifyWithVoice("Uso: route from [origen] [puerto] via (x,y,z)... to [destino]", true); return true; }
         const fromEquip = parts[fromIdx + 1], fromNozzle = parts[fromIdx + 2], toEquip = parts[toIdx + 1];
         if (!fromEquip || !fromNozzle || !toEquip) { notifyWithVoice("❌ Faltan parámetros", true); return true; }
         let waypoints = [], toNozzle = null, paramsStartIdx;
@@ -927,9 +842,7 @@ const SmartFlowCommands = (function() {
         else { paramsStartIdx = toIdx + 2; }
         if (paramsStartIdx < parts.length && ['material', 'spec', 'diameter', 'diametro', 'orient', 'direccion'].indexOf((parts[paramsStartIdx] || '').toLowerCase()) === -1) { toNozzle = parts[paramsStartIdx]; paramsStartIdx++; }
         const namedParams = extractNamedParams(parts, paramsStartIdx);
-        const fromObj = _core ? _core.findObjectByTag(fromEquip) : null;
-        const toObj = _core ? _core.findObjectByTag(toEquip) : null;
-        const resolved = resolveMaterialAndSpec(namedParams, [fromObj, toObj].filter(Boolean), null, { inheritFromConnected: false });
+        const resolved = resolveMaterialAndSpec(namedParams, [], null, { inheritFromConnected: false });
         let diameter = namedParams.diameter || 3, material = resolved.material, spec = resolved.spec;
         for (let i = paramsStartIdx; i < parts.length; i++) {
             if (parts[i] === 'diameter' || parts[i] === 'diametro') diameter = parseFloat(parts[++i]);
@@ -937,9 +850,9 @@ const SmartFlowCommands = (function() {
             else if (parts[i] === 'spec') spec = parts[++i];
         }
         if (typeof SmartFlowRouter !== 'undefined') {
-            if (waypoints.length > 0 && typeof SmartFlowRouter.routeWithWaypoints === 'function') SmartFlowRouter.routeWithWaypoints(fromEquip, fromNozzle, toEquip, toNozzle, waypoints, diameter, material, spec);
+            if (waypoints.length > 0) SmartFlowRouter.routeWithWaypoints(fromEquip, fromNozzle, toEquip, toNozzle, waypoints, diameter, material, spec);
             else SmartFlowRouter.routeBetweenPorts(fromEquip, fromNozzle, toEquip, toNozzle, diameter, material, spec);
-        } else { notifyWithVoice("Módulo Router no disponible.", true); }
+        } else { notifyWithVoice("Router no disponible.", true); }
         return true;
     }
 
@@ -1250,18 +1163,6 @@ const SmartFlowCommands = (function() {
         return true;
     }
 
-    function getEquipmentTypeName(tipo) {
-        const names = {
-            'tanque_v': 'Tanque Vertical', 'tanque_h': 'Tanque Horizontal', 'bomba': 'Bomba Centrífuga', 'bomba_dosificacion': 'Bomba Dosificadora',
-            'intercambiador': 'Intercambiador de Calor', 'condensador': 'Condensador', 'torre': 'Torre de Destilación', 'columna_fraccionadora': 'Columna Fraccionadora',
-            'reactor': 'Reactor', 'reactor_encamisado': 'Reactor Encamisado', 'autoclave': 'Autoclave', 'caldera': 'Caldera',
-            'compresor': 'Compresor', 'separador': 'Separador Bifásico', 'separador_trifasico': 'Separador Trifásico', 'plataforma': 'Plataforma Estructural',
-            'antorcha': 'Antorcha (Flare)', 'filtro_prensa': 'Filtro Prensa', 'filtro_duplex': 'Filtro Dúplex', 'osmosis': 'Ósmosis Inversa',
-            'centrifuga': 'Centrífuga', 'agitador': 'Agitador / Mezclador', 'molino': 'Molino', 'llenadora': 'Llenadora', 'skid_inyeccion': 'Skid Inyección Química'
-        };
-        return names[tipo] || tipo || 'Equipo';
-    }
-
     function parseList(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'list' && parts[0] !== 'listar') return false;
@@ -1436,10 +1337,6 @@ const SmartFlowCommands = (function() {
         return true;
     }
 
-    // ================================================================
-    //  COMANDOS ADICIONALES (line from/to, extend, optimize, reroute)
-    // ================================================================
-    
     function parseLineFromTo(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'line' && parts[0] !== 'linea') return false;
@@ -1600,10 +1497,6 @@ const SmartFlowCommands = (function() {
         return true;
     }
 
-    // ================================================================
-    //  HELP (incluye nuevos comandos)
-    // ================================================================
-    
     function parseHelp(cmd) {
         const lower = cmd.toLowerCase();
         if (lower !== 'help' && lower !== 'ayuda') return false;
@@ -1623,6 +1516,7 @@ const SmartFlowCommands = (function() {
         ayuda += "  list loops | list instrument types\n\n";
         ayuda += "🧊 ISOMÉTRICO 3D:\n";
         ayuda += "  create [tipo] [tag] at (x,y,z) [diam X] [height X]\n";
+        ayuda += "  update equipment TAG posX X posY Y posZ Z [diametro D]\n";
         ayuda += "  connect [origen] [puerto] to [destino] [puerto] [diameter X]\n";
         ayuda += "  route from [origen] [puerto] via (x,y,z)... to [destino]\n";
         ayuda += "  tap [origen] [puerto] to [linea] [0.0-1.0]\n";
@@ -1645,10 +1539,6 @@ const SmartFlowCommands = (function() {
         return true;
     }
 
-    // ================================================================
-    //  EJECUCIÓN PRINCIPAL
-    // ================================================================
-    
     let _macros = new Map();
     window._commandHistory = window._commandHistory || [];
 
@@ -1664,11 +1554,10 @@ const SmartFlowCommands = (function() {
         const normalized = normalizeCommand(cmd);
         const trimmed = normalized.trim();
         
-        // Básicos
         if (trimmed === 'undo' || trimmed === 'deshacer') { if (_core) _core.undo(); recordCommand(cmd); return true; }
         if (trimmed === 'redo' || trimmed === 'rehacer') { if (_core) _core.redo(); recordCommand(cmd); return true; }
+        if (parseHelp(trimmed)) { recordCommand(cmd); return true; }
         
-        // PFD
         if (parseCreateEquipoPFD(trimmed))   { recordCommand(cmd); return true; }
         if (parseCreateStream(trimmed))       { recordCommand(cmd); return true; }
         if (parseStreamInfo(trimmed))         { recordCommand(cmd); return true; }
@@ -1676,7 +1565,6 @@ const SmartFlowCommands = (function() {
         if (parseLinkStream(trimmed))         { recordCommand(cmd); return true; }
         if (parseBalance(trimmed))            { recordCommand(cmd); return true; }
         
-        // DTI
         if (parseCreateInstrument(trimmed))   { recordCommand(cmd); return true; }
         if (parseCreateLoop(trimmed))         { recordCommand(cmd); return true; }
         if (parseInstrumentInfo(trimmed))     { recordCommand(cmd); return true; }
@@ -1684,18 +1572,17 @@ const SmartFlowCommands = (function() {
         if (parseListLoops(trimmed))          { recordCommand(cmd); return true; }
         if (parseListInstrumentTypes(trimmed)){ recordCommand(cmd); return true; }
         
-        // Integrity
         if (parseValidateAll(trimmed))        { recordCommand(cmd); return true; }
         if (parseValidatePFD(trimmed))        { recordCommand(cmd); return true; }
         if (parseValidateDTI(trimmed))        { recordCommand(cmd); return true; }
         if (parseProjectSummary(trimmed))     { recordCommand(cmd); return true; }
         if (parseAutoFix(trimmed))            { recordCommand(cmd); return true; }
         
-        // Export/Import
         if (parseExportCommand(trimmed))      { recordCommand(cmd); return true; }
         if (parseImportCommand(trimmed))      { recordCommand(cmd); return true; }
         
-        // Isométrico 3D
+        if (parseUpdateEquipment(trimmed))    { recordCommand(cmd); return true; }
+        
         if (parseLineFromTo(trimmed))         { recordCommand(cmd); return true; }
         if (parseExtendLine(trimmed))         { recordCommand(cmd); return true; }
         if (parseOptimizeRoute(trimmed))      { recordCommand(cmd); return true; }
@@ -1715,7 +1602,6 @@ const SmartFlowCommands = (function() {
         if (parseBOM(trimmed))                { recordCommand(cmd); return true; }
         if (parseAudit(trimmed))              { recordCommand(cmd); return true; }
         if (parseSetProject(trimmed))         { recordCommand(cmd); return true; }
-        if (parseHelp(trimmed))               { recordCommand(cmd); return true; }
         
         return false;
     }
@@ -1742,9 +1628,6 @@ const SmartFlowCommands = (function() {
         _voiceFn = voiceFn || null;
     }
 
-    // ================================================================
-    //  API PÚBLICA
-    // ================================================================
     return {
         init: init,
         executeCommand: executeCommand,
