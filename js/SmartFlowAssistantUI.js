@@ -705,16 +705,3 @@ const SmartFlowAssistantUI = (function() {
         getCurrentModule
     };
 })();
-```
-
-Ahora solo falta:
-
-1. Guardar este archivo como SmartFlowAssistantUI.js en tu carpeta js/
-2. Verificar que SmartFlowAssistant.js esté guardado
-3. Verificar que commands.js tenga todo el contenido del maestro que creamos
-4. Agregar el botón en tu HTML para abrir el asistente
-
-```html
-<button onclick="SmartFlowAssistantUI.openPanel()">
-    🤖 Asistente de Comandos
-</button>
