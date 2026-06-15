@@ -104,10 +104,7 @@
         .welcome-title { font-size: 28px; font-weight: 800; margin-bottom: 10px; letter-spacing: 2px; }
         .welcome-title span { color: var(--accent-cyan); }
         .welcome-subtitle { font-size: 12px; color: var(--text-muted); letter-spacing: 2px; }
-        .module-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr);
-            gap: 24px; margin-bottom: 40px;
-        }
+        .module-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 40px; }
         .module-card {
             background: var(--card-bg); border: 1px solid var(--button-border);
             border-radius: 24px; padding: 32px 20px; cursor: pointer;
@@ -118,6 +115,39 @@
         .module-name { font-size: 20px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
         .module-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
         .welcome-footer { margin-top: 20px; font-size: 10px; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; }
+
+        #project-action-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2,6,23,0.96); z-index: 9600; display: none;
+            justify-content: center; align-items: center; backdrop-filter: blur(20px);
+        }
+        .project-action-card {
+            background: rgba(15,23,42,0.95); border: 1px solid var(--accent-cyan);
+            border-radius: 24px; padding: 40px; width: 90%; max-width: 500px;
+            text-align: center; box-shadow: var(--shadow-lg);
+        }
+        .project-action-icon { font-size: 64px; margin-bottom: 16px; }
+        .project-action-title { font-size: 24px; font-weight: 800; margin-bottom: 8px; color: white; }
+        .project-action-subtitle { color: var(--text-muted); font-size: 12px; margin-bottom: 32px; }
+        .project-action-buttons { display: flex; flex-direction: column; gap: 12px; }
+        .btn-project-new {
+            background: var(--accent-blue); border: 1px solid var(--accent-cyan);
+            color: white; padding: 16px 24px; border-radius: 12px;
+            font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-project-new:hover { background: #2563eb; }
+        .btn-project-open {
+            background: transparent; border: 1px solid #64748b; color: #94a3b8;
+            padding: 16px 24px; border-radius: 12px;
+            font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-project-open:hover { border-color: var(--accent-cyan); color: white; }
+        .btn-project-back {
+            background: transparent; border: none; color: var(--text-muted);
+            padding: 8px; cursor: pointer; font-size: 12px; margin-top: 8px;
+        }
+        .btn-project-back:hover { color: white; }
+
         @media (max-width: 768px) {
             .module-grid { gap: 12px; }
             .module-card { padding: 20px 12px; }
@@ -160,8 +190,19 @@
         }
         .btn-icon:hover { background: var(--accent-blue); border-color: var(--accent-cyan); }
         .btn-icon.active { background: var(--accent-cyan); color: #000; border-color: var(--accent-cyan); }
-        .btn-primary { background: var(--accent-blue); border-color: var(--accent-cyan); }
-        .btn-primary:hover { background: #2563eb; }
+        .dropdown { position: relative; display: inline-block; }
+        .dropdown-content {
+            display: none; position: absolute; top: 100%; left: 0;
+            background: var(--panel-bg); border: 1px solid var(--accent-cyan);
+            border-radius: 8px; min-width: 200px; z-index: 600;
+            backdrop-filter: blur(12px); box-shadow: var(--shadow-lg);
+        }
+        .dropdown-content button {
+            width: 100%; text-align: left; padding: 10px 16px;
+            background: transparent; border: none; color: white;
+            cursor: pointer; font-size: 12px;
+        }
+        .dropdown-content button:hover { background: var(--accent-blue); }
 
         #module-container {
             flex: 1; position: relative; overflow: hidden;
@@ -356,9 +397,7 @@
     <div id="welcome-screen">
         <div class="welcome-card">
             <div class="welcome-header">
-                <div class="welcome-logo">
-                    <img src="img/logo.PNG" alt="EngFlow" onerror="this.style.display='none'">
-                </div>
+                <div class="welcome-logo"><img src="img/logo.PNG" alt="EngFlow" onerror="this.style.display='none'"></div>
                 <h1 class="welcome-title">Eng<span>Flow</span></h1>
                 <p class="welcome-subtitle">Seleccione el módulo de trabajo</p>
             </div>
@@ -386,10 +425,34 @@
         </div>
     </div>
 
+    <div id="project-action-modal">
+        <div class="project-action-card">
+            <div class="project-action-icon" id="project-action-icon">🧊</div>
+            <h2 class="project-action-title" id="project-action-title">Isométrico</h2>
+            <p class="project-action-subtitle">Seleccione una opción para continuar</p>
+            <div class="project-action-buttons">
+                <button class="btn-project-new" id="btn-project-new">➕ NUEVO PROYECTO</button>
+                <button class="btn-project-open" id="btn-project-open">📂 ABRIR PROYECTO EXISTENTE</button>
+                <button class="btn-project-back" id="btn-project-back">← Volver a módulos</button>
+            </div>
+        </div>
+    </div>
+
     <div id="app-toolbar">
         <div class="toolbar-logo">
             <img src="img/logo.PNG" alt="EngFlow" onerror="this.style.display='none'">
             <span>EngFlow</span>
+        </div>
+        <div class="dropdown">
+            <button class="btn-icon" id="btn-file-menu">📂 Archivo</button>
+            <div class="dropdown-content" id="file-dropdown">
+                <button id="btn-new-project">➕ Nuevo Proyecto</button>
+                <button id="btn-open-project">📂 Abrir Proyecto</button>
+                <button id="btn-save-project">💾 Guardar Proyecto</button>
+                <hr style="border-color:#334155;margin:4px 0;">
+                <button id="btn-export-json">📤 Exportar JSON</button>
+                <button id="btn-import-json">📥 Importar JSON</button>
+            </div>
         </div>
         <button class="btn-icon" id="btn-undo" title="Deshacer (Ctrl+Z)">↩️ Undo</button>
         <button class="btn-icon" id="btn-redo" title="Rehacer (Ctrl+Y)">↪️ Redo</button>
@@ -431,14 +494,10 @@
         </div>
         <div id="pfd-module" class="module-view">
             <div class="pfd-container">
-                <div class="pfd-canvas-container">
-                    <canvas id="pfdCanvas"></canvas>
-                </div>
+                <div class="pfd-canvas-container"><canvas id="pfdCanvas"></canvas></div>
                 <div class="pfd-sidebar">
                     <div class="pfd-sidebar-header">📊 CORRIENTES DE PROCESO</div>
-                    <div id="stream-list" class="stream-list">
-                        <div style="text-align:center; color:#64748b; padding:20px;">No hay corrientes</div>
-                    </div>
+                    <div id="stream-list" class="stream-list"><div style="text-align:center;color:#64748b;padding:20px;">No hay corrientes</div></div>
                     <div class="pfd-actions">
                         <button id="btn-create-stream">➕ Nueva</button>
                         <button id="btn-link-stream">🔗 Vincular a 3D</button>
@@ -452,15 +511,11 @@
                 <div class="dti-sidebar">
                     <div class="dti-section">
                         <div class="dti-section-header">🔧 INSTRUMENTOS</div>
-                        <div id="instrument-list" class="instrument-list">
-                            <div style="text-align:center; color:#64748b; padding:20px;">No hay instrumentos</div>
-                        </div>
+                        <div id="instrument-list" class="instrument-list"><div style="text-align:center;color:#64748b;padding:20px;">No hay instrumentos</div></div>
                     </div>
                     <div class="dti-section">
                         <div class="dti-section-header">🔄 LAZOS DE CONTROL</div>
-                        <div id="loop-list" class="loop-list">
-                            <div style="text-align:center; color:#64748b; padding:20px;">No hay lazos</div>
-                        </div>
+                        <div id="loop-list" class="loop-list"><div style="text-align:center;color:#64748b;padding:20px;">No hay lazos</div></div>
                     </div>
                     <div class="dti-actions">
                         <button id="btn-create-instrument">➕ Instrumento</button>
@@ -468,11 +523,7 @@
                         <button id="btn-refresh-dti">📋 Listar</button>
                     </div>
                 </div>
-                <div id="dti-detail-panel" class="dti-detail-panel">
-                    <div style="text-align:center; color:#64748b; padding:40px;">
-                        Seleccione un instrumento o lazo<br>para ver sus detalles
-                    </div>
-                </div>
+                <div id="dti-detail-panel" class="dti-detail-panel"><div style="text-align:center;color:#64748b;padding:40px;">Seleccione un instrumento o lazo<br>para ver sus detalles</div></div>
             </div>
         </div>
     </div>
@@ -480,11 +531,9 @@
     <div id="property-panel" class="property-panel hidden">
         <div class="property-header">
             <h4>📋 PROPIEDADES</h4>
-            <button id="close-property-panel" style="background:none; border:none; color:white; cursor:pointer;">✕</button>
+            <button id="close-property-panel" style="background:none;border:none;color:white;cursor:pointer;">✕</button>
         </div>
-        <div id="property-content">
-            <p style="color:#64748b; text-align:center; padding:20px;">Seleccione un elemento</p>
-        </div>
+        <div id="property-content"><p style="color:#64748b;text-align:center;padding:20px;">Seleccione un elemento</p></div>
     </div>
 
     <div id="command-bar">
