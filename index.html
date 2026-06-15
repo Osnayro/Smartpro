@@ -4,8 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>SmartEngp v3.4 | AcQuaBlue</title>
+    <title>EngFlow - Engineering Intelligence Suite</title>
     
+    <!-- Three.js r160 con Import Map -->
     <script type="importmap">
         {
             "imports": {
@@ -15,367 +16,642 @@
         }
     </script>
     
+    <!-- Librerías de exportación -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <style>
+        /* ============================================================
+           ENGFLOOW v1.0 - ESTILOS UNIFICADOS
+           Pantalla de inicio + 3 módulos independientes
+        ============================================================ */
+        
         :root {
-            --primary-bg: #0a0e17; --panel-bg: rgba(20,28,45,0.95); --accent-cyan: #00f2ff;
-            --accent-blue: #1e4eb8; --accent-green: #10b981; --accent-orange: #f59e0b;
-            --accent-purple: #8b5cf6; --accent-red: #ef4444; --text-main: #e0e6ed;
-            --toolbar-bg: #0f172a; --button-bg: #1e293b; --button-border: #334155;
+            --primary-bg: #0a0e17;
+            --panel-bg: rgba(20, 28, 45, 0.95);
+            --accent-cyan: #00f2ff;
+            --accent-blue: #1e4eb8;
+            --accent-green: #10b981;
+            --accent-orange: #f59e0b;
+            --accent-red: #ef4444;
+            --text-main: #e0e6ed;
+            --text-muted: #64748b;
+            --toolbar-bg: #0f172a;
+            --button-bg: #1e293b;
+            --button-border: #334155;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.25s ease;
+            --border-radius-sm: 6px;
+            --border-radius-md: 10px;
+            --border-radius-lg: 16px;
         }
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{background:var(--primary-bg);color:var(--text-main);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
-        #splash-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:radial-gradient(circle at center,#10172a 0%,#020617 100%);z-index:10000;display:flex;justify-content:center;align-items:center;transition:opacity .8s ease,visibility .8s}
-        .splash-content{text-align:center;width:350px}
-        .corporate-header{margin-bottom:25px}
-        .company-name{font-size:11px;letter-spacing:3px;color:#fff;opacity:.6;text-transform:uppercase;display:block}
-        .powered-by{font-size:8px;color:var(--accent-cyan);letter-spacing:1px;text-transform:uppercase}
-        .hex-container{width:120px;height:120px;margin:0 auto 30px;border:1px solid var(--accent-cyan);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;justify-content:center;align-items:center;background:rgba(0,242,255,0.05);animation:hex-pulse 2.5s infinite ease-in-out}
-        .hex-container img{width:70%;filter:drop-shadow(0 0 10px #00f2ff)}
-        @keyframes hex-pulse{0%,100%{transform:scale(1);box-shadow:0 0 15px rgba(0,242,255,0.1)}50%{transform:scale(1.05);box-shadow:0 0 30px rgba(0,242,255,0.3)}}
-        .splash-title{font-size:30px;letter-spacing:8px;color:#fff;font-weight:900;text-transform:uppercase;margin-bottom:5px}
-        .splash-subtitle{color:var(--accent-cyan);letter-spacing:4px;font-size:10px;margin-bottom:35px;opacity:.8;font-weight:700}
-        .loading-bar-container{width:200px;height:1px;background:rgba(255,255,255,0.1);margin:0 auto 15px;overflow:hidden}
-        .loading-bar-fill{width:0%;height:100%;background:var(--accent-cyan);animation:fill-bar 4.5s forwards cubic-bezier(.19,1,.22,1)}
-        .splash-status{font-family:monospace;font-size:9px;color:#64748b;text-transform:uppercase;margin-bottom:50px;height:15px}
-        .author-footer{border-top:1px solid rgba(255,255,255,0.1);padding-top:20px}
-        .leader-by{font-size:9px;color:#fff;opacity:.5;text-transform:uppercase}
-        .engineer-name{font-size:13px;font-weight:700;color:#fff;display:block;letter-spacing:1.5px;margin-top:4px}
-        @keyframes fill-bar{0%{width:0%}100%{width:100%}}
-        .splash-hidden{opacity:0;visibility:hidden}
-        #welcome-panel{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--primary-bg);z-index:9000;display:flex;justify-content:center;align-items:center;transition:opacity .6s ease,visibility .6s}
-        .welcome-container{width:600px;padding:40px;background:rgba(15,23,42,0.85);border:1px solid var(--accent-cyan);border-radius:16px;backdrop-filter:blur(12px);box-shadow:0 20px 40px rgba(0,0,0,0.6);text-align:center}
-        .home-logo-img{width:130px;margin:10px 0 25px;filter:drop-shadow(0 0 15px rgba(0,242,255,0.4))}
-        .header-names{display:flex;justify-content:space-between;margin-bottom:35px;text-align:left}
-        .corp-name{color:var(--accent-cyan);font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:2px}
-        .user-name{color:#fff;font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:2px;text-align:right}
-        .button-group{display:flex;flex-direction:column;gap:16px}
-        .welcome-btn{background:transparent;border:1px solid var(--accent-cyan);color:var(--accent-cyan);padding:16px 24px;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:3px;border-radius:8px;cursor:pointer;transition:all .3s}
-        .welcome-btn:hover{background:var(--accent-cyan);color:#000}
-        .welcome-btn.secondary{border-color:#64748b;color:#94a3b8}
-        .welcome-btn.secondary:hover{background:#334155;border-color:#94a3b8;color:#fff}
-        .welcome-hidden{opacity:0;visibility:hidden;pointer-events:none}
-        #project-name-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9500;display:none;justify-content:center;align-items:center}
-        .modal-content{width:400px;padding:30px;background:var(--panel-bg);border:1px solid var(--accent-cyan);border-radius:16px;text-align:center}
-        .modal-content h3{color:var(--accent-cyan);margin-bottom:20px;font-size:18px}
-        .modal-content input{width:100%;padding:12px;background:#0f172a;border:1px solid #334155;color:#fff;border-radius:8px;margin-bottom:25px}
-        .modal-actions{display:flex;gap:15px;justify-content:center}
-        .modal-btn{padding:10px 24px;background:var(--accent-blue);border:none;color:#fff;font-weight:700;border-radius:6px;cursor:pointer}
-        .modal-btn.cancel{background:#334155}
-        .toolbar{background:var(--toolbar-bg);padding:6px 12px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--accent-blue);box-shadow:0 2px 10px rgba(0,0,0,0.4);z-index:500}
-        .toolbar-logo{display:flex;align-items:center;margin-right:10px}
-        .toolbar-logo img{height:24px;margin-right:6px}
-        .toolbar-title{color:var(--accent-cyan);font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:2px}
-        .toolbar-separator{width:1px;height:22px;background:var(--button-border);margin:0 4px}
-        button{background:var(--button-bg);border:1px solid var(--button-border);color:#fff;padding:6px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;text-transform:uppercase;white-space:nowrap}
-        button:hover{background:var(--accent-blue);border-color:var(--accent-cyan)}
-        button.active{background:var(--accent-cyan);color:#000;border-color:var(--accent-cyan)}
-        .btn-pfd{border-color:var(--accent-green);color:var(--accent-green)}
-        .btn-pfd:hover,.btn-pfd.active{background:var(--accent-green);color:#000;border-color:var(--accent-green)}
-        .btn-dti{border-color:var(--accent-purple);color:var(--accent-purple)}
-        .btn-dti:hover,.btn-dti.active{background:var(--accent-purple);color:#fff;border-color:var(--accent-purple)}
-        .btn-iso{border-color:var(--accent-cyan);color:var(--accent-cyan)}
-        .btn-iso:hover,.btn-iso.active{background:var(--accent-cyan);color:#000;border-color:var(--accent-cyan)}
-        #btnExportPCF{border-color:var(--accent-green);color:var(--accent-green)}#btnExportPCF:hover{background:var(--accent-green);color:#000}
-        #btnImportPCF{border-color:var(--accent-orange);color:var(--accent-orange)}#btnImportPCF:hover{background:var(--accent-orange);color:#000}
-        #btnExportDB{border-color:#06b6d4;color:#06b6d4}#btnExportDB:hover{background:#06b6d4;color:#000}
-        #btnValidate{border-color:var(--accent-red);color:var(--accent-red)}#btnValidate:hover{background:var(--accent-red);color:#fff}
-        #btnSummary{border-color:#eab308;color:#eab308}#btnSummary:hover{background:#eab308;color:#000}
-        .dropdown{position:relative;display:inline-block}
-        .dropdown-content{display:none;position:absolute;background:var(--panel-bg);min-width:190px;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);z-index:1;border:1px solid var(--accent-cyan);border-radius:4px;backdrop-filter:blur(8px);right:0}
-        .dropdown-content button{width:100%;text-align:left;border:none;border-radius:0}
-        .dropdown.open>.dropdown-content{display:block}
-        .module-tabs{display:flex;gap:2px;padding:0 12px;background:var(--toolbar-bg);border-bottom:2px solid var(--button-border)}
-        .module-tab{padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;border:none;color:#64748b;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s;text-transform:uppercase;letter-spacing:1px}
-        .module-tab:hover{color:#e2e8f0}
-        .module-tab.pfd-tab.active{color:var(--accent-green);border-bottom-color:var(--accent-green)}
-        .module-tab.dti-tab.active{color:var(--accent-purple);border-bottom-color:var(--accent-purple)}
-        .module-tab.iso-tab.active{color:var(--accent-cyan);border-bottom-color:var(--accent-cyan)}
-        .canvas-container{flex:1;background:#fff;position:relative;overflow:hidden}
-        #pfd-canvas,#dti-canvas,#isoCanvas{position:absolute;top:0;left:0;width:100%;height:100%;display:none}
-        #viewer-3d{position:absolute;top:0;left:0;width:100%;height:100%;display:none}
-        #side-panel{position:absolute;top:10px;right:10px;width:280px;max-width:85vw;max-height:60vh;background:rgba(15,23,42,0.85);backdrop-filter:blur(12px);border:1px solid rgba(0,242,255,0.3);border-radius:8px;padding:12px;z-index:100;overflow-y:auto;transition:transform .3s ease}
-        #side-panel.hidden{transform:translateX(320px)}
-        #panel-content{max-height:calc(60vh - 50px);overflow-y:auto}
-        #commandPanel{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);width:90%;max-width:560px;background:rgba(15,23,42,0.95);border-radius:12px;border:1px solid var(--accent-cyan);z-index:1000;display:none;backdrop-filter:blur(10px);padding:10px}
-        .command-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:var(--accent-cyan)}
-        textarea{width:100%;margin:0;background:#0f0f17;color:#eee;border:1px solid #3a3a4a;border-radius:8px;padding:10px;font-family:'Courier New',monospace;font-size:12px;resize:vertical}
-        .command-buttons{display:flex;gap:8px;margin-top:8px}
-        .history-indicator{font-size:10px;color:#64748b;margin-top:4px;text-align:right}
-        .notification{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#238636;padding:8px 16px;border-radius:8px;z-index:2000;display:none;font-weight:700;font-size:13px;pointer-events:none}
-        .status-bar{position:fixed;bottom:8px;left:12px;z-index:300;background:rgba(2,6,23,0.7);padding:4px 12px;font-size:10px;border-radius:4px;color:var(--accent-cyan);pointer-events:none;backdrop-filter:blur(4px);border:1px solid rgba(0,242,255,0.2)}
-        .tools-panel{position:fixed;left:10px;top:110px;background:rgba(15,23,42,0.9);border-radius:10px;padding:6px;z-index:400;border:1px solid rgba(0,242,255,0.3);backdrop-filter:blur(6px);display:flex;flex-direction:column;gap:4px;transition:all .3s}
-        .tools-panel.collapsed #toolsButtons{display:none}
-        #toolsButtons{display:flex;flex-direction:column;gap:4px}
-        #toolsButtons button{font-size:10px;padding:4px 8px}
-        .elevation-inline{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:4px}
-        .elevation-inline span{font-size:10px;color:var(--accent-cyan)}
-        .elevation-inline button{font-size:10px;padding:2px 6px}
-        .elevation-inline input{width:60px;background:#0f172a;border:1px solid #334155;color:#fff;font-size:10px;padding:2px 4px;border-radius:4px}
-        #fullscreen-controls{display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;gap:12px}
-        body.fullscreen-mode .toolbar,body.fullscreen-mode .module-tabs,body.fullscreen-mode #side-panel,body.fullscreen-mode #commandPanel,body.fullscreen-mode .status-bar,body.fullscreen-mode .tools-panel,body.fullscreen-mode #notification{display:none!important}
-        body.fullscreen-mode .canvas-container{position:fixed;top:0;left:0;width:100%;height:100%;z-index:10}
-        body.fullscreen-mode #fullscreen-controls{display:flex!important}
-        @media(max-width:768px){.toolbar button{font-size:9px;padding:4px 6px}.toolbar-title{font-size:13px}.module-tab{font-size:10px;padding:6px 10px}#side-panel{width:240px;right:5px}.tools-panel{top:100px;left:4px}}
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--primary-bg);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        /* ============================================================
+           PANTALLA DE INICIO (SPLASH + BIENVENIDA)
+        ============================================================ */
+        
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 30% 20%, #0a0e17 0%, #020617 100%);
+            z-index: 10000;
+            display: flex; justify-content: center; align-items: center;
+            transition: opacity 0.6s ease, visibility 0.6s;
+        }
+        
+        .splash-content { text-align: center; width: 380px; animation: fadeInUp 0.8s ease; }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .hex-logo {
+            width: 120px; height: 120px; margin: 0 auto 25px;
+            background: linear-gradient(135deg, rgba(0,242,255,0.1), rgba(30,78,184,0.1));
+            border: 1px solid var(--accent-cyan);
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            display: flex; align-items: center; justify-content: center;
+            animation: hexPulse 2s infinite;
+        }
+        
+        .hex-logo img { width: 65%; filter: drop-shadow(0 0 10px var(--accent-cyan)); }
+        
+        @keyframes hexPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 10px rgba(0,242,255,0.2); }
+            50% { transform: scale(1.03); box-shadow: 0 0 25px rgba(0,242,255,0.4); }
+        }
+        
+        .splash-title { font-size: 32px; letter-spacing: 6px; font-weight: 900; margin-bottom: 8px; background: linear-gradient(135deg, #fff, var(--accent-cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .splash-subtitle { color: var(--accent-cyan); font-size: 10px; letter-spacing: 4px; margin-bottom: 30px; }
+        .loading-bar { width: 200px; height: 2px; background: rgba(255,255,255,0.1); margin: 20px auto; border-radius: 2px; overflow: hidden; }
+        .loading-fill { width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)); animation: loadingFill 3s ease forwards; }
+        @keyframes loadingFill { 0% { width: 0%; } 100% { width: 100%; } }
+        
+        .splash-hidden { opacity: 0; visibility: hidden; transition: opacity 0.5s, visibility 0.5s; }
+        
+        /* Pantalla de Bienvenida / Selección de Módulo */
+        #welcome-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 6, 23, 0.96); backdrop-filter: blur(20px);
+            z-index: 9500; display: flex; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        
+        .welcome-card {
+            background: rgba(15, 23, 42, 0.95); border: 1px solid var(--accent-cyan);
+            border-radius: 32px; padding: 40px; width: 90%; max-width: 900px;
+            text-align: center; box-shadow: var(--shadow-lg);
+        }
+        
+        .welcome-header { margin-bottom: 40px; }
+        .welcome-logo { margin-bottom: 20px; }
+        .welcome-logo img { width: 80px; }
+        .welcome-title { font-size: 28px; font-weight: 800; margin-bottom: 10px; letter-spacing: 2px; }
+        .welcome-title span { color: var(--accent-cyan); }
+        .welcome-subtitle { font-size: 12px; color: var(--text-muted); letter-spacing: 2px; }
+        
+        .module-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 24px; margin-bottom: 40px;
+        }
+        
+        .module-card {
+            background: var(--card-bg); border: 1px solid var(--button-border);
+            border-radius: 24px; padding: 32px 20px; cursor: pointer;
+            transition: all var(--transition-normal); text-align: center;
+        }
+        
+        .module-card:hover { transform: translateY(-8px); border-color: var(--accent-cyan); background: rgba(0,242,255,0.08); box-shadow: var(--shadow-lg); }
+        
+        .module-icon { font-size: 64px; margin-bottom: 20px; display: block; }
+        .module-name { font-size: 20px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .module-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+        
+        .welcome-footer { margin-top: 20px; font-size: 10px; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; }
+        
+        @media (max-width: 768px) {
+            .module-grid { gap: 12px; }
+            .module-card { padding: 20px 12px; }
+            .module-icon { font-size: 40px; }
+            .module-name { font-size: 14px; }
+            .module-desc { font-size: 9px; }
+            .welcome-card { padding: 24px; }
+        }
+        
+        @media (max-width: 480px) {
+            .module-grid { grid-template-columns: 1fr; gap: 12px; }
+            .module-card { padding: 16px; }
+            .module-icon { font-size: 36px; }
+        }
+        
+        /* ============================================================
+           TOOLBAR PRINCIPAL
+        ============================================================ */
+        
+        #app-toolbar {
+            background: var(--toolbar-bg); padding: 8px 16px;
+            display: none; align-items: center; gap: 8px;
+            border-bottom: 1px solid rgba(0,242,255,0.2);
+            z-index: 500; flex-wrap: wrap;
+        }
+        
+        .toolbar-logo { display: flex; align-items: center; gap: 8px; margin-right: 8px; }
+        .toolbar-logo img { height: 28px; }
+        .toolbar-logo span { color: var(--accent-cyan); font-weight: 800; font-size: 16px; letter-spacing: 2px; }
+        
+        .module-switcher {
+            display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 40px;
+            margin-left: auto; margin-right: 16px;
+        }
+        
+        .module-switcher button {
+            background: transparent; border: none; padding: 6px 16px;
+            border-radius: 30px; color: var(--text-muted); cursor: pointer;
+            font-size: 12px; font-weight: 600; transition: all var(--transition-fast);
+        }
+        
+        .module-switcher button.active { background: var(--accent-cyan); color: #000; }
+        .module-switcher button:hover:not(.active) { color: white; background: rgba(255,255,255,0.1); }
+        
+        .btn-icon {
+            background: var(--button-bg); border: 1px solid var(--button-border);
+            padding: 8px 12px; border-radius: var(--border-radius-sm);
+            color: white; cursor: pointer; transition: all var(--transition-fast);
+            font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;
+        }
+        
+        .btn-icon:hover { background: var(--accent-blue); border-color: var(--accent-cyan); }
+        .btn-icon.active { background: var(--accent-cyan); color: #000; border-color: var(--accent-cyan); }
+        
+        .btn-primary { background: var(--accent-blue); border-color: var(--accent-cyan); }
+        .btn-primary:hover { background: #2563eb; }
+        
+        /* ============================================================
+           CONTENEDOR DE MÓDULOS
+        ============================================================ */
+        
+        #module-container {
+            flex: 1; position: relative; overflow: hidden;
+            background: var(--primary-bg);
+        }
+        
+        .module-view {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0; visibility: hidden; transition: opacity 0.3s ease;
+            display: flex; flex-direction: column;
+        }
+        
+        .module-view.active {
+            opacity: 1; visibility: visible; z-index: 10;
+        }
+        
+        /* ============================================================
+           MÓDULO ISOMÉTRICO
+        ============================================================ */
+        
+        .iso-canvas-container {
+            flex: 1; position: relative; background: #000;
+        }
+        
+        #isoCanvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+        #isoCanvas:active { cursor: grabbing; }
+        #viewer-3d { width: 100%; height: 100%; display: none; background: #000; }
+        
+        .iso-tools {
+            position: absolute; left: 12px; top: 12px; background: var(--panel-bg);
+            backdrop-filter: blur(12px); border-radius: var(--border-radius-md);
+            padding: 8px; border: 1px solid rgba(0,242,255,0.3);
+            min-width: 120px;
+        }
+        
+        .iso-tools-header { font-size: 10px; color: var(--accent-cyan); margin-bottom: 6px; text-align: center; }
+        .iso-tools-buttons { display: flex; flex-direction: column; gap: 4px; }
+        .iso-tools-buttons button {
+            background: var(--button-bg); border: 1px solid var(--button-border);
+            padding: 6px 8px; border-radius: var(--border-radius-sm);
+            color: white; font-size: 10px; cursor: pointer;
+        }
+        .iso-tools-buttons button.active { background: var(--accent-cyan); color: #000; }
+        
+        .elevation-control {
+            margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
+        }
+        .elevation-control span { font-size: 9px; color: var(--accent-cyan); }
+        .elevation-control input { width: 55px; background: #0f172a; border: 1px solid #334155; color: white; font-size: 9px; padding: 4px; border-radius: 4px; }
+        .elevation-control button { background: var(--button-bg); border: 1px solid var(--button-border); padding: 4px 6px; border-radius: 4px; color: white; font-size: 9px; cursor: pointer; }
+        
+        /* ============================================================
+           MÓDULO PFD (P&ID)
+        ============================================================ */
+        
+        .pfd-container { flex: 1; display: flex; background: #0f172a; }
+        .pfd-canvas-container { flex: 1; position: relative; background: #0a0e17; }
+        #pfdCanvas { width: 100%; height: 100%; display: block; background: #0a0e17; }
+        
+        .pfd-sidebar {
+            width: 280px; background: var(--panel-bg); border-left: 1px solid rgba(0,242,255,0.2);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        
+        .pfd-sidebar-header { padding: 12px; border-bottom: 1px solid rgba(0,242,255,0.2); font-weight: bold; color: var(--accent-cyan); font-size: 12px; }
+        .stream-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .stream-item {
+            background: var(--card-bg); border-radius: 8px; padding: 10px;
+            margin-bottom: 6px; cursor: pointer; transition: all var(--transition-fast);
+            border-left: 2px solid transparent;
+        }
+        .stream-item:hover { border-left-color: var(--accent-cyan); transform: translateX(2px); }
+        .stream-tag { font-weight: bold; font-size: 12px; }
+        .stream-flow { font-size: 10px; color: var(--text-muted); }
+        .stream-fluid { font-size: 9px; color: var(--accent-cyan); }
+        
+        .pfd-actions { padding: 12px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 8px; flex-wrap: wrap; }
+        .pfd-actions button { flex: 1; font-size: 10px; padding: 6px; background: var(--button-bg); border: 1px solid var(--button-border); border-radius: 6px; color: white; cursor: pointer; }
+        .pfd-actions button:hover { background: var(--accent-blue); border-color: var(--accent-cyan); }
+        
+        /* ============================================================
+           MÓDULO DTI (Instrumentación)
+        ============================================================ */
+        
+        .dti-container { flex: 1; display: flex; background: #0f172a; }
+        .dti-sidebar {
+            width: 280px; background: var(--panel-bg); border-right: 1px solid rgba(0,242,255,0.2);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        
+        .dti-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .dti-section-header { padding: 10px 12px; background: rgba(0,242,255,0.05); font-weight: bold; color: var(--accent-cyan); font-size: 11px; border-bottom: 1px solid rgba(0,242,255,0.1); }
+        .instrument-list, .loop-list { flex: 1; overflow-y: auto; padding: 8px; }
+        
+        .instrument-item, .loop-item {
+            background: var(--card-bg); border-radius: 8px; padding: 10px;
+            margin-bottom: 6px; cursor: pointer; transition: all var(--transition-fast);
+            border-left: 2px solid transparent;
+        }
+        .instrument-item:hover, .loop-item:hover { border-left-color: var(--accent-cyan); transform: translateX(2px); }
+        .instrument-tag { font-weight: bold; font-size: 12px; }
+        .instrument-type { font-size: 9px; color: var(--text-muted); }
+        .instrument-location { font-size: 8px; color: var(--accent-cyan); }
+        
+        .dti-detail-panel {
+            flex: 1; padding: 16px; overflow-y: auto;
+        }
+        
+        .detail-card {
+            background: var(--card-bg); border-radius: 12px; padding: 16px;
+            border: 1px solid rgba(0,242,255,0.2);
+        }
+        .detail-field { margin-bottom: 12px; }
+        .detail-field label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 2px; }
+        .detail-field .value { font-size: 14px; font-weight: 500; }
+        
+        .dti-actions { padding: 12px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 8px; flex-wrap: wrap; }
+        .dti-actions button { flex: 1; font-size: 10px; padding: 6px; background: var(--button-bg); border: 1px solid var(--button-border); border-radius: 6px; color: white; cursor: pointer; }
+        .dti-actions button:hover { background: var(--accent-blue); border-color: var(--accent-cyan); }
+        
+        /* ============================================================
+           PANEL DE PROPIEDADES
+        ============================================================ */
+        
+        .property-panel {
+            position: fixed; right: 12px; top: 80px; width: 280px;
+            background: var(--panel-bg); backdrop-filter: blur(12px);
+            border: 1px solid rgba(0,242,255,0.3); border-radius: var(--border-radius-md);
+            padding: 12px; z-index: 200; transition: transform var(--transition-normal);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .property-panel.hidden { transform: translateX(320px); }
+        
+        .property-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(0,242,255,0.2); }
+        .property-header h4 { color: var(--accent-cyan); font-size: 13px; margin: 0; }
+        .property-field { margin-bottom: 10px; display: flex; flex-direction: column; }
+        .property-field label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px; }
+        .property-field .value { font-size: 12px; font-weight: 500; word-break: break-all; }
+        
+        /* ============================================================
+           COMMAND BAR FLOTANTE
+        ============================================================ */
+        
+        #command-bar {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 600px; background: rgba(15, 23, 42, 0.98);
+            border: 1px solid var(--accent-cyan); border-radius: 40px;
+            backdrop-filter: blur(12px); z-index: 1000;
+            display: flex; align-items: center; padding: 8px 16px;
+            gap: 8px; box-shadow: var(--shadow-lg);
+        }
+        
+        .cmd-prompt { color: var(--accent-cyan); font-weight: bold; font-family: monospace; font-size: 14px; }
+        #cmd-input {
+            flex: 1; background: transparent; border: none; color: white;
+            font-family: monospace; font-size: 13px; outline: none; padding: 8px 0;
+        }
+        #cmd-input::placeholder { color: var(--text-muted); }
+        #cmd-input.error { animation: shake 0.3s ease; }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+        
+        .cmd-buttons { display: flex; gap: 6px; }
+        .cmd-btn {
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            font-size: 16px; padding: 4px; transition: color var(--transition-fast);
+        }
+        .cmd-btn:hover { color: var(--accent-cyan); }
+        
+        /* ============================================================
+           NOTIFICACIONES Y ESTADO
+        ============================================================ */
+        
+        .notification-toast {
+            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+            background: #1a3a2a; color: #3fb950; padding: 10px 20px;
+            border-radius: 40px; font-size: 12px; font-weight: 500;
+            z-index: 3000; animation: slideUp 0.3s ease; border: 1px solid #3fb950;
+            display: none;
+        }
+        .notification-toast.error { background: #3a1a1a; color: #f85149; border-color: #f85149; }
+        
+        @keyframes slideUp {
+            from { transform: translate(-50%, 20px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        
+        .status-bar {
+            position: fixed; bottom: 8px; left: 12px; z-index: 300;
+            background: rgba(2, 6, 23, 0.7); padding: 4px 12px; font-size: 9px;
+            border-radius: 4px; color: var(--accent-cyan); pointer-events: none;
+            backdrop-filter: blur(4px);
+        }
+        
+        .shortcut-hint {
+            position: fixed; bottom: 8px; right: 12px; z-index: 300;
+            background: rgba(2, 6, 23, 0.7); padding: 4px 12px; font-size: 8px;
+            border-radius: 4px; color: var(--text-muted); pointer-events: none;
+            backdrop-filter: blur(4px);
+        }
+        
+        /* ============================================================
+           RESPONSIVE
+        ============================================================ */
+        
+        @media (max-width: 768px) {
+            .pfd-sidebar, .dti-sidebar { width: 240px; }
+            .property-panel { width: 240px; right: 8px; top: 70px; }
+            .module-switcher button { padding: 4px 12px; font-size: 10px; }
+            .btn-icon { padding: 6px 8px; font-size: 10px; }
+            .iso-tools { left: 8px; top: 8px; min-width: 100px; }
+        }
+        
+        @media (max-width: 480px) {
+            .pfd-sidebar, .dti-sidebar { width: 200px; }
+            .property-panel { width: 220px; }
+            .shortcut-hint { display: none; }
+        }
+        
+        /* Fullscreen mode */
+        body.fullscreen-mode .app-toolbar,
+        body.fullscreen-mode .property-panel,
+        body.fullscreen-mode .iso-tools,
+        body.fullscreen-mode .pfd-sidebar,
+        body.fullscreen-mode .dti-sidebar,
+        body.fullscreen-mode #command-bar,
+        body.fullscreen-mode .status-bar,
+        body.fullscreen-mode .shortcut-hint { display: none !important; }
+        
+        body.fullscreen-mode .module-view { z-index: 20; }
+        body.fullscreen-mode .iso-canvas-container canvas,
+        body.fullscreen-mode .pfd-canvas-container canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 25; }
     </style>
 </head>
 <body>
 
+    <!-- SPLASH SCREEN -->
     <div id="splash-screen">
         <div class="splash-content">
-            <div class="corporate-header">
-                <span class="company-name">AcQuaBlue International Corp.</span>
-                <span class="powered-by">Smart Engineering Systems</span>
+            <div class="hex-logo">
+                <img src="img/logo.PNG" alt="EngFlow" onerror="this.style.display='none'">
             </div>
-            <div class="hex-container">
-                <img src="img/logo.PNG" alt="Logo" onerror="this.style.display='none'">
+            <h1 class="splash-title">EngFlow</h1>
+            <p class="splash-subtitle">ENGINEERING SUITE</p>
+            <div class="loading-bar"><div class="loading-fill"></div></div>
+            <div id="splash-status" style="font-size: 10px; color: #64748b;">Inicializando...</div>
+        </div>
+    </div>
+
+    <!-- PANTALLA DE BIENVENIDA / SELECCIÓN DE MÓDULO -->
+    <div id="welcome-screen">
+        <div class="welcome-card">
+            <div class="welcome-header">
+                <div class="welcome-logo">
+                    <img src="img/logo.PNG" alt="EngFlow" onerror="this.style.display='none'">
+                </div>
+                <h1 class="welcome-title">Eng<span>Flow</span></h1>
+                <p class="welcome-subtitle">Seleccione el módulo de trabajo</p>
             </div>
-            <h1 class="splash-title">SmartEngp</h1>
-            <p class="splash-subtitle">INGENIERÍA INTELIGENTE</p>
-            <div class="loading-bar-container"><div class="loading-bar-fill"></div></div>
-            <div class="splash-status" id="splash-status">Inicializando SmartEngp v3.4...</div>
-            <div class="author-footer">
-                <span class="leader-by">Ingeniero Líder de Proyecto:</span>
-                <span class="engineer-name">Ing. Osnay Romero</span>
+            
+            <div class="module-grid">
+                <div class="module-card" data-module="ISOMETRIC">
+                    <span class="module-icon">🧊</span>
+                    <div class="module-name">ISOMÉTRICO</div>
+                    <div class="module-desc">Diseño 3D / 2.5D<br>Tuberías, equipos y conexiones</div>
+                </div>
+                <div class="module-card" data-module="PFD">
+                    <span class="module-icon">📊</span>
+                    <div class="module-name">P&amp;ID / PFD</div>
+                    <div class="module-desc">Diagramas de flujo<br>Corrientes de proceso y balances</div>
+                </div>
+                <div class="module-card" data-module="DTI">
+                    <span class="module-icon">🔧</span>
+                    <div class="module-name">DTI</div>
+                    <div class="module-desc">Instrumentación<br>Lazos de control y transmisores</div>
+                </div>
+            </div>
+            
+            <div class="welcome-footer">
+                <span>EngFlow Engineering Suite © 2024</span><br>
+                <span style="font-size: 8px;">Ingeniero Líder: Ing. Osnay Romero</span>
             </div>
         </div>
     </div>
 
-    <div id="welcome-panel">
-        <div class="welcome-container">
-            <div class="home-logo-wrapper">
-                <img src="img/logo.PNG" alt="Logo" class="home-logo-img" onerror="this.style.display='none'">
-            </div>
-            <div class="header-names">
-                <h1 class="corp-name">ACQUABLUE<br>INTERNATIONAL CORP.</h1>
-                <h2 class="user-name">ING.<br>OSNAY ROMERO</h2>
-            </div>
-            <div class="button-group">
-                <button class="welcome-btn" id="welcome-new-project">➕ NUEVO PROYECTO</button>
-                <button class="welcome-btn secondary" id="welcome-open-project">📂 ABRIR PROYECTO EXISTENTE</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="project-name-modal">
-        <div class="modal-content">
-            <h3>Nuevo Proyecto</h3>
-            <input type="text" id="project-name-input" placeholder="Nombre del proyecto" value="Proyecto_SmartEngp">
-            <div class="modal-actions">
-                <button class="modal-btn" id="modal-accept">Aceptar</button>
-                <button class="modal-btn cancel" id="modal-skip">Saltar</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="toolbar" role="toolbar">
+    <!-- TOOLBAR PRINCIPAL -->
+    <div id="app-toolbar">
         <div class="toolbar-logo">
-            <img src="img/logo.PNG" alt="Logo" style="height:24px" onerror="this.style.display='none'">
-            <span class="toolbar-title">SmartEngp v3.4</span>
+            <img src="img/logo.PNG" alt="EngFlow" onerror="this.style.display='none'">
+            <span>EngFlow</span>
         </div>
-        <div class="toolbar-separator"></div>
-        <div class="dropdown">
-            <button id="btnFileMenu">📂 Archivo</button>
-            <div class="dropdown-content">
-                <button id="btnOpen">📂 Abrir Proyecto</button>
-                <button id="btnSave">💾 Guardar Proyecto</button>
-                <button id="btnExportProject">📤 Exportar JSON</button>
-                <button id="btnImportProject">📥 Importar JSON</button>
-                <hr style="border-color:#334155;margin:4px 0">
-                <button id="btnExportDB">🗄️ Exportar DB Excel</button>
-                <button id="btnExportPCF">📥 Exportar PCF</button>
-                <button id="btnImportPCF">📤 Importar PCF</button>
-                <button id="btnMTO">📊 Exportar MTO</button>
+        
+        <button class="btn-icon" id="btn-undo" title="Deshacer (Ctrl+Z)">↩️ Undo</button>
+        <button class="btn-icon" id="btn-redo" title="Rehacer (Ctrl+Y)">↪️ Redo</button>
+        <button class="btn-icon" id="btn-voice" title="Activar/Desactivar voz">🔊 Voz</button>
+        
+        <div class="module-switcher">
+            <button data-module="ISOMETRIC" class="active">🧊 Isométrico</button>
+            <button data-module="PFD">📊 P&amp;ID</button>
+            <button data-module="DTI">🔧 DTI</button>
+        </div>
+        
+        <div style="flex:1"></div>
+        
+        <button class="btn-icon" id="btn-assistant" title="Asistente de comandos (Ctrl+Shift+C)">🤖 Asistente</button>
+        <button class="btn-icon" id="btn-fullscreen" title="Pantalla completa (F11)">⛶ Pantalla</button>
+        <button class="btn-icon" id="btn-toggle-property" title="Mostrar/ocultar propiedades">📋 Propiedades</button>
+    </div>
+
+    <!-- CONTENEDOR DE MÓDULOS -->
+    <div id="module-container">
+        
+        <!-- MÓDULO ISOMÉTRICO -->
+        <div id="isometric-module" class="module-view active">
+            <div class="iso-canvas-container">
+                <canvas id="isoCanvas"></canvas>
+                <div id="viewer-3d"></div>
+            </div>
+            <div class="iso-tools">
+                <div class="iso-tools-header">🛠️ HERRAMIENTAS</div>
+                <div class="iso-tools-buttons">
+                    <button id="tool-select" class="active">🔍 Seleccionar</button>
+                    <button id="tool-move">✋ Mover equipo</button>
+                    <button id="tool-edit">✏️ Editar línea</button>
+                    <button id="tool-add-point">➕ Añadir punto</button>
+                </div>
+                <div class="elevation-control">
+                    <span>📐 Elevación:</span>
+                    <button id="elev-0">0</button>
+                    <button id="elev-2500">2.5m</button>
+                    <button id="elev-5000">5m</button>
+                    <input type="number" id="custom-elev" value="0" step="100">
+                    <button id="set-elev">Set</button>
+                </div>
             </div>
         </div>
-        <div class="toolbar-separator"></div>
-        <button id="btn-mode-pfd" class="btn-pfd active">📊 PFD</button>
-        <button id="btn-mode-dti" class="btn-dti">🔧 DTI</button>
-        <button id="btn-mode-iso" class="btn-iso">🧊 ISO</button>
-        <div class="toolbar-separator"></div>
-        <button id="btnValidate" title="Validación cruzada PFD↔DTI↔3D">🔍 Validar</button>
-        <button id="btnSummary" title="Resumen del proyecto">📋 Resumen</button>
-        <div class="toolbar-separator"></div>
-        <button id="btnReset">🔄 Centrar</button>
-        <button id="btnFullscreen">⛶ Full</button>
-        <button id="btnCommand">🤖 Cmd</button>
-        <button id="btnTogglePanels">👁️</button>
-        <div class="toolbar-separator"></div>
-        <div class="dropdown">
-            <button id="btnMoreMenu">⚙️ +</button>
-            <div class="dropdown-content">
-                <button id="btnUndo">↩️ Undo</button>
-                <button id="btnRedo">↪️ Redo</button>
-                <button id="btnVoice">🔊 Voz ON</button>
-                <button id="btnRecalc">🔄 Recalcular</button>
-                <button id="btnSpeakSummary">📢 Resumen Voz</button>
+        
+        <!-- MÓDULO PFD (P&ID) -->
+        <div id="pfd-module" class="module-view">
+            <div class="pfd-container">
+                <div class="pfd-canvas-container">
+                    <canvas id="pfdCanvas"></canvas>
+                </div>
+                <div class="pfd-sidebar">
+                    <div class="pfd-sidebar-header">📊 CORRIENTES DE PROCESO</div>
+                    <div id="stream-list" class="stream-list">
+                        <div style="text-align:center; color:#64748b; padding:20px;">No hay corrientes</div>
+                    </div>
+                    <div class="pfd-actions">
+                        <button id="btn-create-stream">➕ Nueva</button>
+                        <button id="btn-link-stream">🔗 Vincular a 3D</button>
+                        <button id="btn-balance">⚖️ Balance</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MÓDULO DTI (Instrumentación) -->
+        <div id="dti-module" class="module-view">
+            <div class="dti-container">
+                <div class="dti-sidebar">
+                    <div class="dti-section">
+                        <div class="dti-section-header">🔧 INSTRUMENTOS</div>
+                        <div id="instrument-list" class="instrument-list">
+                            <div style="text-align:center; color:#64748b; padding:20px;">No hay instrumentos</div>
+                        </div>
+                    </div>
+                    <div class="dti-section">
+                        <div class="dti-section-header">🔄 LAZOS DE CONTROL</div>
+                        <div id="loop-list" class="loop-list">
+                            <div style="text-align:center; color:#64748b; padding:20px;">No hay lazos</div>
+                        </div>
+                    </div>
+                    <div class="dti-actions">
+                        <button id="btn-create-instrument">➕ Instrumento</button>
+                        <button id="btn-create-loop">🔄 Lazo</button>
+                        <button id="btn-refresh-dti">📋 Listar</button>
+                    </div>
+                </div>
+                <div id="dti-detail-panel" class="dti-detail-panel">
+                    <div style="text-align:center; color:#64748b; padding:40px;">
+                        Seleccione un instrumento o lazo<br>para ver sus detalles
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="module-tabs" id="moduleTabs">
-        <button class="module-tab pfd-tab active" data-module="pfd">📊 PFD — Diagrama de Flujo</button>
-        <button class="module-tab dti-tab" data-module="dti">🔧 DTI — Tubería e Instrumentación</button>
-        <button class="module-tab iso-tab" data-module="iso">🧊 ISO — Isométrico 3D</button>
-    </div>
-
-    <div class="canvas-container" id="canvas-container">
-        <canvas id="pfd-canvas" style="display:block"></canvas>
-        <canvas id="dti-canvas" style="display:none"></canvas>
-        <canvas id="isoCanvas" style="display:none"></canvas>
-        <div id="viewer-3d" style="display:none"></div>
-        <div id="side-panel" class="property-panel hidden">
-            <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <span style="color:var(--accent-cyan);font-weight:700">PROPIEDADES TÉCNICAS</span>
-                <button id="btnClosePanel" style="background:none;border:none;color:#fff;font-size:18px;padding:0;width:24px">×</button>
-            </div>
-            <div id="panel-content"><p class="empty-msg">Seleccione un elemento para ver sus detalles</p></div>
+    <!-- PANEL DE PROPIEDADES -->
+    <div id="property-panel" class="property-panel hidden">
+        <div class="property-header">
+            <h4>📋 PROPIEDADES</h4>
+            <button id="close-property-panel" style="background:none; border:none; color:white; cursor:pointer;">✕</button>
+        </div>
+        <div id="property-content">
+            <p style="color:#64748b; text-align:center; padding:20px;">Seleccione un elemento</p>
         </div>
     </div>
 
-    <div id="commandPanel" class="command-panel">
-        <div class="command-header">
-            <strong>🤖 Comandos IA — SmartEngp v3.4</strong>
-            <button id="closeCommand" style="background:none;border:none;color:#fff;font-size:20px;padding:0;width:30px">✖</button>
-        </div>
-        <textarea id="commandText" rows="4" placeholder="PFD: create stream S1 from TK-01 to B-01 fluid WATER flow 50&#10;DTI: create instrument PI-101 type PRESSURE_GAUGE on L-1 at 0.3&#10;3D:  connect TK-01 N1 to B-01 SUC diametro 6&#10;VAL: validate all | project summary | export db"></textarea>
-        <div class="history-indicator" id="historyIndicator"></div>
-        <div class="command-buttons">
-            <button id="runCommands">▶ Ejecutar</button>
-            <button id="clearCommand">🗑️ Limpiar</button>
+    <!-- COMMAND BAR FLOTANTE (siempre visible) -->
+    <div id="command-bar">
+        <span class="cmd-prompt">›</span>
+        <input type="text" id="cmd-input" placeholder="Escribe un comando... (Ctrl+Shift+C para asistente)">
+        <div class="cmd-buttons">
+            <button class="cmd-btn" id="cmd-run" title="Ejecutar (Enter)">▶</button>
+            <button class="cmd-btn" id="cmd-assistant" title="Asistente (Ctrl+Shift+C)">🤖</button>
+            <button class="cmd-btn" id="cmd-clear" title="Limpiar">⌫</button>
         </div>
     </div>
 
-    <div id="notification" class="notification"></div>
-    <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartEngp v3.4</div>
+    <!-- NOTIFICACIONES Y ESTADO -->
+    <div id="notification-toast" class="notification-toast"></div>
+    <div class="status-bar" id="statusMsg">EngFlow | Listo</div>
+    <div class="shortcut-hint">⌨️ Ctrl+Shift+C: Asistente | Ctrl+Shift+1/2/3: Módulos</div>
 
-    <div class="tools-panel" id="toolsPanel">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-size:10px;color:var(--accent-cyan)">HERRAMIENTAS</span>
-            <button id="toolToggleHide" style="padding:2px 6px;font-size:10px;background:none;border:1px solid #334155">−</button>
-        </div>
-        <div id="toolsButtons">
-            <button id="toolSelect" class="active">🔍 Seleccionar</button>
-            <button id="toolMoveEq">✋ Mover equipo</button>
-            <button id="toolEditPipe">✏️ Editar tubería</button>
-            <button id="toolAddPoint">➕ Añadir punto</button>
-            <div class="elevation-inline">
-                <span>📐 Elev:</span>
-                <button id="btnElev0" data-level="0">0</button>
-                <button id="btnElev2500" data-level="2500">2.5m</button>
-                <button id="btnElev5000" data-level="5000">5.0m</button>
-                <input type="number" id="customElev" value="0" step="100" style="width:60px">
-                <button id="btnSetElev">Set</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="fullscreen-controls">
-        <button id="btnFullscreenCenter" style="padding:12px 20px;border-radius:30px;background:var(--accent-cyan);color:#000;font-weight:700;border:none">🔄 Centrar</button>
-        <button id="btnFullscreenExit" style="padding:12px 20px;border-radius:30px;background:#ef4444;color:#fff;font-weight:700;border:none">✕ Salir</button>
-    </div>
-
+    <!-- SCRIPTS -->
+    <!-- Core y módulos base -->
     <script src="js/core.js"></script>
     <script src="js/catalog.js"></script>
     <script src="js/router.js"></script>
-    
+    <script src="js/modules/smartflow_io.js"></script>
     <script src="js/modules/pfd_engine.js"></script>
     <script src="js/modules/pfd_renderer.js"></script>
     <script src="js/modules/dti_engine.js"></script>
     <script src="js/modules/dti_renderer.js"></script>
     <script src="js/modules/integrity.js"></script>
     
-    <script src="js/modules/smartflow_io.js"></script>
-    <script src="js/modules/smartflow_db_export.js"></script>
-    
+    <!-- Renderers y comandos -->
     <script src="js/renderer.js"></script>
     <script src="js/commands.js"></script>
-
-    <script src="js/adaptiveCommands.js"></script>
-    <script src="js/modules/adaptive_iso_update_flows.js"></script>
-    <script src="js/modules/adaptive_pfd_dti_flows.js"></script>
-    <script src="js/adaptiveCommandsUI.js"></script>
     
-    <script src="js/modules/adaptive_bridge.js"></script>
-
+    <!-- Sistema adaptativo -->
+    <script src="js/SmartFlowAssistant.js"></script>
+    <script src="js/SmartFlowAssistantUI.js"></script>
+    
+    <!-- Módulos 3D -->
     <script type="module" src="js/ThreeJsEngine.js"></script>
     <script type="module" src="js/render.js"></script>
     <script type="module" src="js/SmartFlowLabels3D.js"></script>
-
+    
+    <!-- Main -->
     <script src="js/main.js"></script>
-
-    <script>
-        window.voiceEnabled = true;
-        window.currentProjectName = 'Proyecto_SmartEngp';
-        window.currentModule = 'pfd';
-        window.currentViewMode = '2d';
-
-        document.addEventListener("DOMContentLoaded", function() {
-            
-            var btnClosePanel = document.getElementById('btnClosePanel');
-            if (btnClosePanel) {
-                btnClosePanel.addEventListener('click', function() { 
-                    if (typeof togglePanel === 'function') togglePanel(false); 
-                });
-            }
-
-            ['btnElev0', 'btnElev2500', 'btnElev5000'].forEach(function(id) {
-                var btn = document.getElementById(id);
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var level = parseInt(this.getAttribute('data-level'), 10);
-                        if (typeof setElevation === 'function') setElevation(level);
-                    });
-                }
-            });
-
-            document.querySelectorAll('.module-tab').forEach(function(tab) {
-                tab.addEventListener('click', function() {
-                    var module = this.getAttribute('data-module');
-                    if (typeof window.switchModule === 'function') {
-                        window.switchModule(module);
-                    }
-                });
-            });
-            
-            var btnPFD = document.getElementById('btn-mode-pfd');
-            var btnDTI = document.getElementById('btn-mode-dti');
-            var btnISO = document.getElementById('btn-mode-iso');
-            if (btnPFD) btnPFD.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('pfd'); });
-            if (btnDTI) btnDTI.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('dti'); });
-            if (btnISO) btnISO.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('iso'); });
-
-            window.addEventListener('resize', function() {
-                var m = window.currentModule || 'pfd';
-                if (m === 'pfd' && typeof SmartFlowPFDRenderer !== 'undefined') {
-                    SmartFlowPFDRenderer.resizeCanvas();
-                    SmartFlowPFDRenderer.render();
-                } else if (m === 'dti' && typeof SmartFlowDTIRenderer !== 'undefined') {
-                    SmartFlowDTIRenderer.resizeCanvas();
-                    SmartFlowDTIRenderer.render();
-                } else if (m === 'iso' && typeof SmartFlowRenderer !== 'undefined') {
-                    SmartFlowRenderer.resizeCanvas();
-                }
-            });
-        });
-
-        function setElevation(level) {
-            if (typeof SmartFlowCore !== 'undefined' && SmartFlowCore.setElevation) {
-                SmartFlowCore.setElevation(level);
-            }
-            var elevInput = document.getElementById('customElev');
-            if (elevInput) elevInput.value = level;
-        }
-
-        function togglePanel(show) {
-            var panel = document.getElementById('side-panel');
-            if (panel) {
-                if (show) panel.classList.remove('hidden');
-                else panel.classList.add('hidden');
-            }
-        }
-    </script>
 </body>
 </html>
