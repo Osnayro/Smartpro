@@ -1,4 +1,20 @@
 
+// ============================================================
+// SMARTFLOW COMMANDS v4.1 - VERSIÓN UNIFICADA COMPLETA
+// Archivo: js/commands.js
+// 
+// INCLUYE TODOS LOS COMANDOS:
+//   📊 PFD: 8 comandos (con unidades y casos de diseño)
+//   🔧 DTI: 7 comandos (con fabricante, modelo, criticalidad)
+//   🧊 ISO: 25 comandos (completos)
+//   ⚙️ GENERAL: 10 comandos
+// 
+// NORMAS:
+//   PFD: ISO 10628 / DIN EN ISO 10628
+//   DTI: ISA-5.1 / ANSI/ISA-5.1
+//   ISO: ASME B31.3 / ISO 14723
+// ============================================================
+
 const SmartFlowCommands = (function() {
     
     let _core = null;
@@ -7,6 +23,11 @@ const SmartFlowCommands = (function() {
     let _notifyUI = (msg, isErr) => console.log(msg);
     let _renderUI = () => {};
     let _voiceFn = null;
+    
+    let _macros = new Map();
+    window._commandHistory = window._commandHistory || [];
+
+    let _projectDefaults = { material: 'PPR', spec: 'PPR_PN12_5' };
 
     const IntentDictionary = {
         'crear': 'create', 'nuevo': 'create', 'añadir': 'create', 'instalar': 'create', 'pon': 'create', 'crea': 'create',
@@ -52,6 +73,10 @@ const SmartFlowCommands = (function() {
         'actualizar': 'update', 'posicionar': 'update'
     };
 
+    // ================================================================
+    // FUNCIONES DE UTILIDAD
+    // ================================================================
+    
     function getIntent(word) {
         if (!word) return null;
         return IntentDictionary[word.toLowerCase()] || null;
@@ -66,28 +91,19 @@ const SmartFlowCommands = (function() {
         return cmd;
     }
 
-    let _projectDefaults = { material: 'PPR', spec: 'PPR_PN12_5' };
-
-    function getProjectDefaultMaterial() { return _projectDefaults.material; }
-    function getProjectDefaultSpec(material) {
-        if (_projectDefaults.spec) return _projectDefaults.spec;
-        const mat = (material || _projectDefaults.material || '').toUpperCase();
-        if (mat.includes('PPR')) return 'PPR_PN12_5';
-        if (mat.includes('HDPE') || mat.includes('PE100')) return 'HDPE_PE100';
-        if (mat.includes('PVC') && !mat.includes('CPVC')) return 'PVC_SCH80';
-        if (mat.includes('INOX') || mat.includes('SS')) return 'SS_150_RF';
-        if (mat.includes('ACERO') || mat.includes('CARBONO') || mat.includes('CS')) return 'ACERO_150_RF';
-        return 'PPR_PN12_5';
-    }
-    function setProjectDefaults(material, spec) {
-        if (material) _projectDefaults.material = material;
-        if (spec) _projectDefaults.spec = spec;
-        notifyWithVoice("📐 Defaults: " + _projectDefaults.material + " / " + _projectDefaults.spec, false);
-    }
-
     function extractCoords(str) {
         const m = str.match(/\((-?\d+\.?\d*)\s*,?\s*(-?\d+\.?\d*)\s*,?\s*(-?\d+\.?\d*)\)/);
         return m ? { x: parseFloat(m[1]), y: parseFloat(m[2]), z: parseFloat(m[3]) } : null;
+    }
+
+    function extractValue(parts, keys) {
+        if (!Array.isArray(parts)) return null;
+        for (let i = 0; i < parts.length; i++) {
+            if (keys.includes(parts[i].toLowerCase()) && i + 1 < parts.length) {
+                return parts[i + 1];
+            }
+        }
+        return null;
     }
 
     function extractNamedParams(parts, startIndex) {
@@ -98,7 +114,8 @@ const SmartFlowCommands = (function() {
                           'sensor', 'controller', 'controlador', 'valve', 'valvula', 'setpoint', 'location',
                           'posx', 'posy', 'posz', 'altura', 'largo', 'ancho', 'diametro_succion', 'diametro_descarga',
                           'diametro_entrada', 'diametro_salida', 'altura_salida_desde_base', 'baranda', 'escalera',
-                          'agitador', 'chaqueta'];
+                          'agitador', 'chaqueta', 'manufacturer', 'model', 'criticality', 'designCase',
+                          'flowUnit', 'pressureUnit', 'temperatureUnit', 'density', 'viscosity', 'massFlow', 'velocity'];
         const skipWords = ['to', 'from', 'at', 'in', 'on', 'by', 'with', 'and', 'route', 'ruta', 'via', 'as', 'like', 'auto'];
         
         for (let i = startIndex || 0; i < parts.length; i++) {
@@ -120,10 +137,14 @@ const SmartFlowCommands = (function() {
                         'diametro_succion': 'diametro_succion', 'diametro_descarga': 'diametro_descarga',
                         'diametro_entrada': 'diametro_entrada', 'diametro_salida': 'diametro_salida',
                         'altura_salida_desde_base': 'altura_salida_desde_base',
-                        'baranda': 'baranda', 'escalera': 'escalera', 'agitador': 'agitador', 'chaqueta': 'chaqueta'
+                        'baranda': 'baranda', 'escalera': 'escalera', 'agitador': 'agitador', 'chaqueta': 'chaqueta',
+                        'manufacturer': 'manufacturer', 'model': 'model', 'criticality': 'criticality',
+                        'designcase': 'designCase', 'flowunit': 'flowUnit', 'pressureunit': 'pressureUnit',
+                        'temperatureunit': 'temperatureUnit', 'density': 'density', 'viscosity': 'viscosity',
+                        'massflow': 'massFlow', 'velocity': 'velocity'
                     };
                     const mappedKey = keyMap[w] || w;
-                    if (['diameter', 'flow', 'pressure', 'temperature'].includes(mappedKey)) {
+                    if (['diameter', 'flow', 'pressure', 'temperature', 'density', 'viscosity', 'massFlow', 'velocity'].includes(mappedKey)) {
                         params[mappedKey] = parseFloat(next) || next;
                     } else if (mappedKey === 'material') {
                         params[mappedKey] = next.toUpperCase();
@@ -220,16 +241,74 @@ const SmartFlowCommands = (function() {
         return obj._cachedPoints || obj.points3D || obj.points || [];
     }
 
-    function getPortPosition(tag, portId) {
-        if (typeof SmartFlowRouter !== 'undefined' && SmartFlowRouter.getPortPosition) {
-            return SmartFlowRouter.getPortPosition(_core ? _core.findObjectByTag(tag) : null, portId);
+    function getPortDirectionLocal(obj, portId) {
+        if (!obj) return { dx: 1, dy: 0, dz: 0 };
+        if (typeof SmartFlowRouter !== 'undefined' && SmartFlowRouter.getPortDirection) {
+            const d = SmartFlowRouter.getPortDirection(obj, portId);
+            return { dx: d.x, dy: d.y, dz: d.z };
         }
+        const puerto = obj.puertos && obj.puertos.find(function(p) { return p.id === portId; });
+        if (puerto) {
+            const ori = puerto.orientacion || puerto.dir || puerto.normal;
+            if (ori) return { dx: ori.x || ori.dx || 1, dy: ori.y || ori.dy || 0, dz: ori.z || ori.dz || 0 };
+        }
+        const pts = getPoints(obj);
+        if (pts && pts.length >= 2) {
+            let pA = pts[0], pB = pts[1];
+            if (portId === '1' || portId === String(pts.length - 1)) {
+                pA = pts[pts.length - 2]; pB = pts[pts.length - 1];
+            }
+            const dx = pB.x - pA.x, dy = pB.y - pA.y, dz = pB.z - pA.z;
+            const len = Math.hypot(dx, dy, dz) || 1;
+            return { dx: dx/len, dy: dy/len, dz: dz/len };
+        }
+        return { dx: 1, dy: 0, dz: 0 };
+    }
+
+    function getTopSurface(tag) {
         const obj = _core ? _core.findObjectByTag(tag) : null;
-        if (!obj) return { x: 0, y: 0, z: 0 };
-        const base = getBasePosition(obj);
-        const puerto = obj.puertos && obj.puertos.find(p => p.id === portId);
-        if (puerto) return { x: base.x + (puerto.relX || 0), y: base.y + (puerto.relY || 0), z: base.z + (puerto.relZ || 0) };
-        return base;
+        if (!obj) return 0;
+        const altura = obj.altura || 0;
+        const posY = obj.posY || 0;
+        return posY + (altura / 2);
+    }
+
+    function validateTeeSpace(line, position, diameter) {
+        const pts = _core ? _core.getLinePoints(line) : (line._cachedPoints || line.points3D || []);
+        if (!pts || pts.length < 2) return { valid: true, warnings: [] };
+        let totalLen = 0;
+        for (let i = 0; i < pts.length - 1; i++) {
+            totalLen += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z);
+        }
+        const insertDist = totalLen * position;
+        const diamMM = (diameter || 4) * 25.4;
+        const minSpace = diamMM * 2;
+        const warnings = [];
+        if (insertDist < minSpace && position > 0.02) {
+            warnings.push("Espacio antes de TEE: " + insertDist.toFixed(0) + "mm (mín: " + minSpace.toFixed(0) + "mm)");
+        }
+        const spaceAfter = totalLen - insertDist;
+        if (spaceAfter < minSpace && position < 0.98) {
+            warnings.push("Espacio después de TEE: " + spaceAfter.toFixed(0) + "mm (mín: " + minSpace.toFixed(0) + "mm)");
+        }
+        if (line.components) {
+            const nearby = line.components.filter(function(c) { 
+                return Math.abs((c.param || 0) - position) < 0.04; 
+            });
+            if (nearby.length > 0) {
+                warnings.push("Componente(s) cercano(s): " + nearby.map(function(c) { return c.type || '?'; }).join(', '));
+            }
+        }
+        return { valid: warnings.length === 0, warnings: warnings, minSpace: minSpace };
+    }
+
+    function checkMaterialCompatibility(newLineMaterial, fromObj, toObj) {
+        const warnings = [];
+        if (fromObj && fromObj.material && fromObj.material.toUpperCase() !== newLineMaterial.toUpperCase())
+            warnings.push("⚠️ Material diferente al origen: " + fromObj.material + " → " + newLineMaterial);
+        if (toObj && toObj.material && toObj.material.toUpperCase() !== newLineMaterial.toUpperCase())
+            warnings.push("⚠️ Material diferente al destino: " + toObj.material + " → " + newLineMaterial);
+        return warnings;
     }
 
     function isParametricPortId(portId) {
@@ -286,20 +365,32 @@ const SmartFlowCommands = (function() {
         return { x: pA.x + (pB.x - pA.x) * t, y: pA.y + (pB.y - pA.y) * t, z: pA.z + (pB.z - pA.z) * t, segIdx, t, totalLen, target };
     }
 
-    function checkMaterialCompatibility(newLineMaterial, fromObj, toObj) {
-        const warnings = [];
-        if (fromObj && fromObj.material && fromObj.material.toUpperCase() !== newLineMaterial.toUpperCase())
-            warnings.push("⚠️ Material diferente al origen: " + fromObj.material + " → " + newLineMaterial);
-        if (toObj && toObj.material && toObj.material.toUpperCase() !== newLineMaterial.toUpperCase())
-            warnings.push("⚠️ Material diferente al destino: " + toObj.material + " → " + newLineMaterial);
-        return warnings;
+    function getPortPosition(tag, portId) {
+        if (typeof SmartFlowRouter !== 'undefined' && SmartFlowRouter.getPortPosition) {
+            return SmartFlowRouter.getPortPosition(_core ? _core.findObjectByTag(tag) : null, portId);
+        }
+        const obj = _core ? _core.findObjectByTag(tag) : null;
+        if (!obj) return { x: 0, y: 0, z: 0 };
+        const base = getBasePosition(obj);
+        const puerto = obj.puertos && obj.puertos.find(function(p) { return p.id === portId; });
+        if (puerto) {
+            return {
+                x: base.x + (puerto.relX || 0),
+                y: base.y + (puerto.relY || 0),
+                z: base.z + (puerto.relZ || 0)
+            };
+        }
+        return base;
     }
 
     function notifyWithVoice(message, isError) {
         isError = isError || false;
         if (typeof _notifyUI === 'function') _notifyUI(message, isError);
         const statusEl = document.getElementById('statusMsg');
-        if (statusEl) { statusEl.innerText = message; statusEl.style.color = isError ? '#ef4444' : '#00f2ff'; }
+        if (statusEl) {
+            statusEl.innerText = message;
+            statusEl.style.color = isError ? '#ef4444' : '#00f2ff';
+        }
         if (typeof _voiceFn === 'function') _voiceFn(message);
     }
 
@@ -321,13 +412,185 @@ const SmartFlowCommands = (function() {
 
     function getEquipmentTypeName(tipo) {
         const names = {
-            'tanque_v': 'Tanque Vertical', 'tanque_h': 'Tanque Horizontal', 'bomba': 'Bomba Centrífuga',
-            'intercambiador': 'Intercambiador de Calor', 'condensador': 'Condensador', 'torre': 'Torre de Destilación',
-            'reactor': 'Reactor', 'compresor': 'Compresor', 'separador': 'Separador Bifásico', 'plataforma': 'Plataforma Estructural'
+            'tanque_v': 'Tanque Vertical', 'tanque_h': 'Tanque Horizontal', 
+            'bomba': 'Bomba Centrífuga', 'bomba_z': 'Bomba Centrífuga (succión Z)',
+            'bomba_dosificacion': 'Bomba Dosificadora', 'bomba_sumergible': 'Bomba Sumergible',
+            'intercambiador': 'Intercambiador de Calor', 'condensador': 'Condensador',
+            'torre': 'Torre de Destilación', 'columna_fraccionadora': 'Columna Fraccionadora',
+            'reactor': 'Reactor', 'reactor_encamisado': 'Reactor Encamisado',
+            'autoclave': 'Autoclave', 'caldera': 'Caldera', 'compresor': 'Compresor',
+            'separador': 'Separador Bifásico', 'separador_trifasico': 'Separador Trifásico',
+            'plataforma': 'Plataforma Estructural', 'antorcha': 'Antorcha (Flare)',
+            'filtro_prensa': 'Filtro Prensa', 'filtro_duplex': 'Filtro Dúplex',
+            'filtro_arena': 'Filtro de Arena', 'filtro_carbon': 'Filtro de Carbón Activado',
+            'osmosis': 'Ósmosis Inversa', 'centrifuga': 'Centrífuga',
+            'agitador': 'Agitador / Mezclador', 'molino': 'Molino',
+            'llenadora': 'Llenadora', 'skid_inyeccion': 'Skid Inyección Química',
+            'clarificador': 'Clarificador', 'desgasificador': 'Desgasificador',
+            'desmineralizador': 'Desmineralizador', 'suavizador': 'Suavizador',
+            'espesador': 'Espesador', 'floculador': 'Floculador',
+            'celda_electrolitica': 'Celda Electrolítica', 'slug_catcher': 'Slug Catcher',
+            'calentador_fuego_directo': 'Calentador de Fuego Directo',
+            'evaporador': 'Evaporador', 'cristalizador': 'Cristalizador',
+            'secador_rotativo': 'Secador Rotativo', 'absorbedor': 'Absorbedor',
+            'stripper': 'Stripper / Despojador', 'centrifuga_discos': 'Centrífuga de Discos',
+            'homogeneizador': 'Homogeneizador', 'homogeneizador_ap': 'Homogeneizador Alta Presión',
+            'esterilizador_uht': 'Esterilizador UHT', 'pasteurizador': 'Pasteurizador',
+            'tanque_acero': 'Tanque Acero Inoxidable', 'tanque_aseptico': 'Tanque Aséptico',
+            'tina_quesera': 'Tina Quesera', 'dosificador_quimico': 'Dosificador Químico',
+            'canaleta_parshall': 'Canaleta Parshall'
         };
         return names[tipo] || tipo || 'Equipo';
     }
 
+    function addComponentToLine(line, lineTag, compType, position) {
+        let finalType = compType;
+        const compDef = _catalog ? _catalog.getComponent(compType) : null;
+        if (!compDef) {
+            if (typeof SmartFlowRouter !== 'undefined' && SmartFlowRouter.findComponentInCatalog) {
+                const found = SmartFlowRouter.findComponentInCatalog(compType, line.material || 'PPR', []);
+                if (!found) {
+                    notifyWithVoice("⚠️ Componente no encontrado: " + compType, true);
+                    return false;
+                }
+                finalType = found;
+            } else {
+                notifyWithVoice("⚠️ Componente no encontrado: " + compType, true);
+                return false;
+            }
+        }
+        const existe = line.components && line.components.some(function(c) { 
+            return c.type && c.type.toUpperCase().indexOf(finalType.toUpperCase()) !== -1 && 
+                   Math.abs((c.param || 0) - position) < 0.01; 
+        });
+        if (existe) {
+            notifyWithVoice("⚠️ Ya existe " + finalType + " en pos " + position.toFixed(2), false);
+            return false;
+        }
+        if (!line.components) line.components = [];
+        line.components.push({
+            type: finalType,
+            tag: finalType + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 4),
+            param: position
+        });
+        return true;
+    }
+
+    const SPACING_RULES = {
+        'VALVE': { spaceBefore: 150, spaceAfter: 150, category: 'inline' },
+        'GATE_VALVE': { spaceBefore: 150, spaceAfter: 150, category: 'inline' },
+        'GLOBE_VALVE': { spaceBefore: 180, spaceAfter: 150, category: 'inline' },
+        'BALL_VALVE': { spaceBefore: 120, spaceAfter: 120, category: 'inline' },
+        'BUTTERFLY_VALVE': { spaceBefore: 120, spaceAfter: 120, category: 'inline' },
+        'CHECK_VALVE': { spaceBefore: 150, spaceAfter: 150, category: 'inline' },
+        'STRAINER': { spaceBefore: 200, spaceAfter: 200, category: 'inline' },
+        'FLANGE': { spaceBefore: 50, spaceAfter: 50, category: 'connection' },
+        'WELD_NECK_FLANGE': { spaceBefore: 50, spaceAfter: 50, category: 'connection' },
+        'SLIP_ON_FLANGE': { spaceBefore: 50, spaceAfter: 50, category: 'connection' },
+        'BLIND_FLANGE': { spaceBefore: 30, spaceAfter: 0, category: 'connection' },
+        'REDUCER': { spaceBefore: 100, spaceAfter: 80, category: 'transition' },
+        'CONCENTRIC_REDUCER': { spaceBefore: 100, spaceAfter: 80, category: 'transition' },
+        'ECCENTRIC_REDUCER': { spaceBefore: 100, spaceAfter: 80, category: 'transition' },
+        'TEE_REDUCING': { spaceBefore: 120, spaceAfter: 100, category: 'branch' },
+        'ELBOW': { spaceBefore: 80, spaceAfter: 80, category: 'directional' },
+        'ELBOW_90_LR': { spaceBefore: 80, spaceAfter: 80, category: 'directional' },
+        'ELBOW_90_SR': { spaceBefore: 60, spaceAfter: 60, category: 'directional' },
+        'ELBOW_45': { spaceBefore: 60, spaceAfter: 60, category: 'directional' },
+        'TEE': { spaceBefore: 120, spaceAfter: 120, category: 'branch' },
+        'TEE_EQUAL': { spaceBefore: 120, spaceAfter: 120, category: 'branch' },
+        'EXPANSION_JOINT': { spaceBefore: 250, spaceAfter: 250, category: 'expansion' },
+        'PIPE_GUIDE': { spaceBefore: 50, spaceAfter: 50, category: 'support' },
+        'CAP': { spaceBefore: 30, spaceAfter: 0, category: 'end' },
+        'CROSS': { spaceBefore: 150, spaceAfter: 150, category: 'branch' },
+        'PRESSURE_GAUGE': { spaceBefore: 60, spaceAfter: 0, category: 'instrument' },
+        'TEMPERATURE_GAUGE': { spaceBefore: 60, spaceAfter: 0, category: 'instrument' },
+        'FLOW_METER': { spaceBefore: 200, spaceAfter: 200, category: 'instrument' },
+        'DEFAULT': { spaceBefore: 100, spaceAfter: 100, category: 'general' }
+    };
+
+    function getSpacingRules(componentType) {
+        const typeUpper = (componentType || '').toUpperCase();
+        if (SPACING_RULES[typeUpper]) return SPACING_RULES[typeUpper];
+        const keys = Object.keys(SPACING_RULES);
+        for (let i = 0; i < keys.length; i++) {
+            if (typeUpper.indexOf(keys[i]) !== -1 || keys[i].indexOf(typeUpper) !== -1) {
+                return SPACING_RULES[keys[i]];
+            }
+        }
+        if (typeUpper.indexOf('VALVE') !== -1) return SPACING_RULES['VALVE'];
+        if (typeUpper.indexOf('FLANGE') !== -1) return SPACING_RULES['FLANGE'];
+        if (typeUpper.indexOf('REDUC') !== -1) return SPACING_RULES['REDUCER'];
+        if (typeUpper.indexOf('ELBOW') !== -1) return SPACING_RULES['ELBOW'];
+        if (typeUpper.indexOf('TEE') !== -1) return SPACING_RULES['TEE'];
+        return SPACING_RULES['DEFAULT'];
+    }
+
+    function calculateAccessoryPositions(componentTypes, startPosition, totalLength, diameter) {
+        const positions = [];
+        let currentPos = startPosition;
+        for (let i = 0; i < componentTypes.length; i++) {
+            const compType = componentTypes[i];
+            const rules = getSpacingRules(compType);
+            let spaceBefore = rules.spaceBefore;
+            if (diameter > 6) spaceBefore *= 1.5;
+            if (diameter > 12) spaceBefore *= 2.0;
+            if (i > 0) {
+                const prevRules = getSpacingRules(componentTypes[i - 1]);
+                if (prevRules.category === 'connection' && rules.category === 'inline') {
+                    spaceBefore = Math.max(spaceBefore, 50);
+                }
+                if (prevRules.category === 'inline' && rules.category === 'inline') {
+                    spaceBefore *= 1.5;
+                }
+            }
+            const spaceParam = spaceBefore / totalLength;
+            currentPos += spaceParam;
+            if (currentPos > 0.99) currentPos = 0.99;
+            positions.push({
+                type: compType,
+                position: currentPos,
+                spaceBeforeMM: spaceBefore,
+                category: rules.category
+            });
+        }
+        return positions;
+    }
+
+    function getProjectDefaultMaterial() { return _projectDefaults.material; }
+    
+    function getProjectDefaultSpec(material) {
+        if (_projectDefaults.spec) return _projectDefaults.spec;
+        const mat = (material || _projectDefaults.material || '').toUpperCase();
+        if (mat.includes('PPR')) return 'PPR_PN12_5';
+        if (mat.includes('HDPE') || mat.includes('PE100')) return 'HDPE_PE100';
+        if (mat.includes('PVC') && !mat.includes('CPVC')) return 'PVC_SCH80';
+        if (mat.includes('CPVC')) return 'CPVC_SCH80';
+        if (mat.includes('INOX') || mat.includes('SS') || mat.includes('STAINLESS')) return 'SS_150_RF';
+        if (mat.includes('ACERO') || mat.includes('CARBONO') || mat.includes('CS') || mat.includes('STEEL')) return 'ACERO_150_RF';
+        if (mat.includes('DUPLEX')) return 'DUPLEX_150_RF';
+        if (mat.includes('ALUMINIO') || mat.includes('ALUMINUM')) return 'ALUMINIO_ESTRUCTURAL';
+        if (mat.includes('CONCRETO') || mat.includes('HORMIGON')) return 'HORMIGON_ESTRUCTURAL';
+        if (mat.includes('MADERA') || mat.includes('WOOD')) return 'MADERA_ESTRUCTURAL';
+        return 'PPR_PN12_5';
+    }
+
+    function setProjectDefaults(material, spec) {
+        if (material) _projectDefaults.material = material;
+        if (spec) _projectDefaults.spec = spec;
+        notifyWithVoice("📐 Defaults del proyecto: " + _projectDefaults.material + " / " + _projectDefaults.spec, false);
+    }
+
+    function recordCommand(cmd) {
+        if (cmd && !cmd.startsWith('//') && cmd.trim()) {
+            window._commandHistory.push(cmd.trim());
+            if (window._commandHistory.length > 200) window._commandHistory.shift();
+        }
+    }
+
+    // ============================================================
+    // PFD - COMANDOS (8) - CON UNIDADES Y CASOS DE DISEÑO
+    // ============================================================
+    
     function parseCreateEquipoPFD(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'create' || parts[1] !== 'equipo') return false;
@@ -342,27 +605,38 @@ const SmartFlowCommands = (function() {
         }
         return false;
     }
-    
+
     function parseCreateStream(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'create' || parts[1] !== 'stream') return false;
         const tag = parts[2];
-        if (!tag) { notifyWithVoice('❌ Uso: create stream TAG from EQUIPO to EQUIPO fluid FLUIDO flow VALOR', true); return true; }
+        if (!tag) { notifyWithVoice('❌ Uso: create stream TAG from EQUIPO to EQUIPO [fluid FLUIDO] [flow VALOR] [flowUnit UNIDAD] [pressure VALOR] [pressureUnit UNIDAD] [temperature VALOR] [temperatureUnit UNIDAD] [phase FASE] [service SERVICIO] [designCase CASO]', true); return true; }
         const fromIdx = parts.indexOf('from') !== -1 ? parts.indexOf('from') : parts.indexOf('desde');
         const toIdx = parts.indexOf('to') !== -1 ? parts.indexOf('to') : parts.indexOf('a');
         if (fromIdx === -1 || toIdx === -1) { notifyWithVoice('❌ Especifique origen (from) y destino (to)', true); return true; }
         const namedParams = extractNamedParams(parts, toIdx + 2);
         const params = {
-            tag: tag, from: parts[fromIdx + 1] || '', to: parts[toIdx + 1] || '',
-            fluid: namedParams.fluid || 'WATER', flow: namedParams.flow || 0,
-            pressure: namedParams.pressure || 0, temperature: namedParams.temperature || 25,
-            phase: namedParams.phase || 'LIQUID', service: namedParams.service || '', density: namedParams.density || 1000
+            tag: tag,
+            from: parts[fromIdx + 1] || '',
+            to: parts[toIdx + 1] || '',
+            fluid: namedParams.fluid || 'WATER',
+            flow: namedParams.flow || 0,
+            flowUnit: namedParams.flowUnit || 'm3/h',
+            pressure: namedParams.pressure || 0,
+            pressureUnit: namedParams.pressureUnit || 'bar',
+            temperature: namedParams.temperature || 25,
+            temperatureUnit: namedParams.temperatureUnit || '°C',
+            phase: namedParams.phase || 'LIQUID',
+            service: namedParams.service || '',
+            designCase: namedParams.designCase || 'NORMAL',
+            density: namedParams.density || 1000,
+            viscosity: namedParams.viscosity || 1
         };
         if (typeof SmartFlowPFD !== 'undefined') { SmartFlowPFD.createStream(params); return true; }
         notifyWithVoice('❌ Módulo PFD no disponible', true);
         return true;
     }
-    
+
     function parseStreamInfo(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'info' || parts[1] !== 'stream') return false;
@@ -371,7 +645,7 @@ const SmartFlowCommands = (function() {
         if (typeof SmartFlowPFD !== 'undefined') { SmartFlowPFD.getStreamInfo(tag); return true; }
         return false;
     }
-    
+
     function parseListStreams(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'list' || parts[1] !== 'streams') return false;
@@ -379,7 +653,7 @@ const SmartFlowCommands = (function() {
         if (typeof SmartFlowPFD !== 'undefined') { SmartFlowPFD.listStreams(filter); return true; }
         return false;
     }
-    
+
     function parseLinkStream(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'link' || parts[1] !== 'stream') return false;
@@ -390,7 +664,7 @@ const SmartFlowCommands = (function() {
         if (typeof SmartFlowPFD !== 'undefined') { SmartFlowPFD.linkStreamToLine(streamTag, lineTag); return true; }
         return false;
     }
-    
+
     function parseBalance(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'balance' || parts[1] !== 'masa') return false;
@@ -400,11 +674,23 @@ const SmartFlowCommands = (function() {
         return false;
     }
 
+    function parseValidatePFD(cmd) {
+        const trimmed = cmd.trim().toLowerCase();
+        if (trimmed === 'validate pfd' || trimmed === 'validar pfd') {
+            if (typeof SmartFlowPFD !== 'undefined') { SmartFlowPFD.validatePFD(); return true; }
+        }
+        return false;
+    }
+
+    // ============================================================
+    // DTI - COMANDOS (7) - CON FABRICANTE, MODELO, CRITICALIDAD
+    // ============================================================
+    
     function parseCreateInstrument(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'create' || parts[1] !== 'instrument') return false;
         const tag = parts[2];
-        if (!tag) { notifyWithVoice('❌ Uso: create instrument TAG type TIPO on LINEA at POS range RANGO', true); return true; }
+        if (!tag) { notifyWithVoice('❌ Uso: create instrument TAG type TIPO on LINEA at POS [range RANGO] [signal SEÑAL] [location UBICACION] [manufacturer FABRICANTE] [model MODELO] [criticality CRITICALIDAD]', true); return true; }
         const typeIdx = parts.indexOf('type') !== -1 ? parts.indexOf('type') : parts.indexOf('tipo');
         const onIdx = parts.indexOf('on') !== -1 ? parts.indexOf('on') : parts.indexOf('en');
         const equipIdx = parts.indexOf('equipment') !== -1 ? parts.indexOf('equipment') : parts.indexOf('equipo');
@@ -420,15 +706,18 @@ const SmartFlowCommands = (function() {
         if (namedParams.signal) params.signal = namedParams.signal;
         if (namedParams.service) params.service = namedParams.service;
         if (namedParams.location) params.location = namedParams.location;
+        if (namedParams.manufacturer) params.manufacturer = namedParams.manufacturer;
+        if (namedParams.model) params.model = namedParams.model;
+        if (namedParams.criticality) params.criticality = namedParams.criticality.toUpperCase();
         if (typeof SmartFlowDTI !== 'undefined') { SmartFlowDTI.createInstrument(params); return true; }
         return false;
     }
-    
+
     function parseCreateLoop(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'create' || parts[1] !== 'loop') return false;
         const tag = parts[2];
-        if (!tag) { notifyWithVoice('❌ Uso: create loop TAG sensor X controller Y valve Z type TIPO', true); return true; }
+        if (!tag) { notifyWithVoice('❌ Uso: create loop TAG sensor X controller Y valve Z type TIPO [setpoint VALOR] [range RANGO]', true); return true; }
         const namedParams = extractNamedParams(parts, 3);
         const params = { tag: tag };
         if (namedParams.sensor) params.sensor = namedParams.sensor;
@@ -440,7 +729,7 @@ const SmartFlowCommands = (function() {
         if (typeof SmartFlowDTI !== 'undefined') { SmartFlowDTI.createLoop(params); return true; }
         return false;
     }
-    
+
     function parseInstrumentInfo(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'info' || parts[1] !== 'instrument') return false;
@@ -449,7 +738,7 @@ const SmartFlowCommands = (function() {
         if (typeof SmartFlowDTI !== 'undefined') { SmartFlowDTI.getInstrumentInfo(tag); return true; }
         return false;
     }
-    
+
     function parseListInstruments(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'list' || parts[1] !== 'instruments') return false;
@@ -457,7 +746,7 @@ const SmartFlowCommands = (function() {
         if (typeof SmartFlowDTI !== 'undefined') { SmartFlowDTI.listInstruments(filter); return true; }
         return false;
     }
-    
+
     function parseListLoops(cmd) {
         const trimmed = cmd.trim().toLowerCase();
         if (trimmed === 'list loops' || trimmed === 'listar lazos') {
@@ -465,7 +754,7 @@ const SmartFlowCommands = (function() {
         }
         return false;
     }
-    
+
     function parseListInstrumentTypes(cmd) {
         const trimmed = cmd.trim().toLowerCase();
         if (trimmed === 'list instrument types' || trimmed === 'listar tipos instrumento') {
@@ -474,22 +763,6 @@ const SmartFlowCommands = (function() {
         return false;
     }
 
-    function parseValidateAll(cmd) {
-        const trimmed = cmd.trim().toLowerCase();
-        if (trimmed === 'validate all' || trimmed === 'validar todo' || trimmed === 'validar proyecto') {
-            if (typeof SmartFlowIntegrity !== 'undefined') { SmartFlowIntegrity.validateAll(); return true; }
-        }
-        return false;
-    }
-    
-    function parseValidatePFD(cmd) {
-        const trimmed = cmd.trim().toLowerCase();
-        if (trimmed === 'validate pfd' || trimmed === 'validar pfd') {
-            if (typeof SmartFlowPFD !== 'undefined') { SmartFlowPFD.validatePFD(); return true; }
-        }
-        return false;
-    }
-    
     function parseValidateDTI(cmd) {
         const trimmed = cmd.trim().toLowerCase();
         if (trimmed === 'validate dti' || trimmed === 'validar dti') {
@@ -497,74 +770,11 @@ const SmartFlowCommands = (function() {
         }
         return false;
     }
-    
-    function parseProjectSummary(cmd) {
-        const trimmed = cmd.trim().toLowerCase();
-        if (trimmed === 'project summary' || trimmed === 'resumen proyecto') {
-            if (typeof SmartFlowIntegrity !== 'undefined') { SmartFlowIntegrity.quickSummary(); return true; }
-        }
-        return false;
-    }
-    
-    function parseAutoFix(cmd) {
-        const trimmed = cmd.trim().toLowerCase();
-        if (trimmed === 'autofix' || trimmed === 'auto fix' || trimmed === 'auto corregir') {
-            if (typeof SmartFlowIntegrity !== 'undefined') { SmartFlowIntegrity.autoFix(); return true; }
-        }
-        return false;
-    }
-    
-    function parseExportCommand(cmd) {
-        const parts = cmd.trim().split(/\s+/);
-        if (parts[0] !== 'export' && parts[0] !== 'exportar') return false;
-        const format = parts[1] ? parts[1].toLowerCase() : null;
-        if (format === 'pcf') {
-            if (typeof SmartFlowIO !== 'undefined') { SmartFlowIO.downloadPCF(); return true; }
-            if (typeof SmartFlowRenderer !== 'undefined' && SmartFlowRenderer.exportPCF) { SmartFlowRenderer.exportPCF(); return true; }
-            notifyWithVoice('❌ Exportación PCF no disponible', true); return true;
-        }
-        if (format === 'mto' || format === 'csv') {
-            if (typeof SmartFlowIO !== 'undefined') { SmartFlowIO.downloadMTO(); return true; }
-            generateBOM(); return true;
-        }
-        if (format === 'json') {
-            if (typeof SmartFlowIO !== 'undefined') { SmartFlowIO.downloadJSON(); return true; }
-            if (_core && _core.exportProject) {
-                const json = _core.exportProject();
-                const blob = new Blob([json], { type: 'application/json' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'SmartFlow_' + new Date().toISOString().slice(0,10) + '.json';
-                a.click();
-                notifyWithVoice("📁 Proyecto exportado", false);
-            }
-            return true;
-        }
-        if (format === 'db' || format === 'excel' || format === 'database') {
-            if (typeof SmartFlowDBExport !== 'undefined') { SmartFlowDBExport.exportDatabase(); return true; }
-            notifyWithVoice('❌ Módulo DB Export no disponible', true);
-            return true;
-        }
-        notifyWithVoice("Formatos: export pcf | export mto | export json | export db", true);
-        return true;
-    }
-    
-    function parseImportCommand(cmd) {
-        const parts = cmd.trim().split(/\s+/);
-        if (parts[0] !== 'import' && parts[0] !== 'importar') return false;
-        const format = parts[1] ? parts[1].toLowerCase() : null;
-        if (format === 'pcf') {
-            if (typeof SmartFlowIO !== 'undefined') { SmartFlowIO.uploadAndImportPCF(); return true; }
-            notifyWithVoice('❌ Módulo I/O no disponible', true); return true;
-        }
-        if (format === 'json') {
-            if (typeof SmartFlowIO !== 'undefined') { SmartFlowIO.uploadAndImportJSON(); return true; }
-            notifyWithVoice('❌ Módulo I/O no disponible', true); return true;
-        }
-        notifyWithVoice("Formatos: import pcf | import json", true);
-        return true;
-    }
 
+    // ============================================================
+    // ISO - COMANDOS (25) - COMPLETOS
+    // ============================================================
+    
     function parseCreate(cmd) {
         const parts = cmd.split(/\s+/);
         if (parts[0] !== 'create') return false;
@@ -591,8 +801,15 @@ const SmartFlowCommands = (function() {
             else if (key === 'height' || key === 'altura') params.altura = parseFloat(parts[++i]);
             else if (key === 'largo') params.largo = parseFloat(parts[++i]);
             else if (key === 'ancho') params.ancho = parseFloat(parts[++i]);
+            else if (key === 'diametro_succion' || key === 'succion') params.diametro_succion = parseFloat(parts[++i]);
+            else if (key === 'diametro_descarga' || key === 'descarga') params.diametro_descarga = parseFloat(parts[++i]);
+            else if (key === 'diametro_entrada' || key === 'entrada') params.diametro_entrada = parseFloat(parts[++i]);
+            else if (key === 'diametro_salida' || key === 'salida') params.diametro_salida = parseFloat(parts[++i]);
+            else if (key === 'altura_salida_desde_base' || key === 'altura_salida') params.altura_salida_desde_base = parseFloat(parts[++i]);
             else if (key === 'material') { if (params.material === undefined) params.material = parts[++i].toUpperCase(); else i++; }
             else if (key === 'spec') { if (params.spec === undefined) params.spec = parts[++i]; else i++; }
+            else if (key === 'baranda') { var v = parts[++i]; params.baranda = v === 'true' || v === 'si' || v === 'yes'; }
+            else if (key === 'escalera') { var v = parts[++i]; params.escalera = v === 'true' || v === 'si' || v === 'yes'; }
         }
         const equipoDef = _catalog.getEquipment(tipo);
         if (!equipoDef) { notifyWithVoice("Tipo de equipo desconocido: " + tipo, true); return true; }
@@ -602,11 +819,100 @@ const SmartFlowCommands = (function() {
         return true;
     }
 
+    function parseCreateLine(cmd) {
+        const parts = cmd.split(/\s+/);
+        if (parts[0] !== 'create' || parts[1] !== 'line') return false;
+        const tag = parts[2];
+        if (!tag) { notifyWithVoice("Error: Tag de línea requerido", true); return true; }
+        if (_core && _core.findObjectByTag(tag)) { notifyWithVoice("❌ El tag " + tag + " ya existe", true); return true; }
+        const namedParams = extractNamedParams(parts, 3);
+        const resolved = resolveMaterialAndSpec(namedParams, [], null, { inheritFromConnected: false });
+        let diameter = namedParams.diameter || 4, material = resolved.material, spec = resolved.spec;
+        let points = [];
+        let i = 3;
+        while (i < parts.length) {
+            if (parts[i] === 'route' || parts[i] === 'ruta') {
+                i++;
+                while (i < parts.length) {
+                    const m = parts[i].match(/\((-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)\)/);
+                    if (m) { points.push({ x: parseFloat(m[1]), y: parseFloat(m[2]), z: parseFloat(m[3]) }); i++; }
+                    else { const lower = (parts[i] || '').toLowerCase(); if (['material', 'spec', 'diameter', 'diametro'].indexOf(lower) !== -1) i += 2; else i++; }
+                }
+                break;
+            }
+            i++;
+        }
+        if (points.length < 2) { notifyWithVoice("Error: Se requieren al menos 2 puntos para la ruta", true); return true; }
+        const nuevaLinea = { tag: tag, diameter: diameter, material: material, spec: spec, _cachedPoints: points, waypoints: points.slice(1, -1), components: [] };
+        _core.addLine(nuevaLinea);
+        const db = _core.getDb();
+        const lineaRegistrada = db.lines.find(l => l.tag === tag) || nuevaLinea;
+        const fittingInfo = runFittingInjection(lineaRegistrada, null, null, null, null, diameter, material, spec);
+        if (_core.updateLine) _core.updateLine(tag, lineaRegistrada);
+        if (_core.setSelected) _core.setSelected({ type: 'line', obj: lineaRegistrada });
+        notifyWithVoice("✅ Línea " + tag + " creada: " + material + " " + diameter + "\" " + spec + (fittingInfo.message || ''), false);
+        return true;
+    }
+
+    function parseLineFromTo(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'line' && parts[0] !== 'linea') return false;
+        const tag = parts[1];
+        if (!tag) return false;
+        const fromIdx = parts.indexOf('from') !== -1 ? parts.indexOf('from') : parts.indexOf('desde');
+        const toIdx = parts.indexOf('to') !== -1 ? parts.indexOf('to') : parts.indexOf('a');
+        if (fromIdx === -1 || toIdx === -1) return false;
+        if (fromIdx >= toIdx) return false;
+        const fromEquip = parts[fromIdx + 1], fromNozzle = parts[fromIdx + 2], toEquip = parts[toIdx + 1];
+        let toNozzle = parts[toIdx + 2];
+        const keywords = ['material', 'spec', 'diameter', 'diametro', 'via', 'route', 'ruta', 'mode', 'orient', 'direccion'];
+        if (toNozzle && keywords.indexOf(toNozzle.toLowerCase()) !== -1) toNozzle = null;
+        if (!fromEquip || !fromNozzle || !toEquip) { notifyWithVoice("❌ Uso: line TAG from EQUIPO PUERTO to EQUIPO [PUERTO]", true); return true; }
+        const viaIdx = parts.indexOf('via');
+        let waypoints = [];
+        if (viaIdx !== -1 && viaIdx < toIdx) waypoints = extractWaypoints(parts, viaIdx + 1, toIdx);
+        const paramStartIdx = toIdx + (toNozzle ? 3 : 2);
+        const namedParams = extractNamedParams(parts, paramStartIdx);
+        if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
+        if (_core.findObjectByTag(tag)) { notifyWithVoice("❌ El tag " + tag + " ya existe", true); return true; }
+        const fromObj = _core.findObjectByTag(fromEquip), toObj = _core.findObjectByTag(toEquip);
+        if (!fromObj || !toObj) { notifyWithVoice("❌ Origen/Destino no encontrado", true); return true; }
+        const resolved = resolveMaterialAndSpec(namedParams, [fromObj, toObj], null, { inheritFromConnected: false });
+        let diameter = namedParams.diameter || 4, material = resolved.material, spec = resolved.spec;
+        for (let i = paramStartIdx; i < parts.length; i++) {
+            if (parts[i] === 'diameter' || parts[i] === 'diametro') diameter = parseFloat(parts[++i]);
+            else if (parts[i] === 'material') material = parts[++i].toUpperCase();
+            else if (parts[i] === 'spec') spec = parts[++i];
+        }
+        if (!toNozzle) {
+            const ptsTo = _core.getLinePoints(toObj) || toObj._cachedPoints;
+            if (ptsTo && ptsTo.length >= 2) toNozzle = '';
+            else if (toObj.puertos && toObj.puertos.length > 0) { const openPort = toObj.puertos.find(p => p.status === 'open'); toNozzle = openPort ? openPort.id : toObj.puertos[0].id; }
+            else toNozzle = 'N1';
+        }
+        if (typeof SmartFlowRouter !== 'undefined') {
+            let nuevaLinea;
+            if (waypoints.length > 0) nuevaLinea = SmartFlowRouter.routeWithWaypoints(fromEquip, fromNozzle, toEquip, toNozzle, waypoints, diameter, material, spec);
+            else nuevaLinea = SmartFlowRouter.routeBetweenPorts(fromEquip, fromNozzle, toEquip, toNozzle, diameter, material, spec);
+            if (nuevaLinea && nuevaLinea.tag !== tag) {
+                const oldTag = nuevaLinea.tag;
+                _core.updateLine(oldTag, { tag: tag });
+                if (_core.rebuildIndexes) _core.rebuildIndexes();
+                if (fromObj && fromObj.puertos) { const pFrom = fromObj.puertos.find(p => p.id === fromNozzle); if (pFrom && pFrom.connectedLine === oldTag) pFrom.connectedLine = tag; }
+                if (toObj && toObj.puertos) { const pTo = toObj.puertos.find(p => p.id === toNozzle); if (pTo && pTo.connectedLine === oldTag) pTo.connectedLine = tag; }
+            }
+            if (_core.setSelected) { const finalLine = _core.findObjectByTag(tag); if (finalLine) _core.setSelected({ type: 'line', obj: finalLine }); }
+            if (_renderUI) _renderUI();
+            notifyWithVoice("✅ Línea " + tag + ": " + fromEquip + ":" + fromNozzle + " → " + toEquip + ":" + (toNozzle || 'auto') + " | " + material + " " + diameter + "\" " + spec, false);
+        } else { notifyWithVoice("Router no disponible", true); }
+        return true;
+    }
+
     function parseUpdateEquipment(cmd) {
         const parts = cmd.trim().split(/\s+/);
         if (parts[0] !== 'update' || parts[1] !== 'equipment') return false;
         const tag = parts[2];
-        if (!tag) { notifyWithVoice('❌ Uso: update equipment TAG posX X posY Y posZ Z [diametro D] [altura H] [material M]', true); return true; }
+        if (!tag) { notifyWithVoice('❌ Uso: update equipment TAG posX X posY Y posZ Z [diametro D] [altura H] [material M] [succion D] [descarga D] [baranda true/false]', true); return true; }
         if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
         const eq = _core.findObjectByTag(tag);
         if (!eq) { notifyWithVoice('❌ Equipo "' + tag + '" no encontrado. Créelo primero en PFD con: create equipo TIPO ' + tag, true); return true; }
@@ -645,41 +951,6 @@ const SmartFlowCommands = (function() {
         if (updateData.material) changes.push(updateData.material);
         if (updateData.spec) changes.push(updateData.spec);
         notifyWithVoice('✅ Equipo ' + tag + ' actualizado: ' + changes.join(', '), false);
-        return true;
-    }
-
-    function parseCreateLine(cmd) {
-        const parts = cmd.split(/\s+/);
-        if (parts[0] !== 'create' || parts[1] !== 'line') return false;
-        const tag = parts[2];
-        if (!tag) { notifyWithVoice("Error: Tag de línea requerido", true); return true; }
-        if (_core && _core.findObjectByTag(tag)) { notifyWithVoice("❌ El tag " + tag + " ya existe", true); return true; }
-        const namedParams = extractNamedParams(parts, 3);
-        const resolved = resolveMaterialAndSpec(namedParams, [], null, { inheritFromConnected: false });
-        let diameter = namedParams.diameter || 4, material = resolved.material, spec = resolved.spec;
-        let points = [];
-        let i = 3;
-        while (i < parts.length) {
-            if (parts[i] === 'route' || parts[i] === 'ruta') {
-                i++;
-                while (i < parts.length) {
-                    const m = parts[i].match(/\((-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)\)/);
-                    if (m) { points.push({ x: parseFloat(m[1]), y: parseFloat(m[2]), z: parseFloat(m[3]) }); i++; }
-                    else { const lower = (parts[i] || '').toLowerCase(); if (['material', 'spec', 'diameter', 'diametro'].indexOf(lower) !== -1) i += 2; else i++; }
-                }
-                break;
-            }
-            i++;
-        }
-        if (points.length < 2) { notifyWithVoice("Error: Se requieren al menos 2 puntos para la ruta", true); return true; }
-        const nuevaLinea = { tag: tag, diameter: diameter, material: material, spec: spec, _cachedPoints: points, waypoints: points.slice(1, -1), components: [] };
-        _core.addLine(nuevaLinea);
-        const db = _core.getDb();
-        const lineaRegistrada = db.lines.find(l => l.tag === tag) || nuevaLinea;
-        const fittingInfo = runFittingInjection(lineaRegistrada, null, null, null, null, diameter, material, spec);
-        if (_core.updateLine) _core.updateLine(tag, lineaRegistrada);
-        if (_core.setSelected) _core.setSelected({ type: 'line', obj: lineaRegistrada });
-        notifyWithVoice("✅ Línea " + tag + " creada: " + material + " " + diameter + "\" " + spec + (fittingInfo.message || ''), false);
         return true;
     }
 
@@ -907,6 +1178,20 @@ const SmartFlowCommands = (function() {
         return true;
     }
 
+    function parseSplit(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'split' && parts[0] !== 'dividir' && parts[0] !== 'romper') return false;
+        const lineTag = parts[1];
+        const coords = extractCoords(cmd);
+        if (!lineTag || !coords) { notifyWithVoice("Uso: split [línea] at (x,y,z)", true); return true; }
+        const type = extractValue(parts, ['type', 'tipo']) || 'TEE_EQUAL';
+        saveStateBeforeMutation();
+        const result = _core.splitLine(lineTag, coords, { type: type });
+        if (result) { if (_core.setSelected) _core.setSelected({ type: 'COMPONENTE', obj: result.componente, parent: result.linea }); notifyWithVoice("✅ Línea " + lineTag + " dividida con " + type, false); }
+        else { notifyWithVoice("Error: Punto fuera de la línea " + lineTag, true); }
+        return true;
+    }
+
     function parseDelete(cmd) {
         const parts = cmd.split(/\s+/);
         if (parts[0] !== 'delete' && parts[0] !== 'eliminar') return false;
@@ -979,20 +1264,6 @@ const SmartFlowCommands = (function() {
         if (_core.getEquipos().includes(obj)) return parseDelete("delete equipment " + tag);
         else if (_core.getLines().includes(obj)) return parseDelete("delete line " + tag);
         notifyWithVoice("❌ No se pudo determinar el tipo de \"" + tag + "\". Use: delete equipment/line [TAG]", true);
-        return true;
-    }
-
-    function parseSplit(cmd) {
-        const parts = cmd.trim().split(/\s+/);
-        if (parts[0] !== 'split' && parts[0] !== 'dividir' && parts[0] !== 'romper') return false;
-        const lineTag = parts[1];
-        const coords = extractCoords(cmd);
-        if (!lineTag || !coords) { notifyWithVoice("Uso: split [línea] at (x,y,z)", true); return true; }
-        const type = extractValue(parts, ['type', 'tipo']) || 'TEE_EQUAL';
-        saveStateBeforeMutation();
-        const result = _core.splitLine(lineTag, coords, { type: type });
-        if (result) { if (_core.setSelected) _core.setSelected({ type: 'COMPONENTE', obj: result.componente, parent: result.linea }); notifyWithVoice("✅ Línea " + lineTag + " dividida con " + type, false); }
-        else { notifyWithVoice("Error: Punto fuera de la línea " + lineTag, true); }
         return true;
     }
 
@@ -1082,313 +1353,6 @@ const SmartFlowCommands = (function() {
             }
         }
         return false;
-    }
-
-    function parseInfo(cmd) {
-        const parts = cmd.trim().split(/\s+/);
-        if (parts[0] !== 'info') return false;
-        if (parts.length < 2) { notifyWithVoice("Uso: info line [TAG] | info equipment [TAG] | info component [TAG]", true); return true; }
-        const type = parts[1].toLowerCase();
-        const tag = parts[2];
-        if (!tag) { notifyWithVoice("Especifique el tag del " + type, true); return true; }
-        if (type === 'line' || type === 'línea' || type === 'linea') return infoLine(tag);
-        if (type === 'equipment' || type === 'equipo') return infoEquipment(tag);
-        if (type === 'component' || type === 'componente') return infoComponent(tag);
-        notifyWithVoice("Tipo desconocido: " + type + ". Use line, equipment o component", true);
-        return true;
-    }
-
-    function infoLine(tag) {
-        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return true; }
-        const line = _core.findObjectByTag(tag);
-        if (!line || !_core.getLines().includes(line)) { notifyWithVoice("Línea " + tag + " no encontrada", true); return true; }
-        const pts = getPoints(line);
-        let totalLen = 0;
-        for (let i = 0; i < pts.length - 1; i++) totalLen += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z);
-        let compInfo = '';
-        if (line.components && line.components.length) {
-            const sorted = line.components.slice().sort((a,b) => (a.param || 0) - (b.param || 0));
-            compInfo = '\n🔩 Componentes (' + sorted.length + '):';
-            sorted.forEach(c => compInfo += '\n   ' + (c.type || '?') + ' @' + (c.param ? c.param.toFixed(3) : '?') + ' [' + (c.tag || '') + ']');
-        }
-        const msg = "📋 Línea " + tag + " | ⌀" + (line.diameter || '?') + "\" | " + (line.material || 'N/D') + " | Spec: " + (line.spec || 'N/D') + " | Long: " + (totalLen/1000).toFixed(2) + "m | Componentes: " + (line.components ? line.components.length : 0) + compInfo;
-        notifyWithVoice(msg, false);
-        return true;
-    }
-
-    function infoEquipment(tag) {
-        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return true; }
-        const eq = _core.findObjectByTag(tag);
-        if (!eq || !_core.getEquipos().includes(eq)) { notifyWithVoice("Equipo " + tag + " no encontrado", true); return true; }
-        const tipo = eq.tipo || 'Desconocido';
-        const material = eq.material || 'N/D';
-        const spec = eq.spec || 'N/D';
-        const pos = getBasePosition(eq);
-        const altura = eq.altura || 0;
-        const diametro = eq.diametro || 0;
-        const baseElevation = pos.y - (altura / 2);
-        const topElevation = pos.y + (altura / 2);
-        let msg = '═══════════════════════════════════\n📋 ' + tag + ' — ' + getEquipmentTypeName(tipo) + '\n═══════════════════════════════════\n\n';
-        msg += '📐 DIMENSIONES:\n';
-        if (diametro > 0) msg += '   Diámetro: ' + diametro.toFixed(0) + ' mm\n';
-        if (altura > 0) msg += '   Altura: ' + altura.toFixed(0) + ' mm\n';
-        msg += '\n📏 ELEVACIONES:\n   Centro: ' + pos.y.toFixed(0) + ' mm\n   Base: EL ' + (baseElevation/1000 >= 0 ? '+' : '') + (baseElevation/1000).toFixed(3) + ' m\n   Tope: EL ' + (topElevation/1000 >= 0 ? '+' : '') + (topElevation/1000).toFixed(3) + ' m\n\n';
-        msg += '🔩 ESPECIFICACIONES:\n   Material: ' + material + '\n   Spec: ' + spec + '\n\n';
-        msg += '🔌 PUERTOS:\n';
-        if (eq.puertos && eq.puertos.length) {
-            eq.puertos.forEach(p => {
-                const portElevation = pos.y + (p.relY || 0);
-                const status = p.status === 'open' ? 'DISPONIBLE' : (p.connectedTo ? 'CONECTADO a ' + p.connectedTo.tag : 'CONECTADO');
-                msg += '   ' + p.id + ': ⌀' + (p.diametro || '?') + '" | EL ' + (portElevation/1000 >= 0 ? '+' : '') + (portElevation/1000).toFixed(3) + 'm | ' + status + '\n';
-            });
-        } else msg += '   Sin puertos definidos\n';
-        msg += '\n═══════════════════════════════════';
-        notifyWithVoice(msg, false);
-        return true;
-    }
-
-    function infoComponent(tag) {
-        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return true; }
-        let foundComp = null, foundLine = null;
-        const lines = _core.getLines();
-        for (let line of lines) {
-            if (line.components) {
-                const comp = line.components.find(c => c.tag === tag);
-                if (comp) { foundComp = comp; foundLine = line; break; }
-            }
-        }
-        if (!foundComp) { notifyWithVoice("Componente " + tag + " no encontrado", true); return true; }
-        const msg = "📋 Componente " + tag + " | Tipo: " + foundComp.type + " | Línea: " + foundLine.tag + " | Posición: " + (foundComp.param ? foundComp.param.toFixed(2) : 'N/D');
-        notifyWithVoice(msg, false);
-        return true;
-    }
-
-    function parseList(cmd) {
-        const parts = cmd.trim().split(/\s+/);
-        if (parts[0] !== 'list' && parts[0] !== 'listar') return false;
-        const sub = parts[1] ? parts[1].toLowerCase() : null;
-        if (sub === 'equipos') { listEquipos(); return true; }
-        if (sub === 'lineas' || sub === 'líneas') { listLineas(); return true; }
-        if (sub === 'componentes') { const types = _catalog ? _catalog.listComponentTypes() : []; notifyWithVoice('🔩 Componentes: ' + types.sort().join(', '), false); return true; }
-        if (sub === 'especificaciones') { const specs = _catalog ? _catalog.listSpecs() : []; notifyWithVoice('📋 Especificaciones: ' + specs.sort().join(', '), false); return true; }
-        notifyWithVoice('Use: listar equipos | listar lineas | listar componentes | listar especificaciones');
-        return true;
-    }
-
-    function listEquipos() { 
-        const eqs = _core.getDb().equipos; 
-        notifyWithVoice(eqs.length ? '📦 Equipos (' + eqs.length + '): ' + eqs.map(e => e.tag).join(', ') : 'No hay equipos'); 
-    }
-    
-    function listLineas() { 
-        const ls = _core.getDb().lines; 
-        notifyWithVoice(ls.length ? '📏 Líneas (' + ls.length + '): ' + ls.map(l => l.tag + '(' + (l.diameter || '?') + '" ' + (l.material || '?') + ')').join(', ') : 'No hay líneas'); 
-    }
-
-    function parseNodes(cmd) {
-        const parts = cmd.trim().split(/\s+/);
-        if (parts[0] !== 'nodes' && parts[0] !== 'nodos') return false;
-        if (parts.length < 2) { notifyWithVoice('Uso: nodos TAG | nodos TAG free', true); return true; }
-        const tag = parts[1];
-        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return true; }
-        const obj = _core.findObjectByTag(tag);
-        if (!obj) { notifyWithVoice('❌ "' + tag + '" no encontrado', true); return true; }
-        const isEquipment = obj.posX !== undefined || (obj.pos && obj.pos.x !== undefined);
-        let msg = '═══════════════════════════════════\n🔌 NODOS DE ' + tag + '\n═══════════════════════════════════\n';
-        if (isEquipment) {
-            msg += 'Tipo: EQUIPO | Puertos: ' + (obj.puertos ? obj.puertos.length : 0) + '\n\n';
-            let freeCount = 0, totalCount = 0;
-            if (obj.puertos && obj.puertos.length) {
-                obj.puertos.forEach(p => {
-                    totalCount++;
-                    const isFree = !p.connectedTo || p.status === 'open';
-                    if (isFree) freeCount++;
-                    const icon = isFree ? '🟢' : '🔴';
-                    const posX = (obj.posX || 0) + (p.relX || 0);
-                    const posY = (obj.posY || 0) + (p.relY || 0);
-                    const posZ = (obj.posZ || 0) + (p.relZ || 0);
-                    const fullName = tag + '.' + p.id;
-                    msg += icon + ' ' + fullName + ': ⌀' + (p.diametro || '?') + '" | (' + posX.toFixed(0) + ', ' + posY.toFixed(0) + ', ' + posZ.toFixed(0) + ')';
-                    if (isFree) msg += ' → DISPONIBLE';
-                    else if (p.connectedTo) msg += ' → ' + (p.connectedTo.tag || 'Conectado');
-                    msg += '\n';
-                });
-            } else msg += '⚠️ Sin puertos definidos\n';
-            msg += '\n📊 Total: ' + totalCount + ' | 🟢 ' + freeCount + ' libres | 🔴 ' + (totalCount - freeCount) + ' conectados';
-        } else {
-            const pts = getPoints(obj);
-            if (pts.length < 2) msg += '⚠️ Línea sin geometría\n';
-            else {
-                let totalLen = 0, lengths = [];
-                for (let i = 0; i < pts.length - 1; i++) {
-                    const d = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z);
-                    lengths.push(d); totalLen += d;
-                }
-                msg += 'Tipo: LÍNEA | Long: ' + (totalLen/1000).toFixed(2) + ' m | Componentes: ' + (obj.components ? obj.components.length : 0) + '\n\n';
-                let freeCount = 0, totalCount = 0;
-                totalCount++;
-                const p0 = obj.puertos ? obj.puertos.find(p => p.id === '0') : null;
-                const isFree0 = p0 ? (p0.status === 'open') : false;
-                if (isFree0) freeCount++;
-                const icon0 = isFree0 ? '🟢' : '🔴';
-                msg += icon0 + ' ' + tag + '.0 (START): (' + pts[0].x.toFixed(0) + ', ' + pts[0].y.toFixed(0) + ', ' + pts[0].z.toFixed(0) + ')';
-                if (isFree0) msg += ' → DISPONIBLE';
-                else if (obj.origin) msg += ' → ' + (obj.origin.equipTag || '?') + ':' + (obj.origin.portId || '?');
-                msg += '\n';
-                if (obj.components && obj.puertos) {
-                    const sortedComps = obj.components.slice().sort((a,b) => (a.param || 0) - (b.param || 0));
-                    sortedComps.forEach(comp => {
-                        const compType = (comp.type || '').toUpperCase();
-                        const generaPuertos = compType.indexOf('TEE') !== -1 || compType.indexOf('CROSS') !== -1;
-                        if (generaPuertos && obj.puertos) {
-                            obj.puertos.forEach(p => {
-                                if (p.id === '0' || p.id === '1') return;
-                                if (p.id.indexOf('S1') !== -1 || p.id.indexOf('S2') !== -1) return;
-                                totalCount++;
-                                const isFree = !p.connectedTo || p.status === 'open';
-                                if (isFree) freeCount++;
-                                const icon = isFree ? '🟢' : '🔴';
-                                const param = comp.param || 0.5;
-                                const targetLen = totalLen * param;
-                                let accum = 0, segIdx = 0, t = 0;
-                                for (let j = 0; j < lengths.length; j++) {
-                                    if (accum + lengths[j] >= targetLen || j === lengths.length - 1) { segIdx = j; t = (targetLen - accum) / (lengths[j] || 1); break; }
-                                    accum += lengths[j];
-                                }
-                                const pA = pts[segIdx], pB = pts[segIdx + 1];
-                                const portPoint = { x: pA.x + (pB.x - pA.x) * t + (p.relX || 0), y: pA.y + (pB.y - pA.y) * t + (p.relY || 0), z: pA.z + (pB.z - pA.z) * t + (p.relZ || 0) };
-                                const fullName = tag + '.' + p.id;
-                                msg += icon + ' ' + fullName + ' @' + (comp.param ? comp.param.toFixed(3) : '?') + ' | (' + portPoint.x.toFixed(0) + ', ' + portPoint.y.toFixed(0) + ', ' + portPoint.z.toFixed(0) + ')';
-                                if (isFree) { msg += ' → DISPONIBLE'; if (p.diametro) msg += ' | ⌀' + p.diametro + '"'; }
-                                else if (p.connectedTo) msg += ' → ' + (p.connectedTo.tag || 'Conectado');
-                                msg += '\n';
-                            });
-                        }
-                    });
-                }
-                totalCount++;
-                const p1 = obj.puertos ? obj.puertos.find(p => p.id === '1') : null;
-                const isFree1 = p1 ? (p1.status === 'open') : false;
-                if (isFree1) freeCount++;
-                const lastIdx = pts.length - 1;
-                const icon1 = isFree1 ? '🟢' : '🔴';
-                msg += icon1 + ' ' + tag + '.1 (END): (' + pts[lastIdx].x.toFixed(0) + ', ' + pts[lastIdx].y.toFixed(0) + ', ' + pts[lastIdx].z.toFixed(0) + ')';
-                if (isFree1) msg += ' → DISPONIBLE';
-                else if (obj.destination) msg += ' → ' + (obj.destination.equipTag || '?') + ':' + (obj.destination.portId || '?');
-                msg += '\n';
-                msg += '\n📊 Total: ' + totalCount + ' | 🟢 ' + freeCount + ' libres | 🔴 ' + (totalCount - freeCount) + ' conectados';
-            }
-        }
-        msg += '\n═══════════════════════════════════';
-        notifyWithVoice(msg, false);
-        return true;
-    }
-
-    function parseBOM(cmd) { 
-        const t = cmd.trim().toLowerCase(); 
-        if (t === 'bom' || t === 'mto' || t === 'generate bom' || t === 'generar bom') { generateBOM(); return true; } 
-        return false; 
-    }
-    
-    function generateBOM() {
-        if (typeof SmartFlowIO !== 'undefined' && SmartFlowIO.downloadMTO) { SmartFlowIO.downloadMTO(); return; }
-        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return; }
-        const db = _core.getDb(); const lines = db.lines || []; const equipos = db.equipos || []; let items = [];
-        equipos.forEach(eq => { if (eq.tipo !== 'colector') items.push({ tipo: 'EQUIPO', tag: eq.tag, descripcion: (eq.tipo || 'Equipo') + ' ' + (eq.material || ''), cantidad: 1, unidad: 'Und' }); });
-        const pipeMap = new Map();
-        lines.forEach(line => {
-            const pts = getPoints(line); if (!pts || pts.length < 2) return;
-            let length = 0; for (let i = 0; i < pts.length - 1; i++) length += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z);
-            const lengthM = length / 1000; const key = (line.diameter || '?') + '"-' + (line.material || 'PPR') + '-' + (line.spec || 'STD');
-            if (pipeMap.has(key)) pipeMap.get(key).length += lengthM;
-            else pipeMap.set(key, { diametro: line.diameter, material: line.material || 'PPR', spec: line.spec || 'STD', length: lengthM });
-        });
-        pipeMap.forEach(data => items.push({ tipo: 'TUBERIA', tag: '', descripcion: 'Tubo ' + data.material + ' ' + data.diametro + '" ' + data.spec, cantidad: data.length.toFixed(2), unidad: 'm' }));
-        const compMap = new Map();
-        lines.forEach(line => { if (line.components) line.components.forEach(comp => { const key = (comp.type || '?') + '-' + (line.diameter || '?') + '"'; compMap.set(key, (compMap.get(key) || 0) + 1); }); });
-        compMap.forEach((count, key) => { const parts = key.split('-'); items.push({ tipo: 'COMPONENTE', tag: '', descripcion: parts[0] + ' ' + parts[1], cantidad: count, unidad: 'Und' }); });
-        let csv = 'Tipo,Tag,Descripción,Cantidad,Unidad\n';
-        items.forEach(item => csv += item.tipo + ',' + item.tag + ',' + item.descripcion + ',' + item.cantidad + ',' + item.unidad + '\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = 'BOM_' + (window.currentProjectName || 'Proyecto') + '_' + Date.now() + '.csv'; a.click();
-        notifyWithVoice('✅ BOM generado con ' + items.length + ' líneas.', false);
-    }
-
-    function parseAudit(cmd) { 
-        const t = cmd.trim().toLowerCase(); 
-        if (t === 'audit' || t === 'auditar') { if (_core && _core.auditModel) _core.auditModel(); else notifyWithVoice("Auditoría no disponible.", true); return true; } 
-        return false; 
-    }
-
-    function parseSetProject(cmd) {
-        const parts = cmd.trim().split(/\s+/);
-        if (parts[0] !== 'set' || parts[1] !== 'project') return false;
-        if (parts[2] === 'defaults' || parts[2] === 'default') {
-            notifyWithVoice("📐 Defaults del proyecto: Material=" + _projectDefaults.material + " | Spec=" + _projectDefaults.spec + "\nPara cambiar: set project material <MATERIAL> spec <SPEC>", false);
-            return true;
-        }
-        let material = null, spec = null;
-        for (let i = 2; i < parts.length; i++) {
-            if (parts[i] === 'material' && i + 1 < parts.length) material = parts[++i].toUpperCase();
-            else if (parts[i] === 'spec' && i + 1 < parts.length) spec = parts[++i];
-        }
-        if (material || spec) setProjectDefaults(material, spec);
-        else notifyWithVoice("Uso: set project material <MATERIAL> spec <SPEC>", true);
-        return true;
-    }
-
-    function parseLineFromTo(cmd) {
-        const parts = cmd.trim().split(/\s+/);
-        if (parts[0] !== 'line' && parts[0] !== 'linea') return false;
-        const tag = parts[1];
-        if (!tag) return false;
-        const fromIdx = parts.indexOf('from') !== -1 ? parts.indexOf('from') : parts.indexOf('desde');
-        const toIdx = parts.indexOf('to') !== -1 ? parts.indexOf('to') : parts.indexOf('a');
-        if (fromIdx === -1 || toIdx === -1) return false;
-        if (fromIdx >= toIdx) return false;
-        const fromEquip = parts[fromIdx + 1], fromNozzle = parts[fromIdx + 2], toEquip = parts[toIdx + 1];
-        let toNozzle = parts[toIdx + 2];
-        const keywords = ['material', 'spec', 'diameter', 'diametro', 'via', 'route', 'ruta', 'mode', 'orient', 'direccion'];
-        if (toNozzle && keywords.indexOf(toNozzle.toLowerCase()) !== -1) toNozzle = null;
-        if (!fromEquip || !fromNozzle || !toEquip) { notifyWithVoice("❌ Uso: line TAG from EQUIPO PUERTO to EQUIPO [PUERTO]", true); return true; }
-        const viaIdx = parts.indexOf('via');
-        let waypoints = [];
-        if (viaIdx !== -1 && viaIdx < toIdx) waypoints = extractWaypoints(parts, viaIdx + 1, toIdx);
-        const paramStartIdx = toIdx + (toNozzle ? 3 : 2);
-        const namedParams = extractNamedParams(parts, paramStartIdx);
-        if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
-        if (_core.findObjectByTag(tag)) { notifyWithVoice("❌ El tag " + tag + " ya existe", true); return true; }
-        const fromObj = _core.findObjectByTag(fromEquip), toObj = _core.findObjectByTag(toEquip);
-        if (!fromObj || !toObj) { notifyWithVoice("❌ Origen/Destino no encontrado", true); return true; }
-        const resolved = resolveMaterialAndSpec(namedParams, [fromObj, toObj], null, { inheritFromConnected: false });
-        let diameter = namedParams.diameter || 4, material = resolved.material, spec = resolved.spec;
-        for (let i = paramStartIdx; i < parts.length; i++) {
-            if (parts[i] === 'diameter' || parts[i] === 'diametro') diameter = parseFloat(parts[++i]);
-            else if (parts[i] === 'material') material = parts[++i].toUpperCase();
-            else if (parts[i] === 'spec') spec = parts[++i];
-        }
-        if (!toNozzle) {
-            const ptsTo = _core.getLinePoints(toObj) || toObj._cachedPoints;
-            if (ptsTo && ptsTo.length >= 2) toNozzle = '';
-            else if (toObj.puertos && toObj.puertos.length > 0) { const openPort = toObj.puertos.find(p => p.status === 'open'); toNozzle = openPort ? openPort.id : toObj.puertos[0].id; }
-            else toNozzle = 'N1';
-        }
-        if (typeof SmartFlowRouter !== 'undefined') {
-            let nuevaLinea;
-            if (waypoints.length > 0) nuevaLinea = SmartFlowRouter.routeWithWaypoints(fromEquip, fromNozzle, toEquip, toNozzle, waypoints, diameter, material, spec);
-            else nuevaLinea = SmartFlowRouter.routeBetweenPorts(fromEquip, fromNozzle, toEquip, toNozzle, diameter, material, spec);
-            if (nuevaLinea && nuevaLinea.tag !== tag) {
-                const oldTag = nuevaLinea.tag;
-                _core.updateLine(oldTag, { tag: tag });
-                if (_core.rebuildIndexes) _core.rebuildIndexes();
-                if (fromObj && fromObj.puertos) { const pFrom = fromObj.puertos.find(p => p.id === fromNozzle); if (pFrom && pFrom.connectedLine === oldTag) pFrom.connectedLine = tag; }
-                if (toObj && toObj.puertos) { const pTo = toObj.puertos.find(p => p.id === toNozzle); if (pTo && pTo.connectedLine === oldTag) pTo.connectedLine = tag; }
-            }
-            if (_core.setSelected) { const finalLine = _core.findObjectByTag(tag); if (finalLine) _core.setSelected({ type: 'line', obj: finalLine }); }
-            if (_renderUI) _renderUI();
-            notifyWithVoice("✅ Línea " + tag + ": " + fromEquip + ":" + fromNozzle + " → " + toEquip + ":" + (toNozzle || 'auto') + " | " + material + " " + diameter + "\" " + spec, false);
-        } else { notifyWithVoice("Router no disponible", true); }
-        return true;
     }
 
     function parseExtendLine(cmd) {
@@ -1497,58 +1461,974 @@ const SmartFlowCommands = (function() {
         return true;
     }
 
+    function parseAccessoriesCommand(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'accessories' && parts[0] !== 'accesorios') return false;
+        const lineTag = parts[1];
+        if (!lineTag) { notifyWithVoice("Uso: accessories LINEA add TIPO@pos... | accessories LINEA auto TIPO... at POS | accessories LINEA transition from MAT1 to MAT2 [with COMP] at POS", true); return true; }
+        if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
+        const line = _core.findObjectByTag(lineTag);
+        if (!line || !_core.getLines().includes(line)) { notifyWithVoice("❌ Línea " + lineTag + " no encontrada", true); return true; }
+        saveStateBeforeMutation();
+        if (parts[2] === 'add' || parts[2] === 'añadir') {
+            let added = 0, errors = 0;
+            for (let i = 3; i < parts.length; i++) {
+                const accDef = parts[i];
+                const atIdx = accDef.indexOf('@');
+                if (atIdx === -1) { notifyWithVoice("⚠️ Formato: " + accDef + " (use TIPO@pos)", true); errors++; continue; }
+                const compType = accDef.substring(0, atIdx);
+                const position = parseFloat(accDef.substring(atIdx + 1));
+                if (isNaN(position) || position < 0 || position > 1) { notifyWithVoice("⚠️ Posición inválida: " + accDef, true); errors++; continue; }
+                if (!addComponentToLine(line, lineTag, compType, position)) { errors++; } else { added++; }
+            }
+            _core.updateLine(lineTag, { components: line.components });
+            if (_renderUI) _renderUI();
+            notifyWithVoice("✅ " + added + " accesorio(s) añadido(s)" + (errors > 0 ? " | ⚠️ " + errors + " error(es)" : ""), errors > 0);
+            return true;
+        }
+        if (parts[2] === 'auto') {
+            const atIdx = parts.indexOf('at') !== -1 ? parts.indexOf('at') : parts.indexOf('en');
+            const endIdx = atIdx !== -1 ? atIdx : parts.length;
+            const componentTypes = [];
+            for (let i = 3; i < endIdx; i++) { const compType = parts[i].toUpperCase(); if (['AT', 'EN', 'DIAMETER', 'DIAMETRO'].indexOf(compType) === -1) { componentTypes.push(compType); } }
+            if (componentTypes.length === 0) { notifyWithVoice("❌ Especifique al menos un componente", true); return true; }
+            let startPosition = 0.5;
+            if (atIdx !== -1 && atIdx + 1 < parts.length) { startPosition = parseFloat(parts[atIdx + 1]); if (isNaN(startPosition)) startPosition = 0.5; }
+            const namedParams = extractNamedParams(parts, endIdx);
+            const diameter = namedParams.diameter || line.diameter || 4;
+            const pts = getPoints(line);
+            let totalLength = 10000;
+            if (pts.length >= 2) { totalLength = 0; for (let i = 0; i < pts.length - 1; i++) { totalLength += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z); } }
+            const positions = calculateAccessoryPositions(componentTypes, startPosition, totalLength, diameter);
+            let added = 0, errors = 0;
+            for (let i = 0; i < positions.length; i++) { const pos = positions[i]; if (addComponentToLine(line, lineTag, pos.type, pos.position)) { added++; } else { errors++; } }
+            if (line.components) { line.components.sort(function(a, b) { return (a.param || 0) - (b.param || 0); }); }
+            _core.updateLine(lineTag, { components: line.components });
+            if (_renderUI) _renderUI();
+            notifyWithVoice("✅ " + added + " accesorio(s) añadido(s) automáticamente a " + lineTag + " (desde pos " + startPosition.toFixed(2) + ")" + (errors > 0 ? " | ⚠️ " + errors + " error(es)" : ""), errors > 0);
+            return true;
+        }
+        if (parts[2] === 'transition' || parts[2] === 'transicion') {
+            const fromIdx = parts.indexOf('from') !== -1 ? parts.indexOf('from') : parts.indexOf('de');
+            const toIdx = parts.indexOf('to') !== -1 ? parts.indexOf('to') : parts.indexOf('a');
+            const withIdx = parts.indexOf('with') !== -1 ? parts.indexOf('with') : parts.indexOf('con');
+            const atIdx = parts.indexOf('at') !== -1 ? parts.indexOf('at') : parts.indexOf('en');
+            if (fromIdx === -1 || toIdx === -1) { notifyWithVoice("Uso: accessories LINEA transition from MAT1 to MAT2 [with COMP] at POS", true); return true; }
+            const material1 = parts[fromIdx + 1].toUpperCase();
+            const material2 = parts[toIdx + 1].toUpperCase();
+            const componente = withIdx !== -1 ? parts[withIdx + 1] : null;
+            let startPos = 0.85;
+            if (atIdx !== -1 && atIdx + 1 < parts.length) { startPos = parseFloat(parts[atIdx + 1]); if (isNaN(startPos)) startPos = 0.85; }
+            const namedParams = extractNamedParams(parts, toIdx + 2);
+            const diameter = namedParams.diameter || line.diameter || 4;
+            const transitionComponents = ['FLANGE'];
+            if (material1 !== material2) { transitionComponents.push('CONCENTRIC_REDUCER'); }
+            if (componente) { transitionComponents.push(componente); }
+            transitionComponents.push('FLANGE');
+            const pts = getPoints(line);
+            let totalLength = 10000;
+            if (pts.length >= 2) { totalLength = 0; for (let i = 0; i < pts.length - 1; i++) { totalLength += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z); } }
+            const positions = calculateAccessoryPositions(transitionComponents, startPos, totalLength, diameter);
+            let added = 0;
+            for (let i = 0; i < positions.length; i++) { const pos = positions[i]; if (addComponentToLine(line, lineTag, pos.type, pos.position)) { added++; } }
+            if (line.components) { line.components.sort(function(a, b) { return (a.param || 0) - (b.param || 0); }); }
+            _core.updateLine(lineTag, { components: line.components });
+            if (_renderUI) _renderUI();
+            notifyWithVoice("✅ Transición " + material1 + " → " + material2 + " creada en " + lineTag + " (" + added + " accesorios)" + (componente ? " con " + componente : ""), false);
+            return true;
+        }
+        notifyWithVoice("Modo no reconocido. Use: add | auto | transition", true);
+        return true;
+    }
+
+    function parsePlace(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'place' && parts[0] !== 'apoyar' && parts[0] !== 'posar' && parts[0] !== 'poner' && parts[0] !== 'colocar') return false;
+        const tag = parts[1];
+        if (!tag) { notifyWithVoice('Uso: place EQUIPO on SUPERFICIE | place EQUIPO on ground | place EQUIPO on suelo', true); return true; }
+        const onIdx = parts.indexOf('on') !== -1 ? parts.indexOf('on') : parts.indexOf('sobre');
+        if (onIdx === -1 || onIdx + 1 >= parts.length) { notifyWithVoice('Uso: place EQUIPO on SUPERFICIE | place EQUIPO on ground', true); return true; }
+        let superficieTag = parts[onIdx + 1];
+        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return true; }
+        const equipo = _core.findObjectByTag(tag);
+        if (!equipo) { notifyWithVoice('❌ Equipo "' + tag + '" no encontrado', true); return true; }
+        let superficieY = 0;
+        let superficieNombre = 'suelo (EL ±0.000m)';
+        if (superficieTag && superficieTag.toLowerCase() !== 'ground' && superficieTag.toLowerCase() !== 'suelo') {
+            const superficie = _core.findObjectByTag(superficieTag);
+            if (!superficie) { notifyWithVoice('❌ Superficie "' + superficieTag + '" no encontrada', true); return true; }
+            const alturaSuperficie = superficie.altura || 0;
+            superficieY = (superficie.posY || 0) + (alturaSuperficie / 2);
+            superficieNombre = superficieTag + ' (EL ' + (superficieY/1000 >= 0 ? '+' : '') + (superficieY/1000).toFixed(3) + 'm)';
+        }
+        const alturaEquipo = equipo.altura || 0;
+        const nuevoPosY = superficieY + (alturaEquipo / 2);
+        saveStateBeforeMutation();
+        if (equipo.posX !== undefined) {
+            _core.updateEquipment(tag, { posY: nuevoPosY, elevacion: superficieY });
+        } else {
+            const pts = getPoints(equipo);
+            if (pts.length > 0) {
+                const dy = nuevoPosY - (equipo.posY || pts[0].y || 0);
+                const newPts = pts.map(function(p) { return { x: p.x, y: p.y + dy, z: p.z }; });
+                _core.updateLine(tag, { _cachedPoints: newPts });
+            }
+        }
+        _core.syncPhysicalData();
+        if (_renderUI) _renderUI();
+        const baseElev = nuevoPosY - (alturaEquipo / 2);
+        notifyWithVoice('✅ ' + tag + ' apoyado sobre ' + superficieNombre + '\n   Centro Y=' + nuevoPosY.toFixed(0) + 'mm | Base EL ' + (baseElev/1000 >= 0 ? '+' : '') + (baseElev/1000).toFixed(3) + 'm', false);
+        return true;
+    }
+
+    function parseRotate(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'rotate' && parts[0] !== 'rotar' && parts[0] !== 'girar') return false;
+        const tag = parts[1];
+        if (!tag) { notifyWithVoice("Uso: rotate TAG [angulo] [around X|Y|Z]", true); return true; }
+        let angle = 0;
+        if (parts[2] === 'by') { angle = parseFloat(parts[3]) || 0; } else { angle = parseFloat(parts[2]) || 0; }
+        let axis = 'Y';
+        const aroundIdx = parts.indexOf('around') !== -1 ? parts.indexOf('around') : parts.indexOf('eje');
+        if (aroundIdx !== -1 && aroundIdx + 1 < parts.length) { axis = parts[aroundIdx + 1].toUpperCase(); }
+        if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
+        const obj = _core.findObjectByTag(tag);
+        if (!obj) { notifyWithVoice(tag + " no encontrado", true); return true; }
+        saveStateBeforeMutation();
+        if (obj.posX !== undefined) {
+            const currentRotation = obj.rotation || 0;
+            _core.updateEquipment(tag, { rotation: currentRotation + angle });
+            notifyWithVoice("✅ " + tag + " rotado " + angle + "° (total: " + (currentRotation + angle) + "°)", false);
+        } else {
+            const pts = getPoints(obj);
+            if (pts.length > 0) {
+                const rad = angle * Math.PI / 180;
+                const cos = Math.cos(rad), sin = Math.sin(rad);
+                let cx = 0, cy = 0, cz = 0;
+                pts.forEach(function(p) { cx += p.x; cy += p.y; cz += p.z; });
+                cx /= pts.length; cy /= pts.length; cz /= pts.length;
+                const newPts = pts.map(function(p) {
+                    const rx = p.x - cx, ry = p.y - cy, rz = p.z - cz;
+                    if (axis === 'Y') return { x: cx + rx * cos - rz * sin, y: p.y, z: cz + rx * sin + rz * cos };
+                    else if (axis === 'Z') return { x: cx + rx * cos - ry * sin, y: cy + rx * sin + ry * cos, z: p.z };
+                    else if (axis === 'X') return { x: p.x, y: cy + ry * cos - rz * sin, z: cz + ry * sin + rz * cos };
+                    return p;
+                });
+                _core.updateLine(tag, { _cachedPoints: newPts });
+                notifyWithVoice("✅ " + tag + " rotado " + angle + "° alrededor del eje " + axis, false);
+            }
+        }
+        if (_renderUI) _renderUI();
+        return true;
+    }
+
+    function parseDuplicate(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'duplicate' && parts[0] !== 'duplicar' && parts[0] !== 'copy' && parts[0] !== 'copiar') return false;
+        const tag = parts[1];
+        if (!tag) { notifyWithVoice("Uso: duplicate TAG as NUEVO_TAG [offset (dx,dy,dz)]", true); return true; }
+        if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
+        const original = _core.findObjectByTag(tag);
+        if (!original) { notifyWithVoice(tag + " no encontrado", true); return true; }
+        let newTag = null;
+        const asIdx = parts.indexOf('as') !== -1 ? parts.indexOf('as') : parts.indexOf('como');
+        if (asIdx !== -1 && asIdx + 1 < parts.length) { newTag = parts[asIdx + 1]; } else { newTag = tag + '-COPY'; }
+        if (_core.findObjectByTag(newTag)) { notifyWithVoice("❌ El tag " + newTag + " ya existe", true); return true; }
+        let offsetX = 2000, offsetY = 0, offsetZ = 0;
+        const offsetIdx = parts.indexOf('offset') !== -1 ? parts.indexOf('offset') : parts.indexOf('desplazar');
+        if (offsetIdx !== -1) { const coordStr = parts.slice(offsetIdx + 1).join(''); const m = coordStr.match(/\((-?\d+\.?\d*),(-?\d+\.?\d*),(-?\d+\.?\d*)\)/); if (m) { offsetX = parseFloat(m[1]); offsetY = parseFloat(m[2]); offsetZ = parseFloat(m[3]); } }
+        const isEquipment = original.posX !== undefined || (original.pos && original.pos.x !== undefined);
+        saveStateBeforeMutation();
+        if (isEquipment) {
+            const clone = JSON.parse(JSON.stringify(original));
+            clone.tag = newTag;
+            clone.posX = (clone.posX || 0) + offsetX;
+            clone.posY = (clone.posY || 0) + offsetY;
+            clone.posZ = (clone.posZ || 0) + offsetZ;
+            const success = _core.addEquipment(clone);
+            if (success) { notifyWithVoice("✅ Equipo duplicado: " + tag + " → " + newTag, false); if (_core.setSelected) _core.setSelected({ type: 'equipment', obj: clone }); }
+        } else {
+            const clone = JSON.parse(JSON.stringify(original));
+            clone.tag = newTag;
+            const pts = getPoints(original);
+            if (pts.length > 0) { clone._cachedPoints = pts.map(function(p) { return { x: p.x + offsetX, y: p.y + offsetY, z: p.z + offsetZ }; }); }
+            const success = _core.addLine(clone);
+            if (success) { notifyWithVoice("✅ Línea duplicada: " + tag + " → " + newTag, false); if (_core.setSelected) _core.setSelected({ type: 'line', obj: clone }); }
+        }
+        if (_renderUI) _renderUI();
+        return true;
+    }
+
+    function parseAlign(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'align' && parts[0] !== 'alinear') return false;
+        const tags = [];
+        let axis = 'Y';
+        let i = 1;
+        while (i < parts.length && parts[i] !== 'on' && parts[i] !== 'en') { tags.push(parts[i]); i++; }
+        if (i < parts.length && (parts[i] === 'on' || parts[i] === 'en')) { axis = (parts[i + 1] || 'Y').toUpperCase(); }
+        if (tags.length < 2) { notifyWithVoice("Uso: align TAG1 TAG2 [TAG3...] on X|Y|Z", true); return true; }
+        if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
+        const refObj = _core.findObjectByTag(tags[0]);
+        if (!refObj || refObj.posX === undefined) { notifyWithVoice(tags[0] + " no es un equipo válido para alinear", true); return true; }
+        const refValue = axis === 'X' ? refObj.posX : axis === 'Y' ? refObj.posY : refObj.posZ;
+        saveStateBeforeMutation();
+        let count = 0;
+        for (let j = 1; j < tags.length; j++) {
+            const obj = _core.findObjectByTag(tags[j]);
+            if (!obj || obj.posX === undefined) continue;
+            const update = {};
+            if (axis === 'X') update.posX = refValue;
+            else if (axis === 'Y') update.posY = refValue;
+            else update.posZ = refValue;
+            _core.updateEquipment(tags[j], update);
+            count++;
+        }
+        notifyWithVoice("✅ " + count + " equipos alineados al eje " + axis, false);
+        if (_renderUI) _renderUI();
+        return true;
+    }
+
+    // ============================================================
+    // INFO - COMANDOS (5)
+    // ============================================================
+    
+    function parseInfo(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'info') return false;
+        if (parts.length < 2) { notifyWithVoice("Uso: info line [TAG] | info equipment [TAG] | info component [TAG] | info stream [TAG] | info instrument [TAG]", true); return true; }
+        const type = parts[1].toLowerCase();
+        const tag = parts[2];
+        if (!tag) { notifyWithVoice("Especifique el tag del " + type, true); return true; }
+        if (type === 'line' || type === 'línea' || type === 'linea') return infoLine(tag);
+        if (type === 'equipment' || type === 'equipo') return infoEquipment(tag);
+        if (type === 'component' || type === 'componente') return infoComponent(tag);
+        if (type === 'stream' || type === 'corriente') return parseStreamInfo(cmd);
+        if (type === 'instrument' || type === 'instrumento') return parseInstrumentInfo(cmd);
+        notifyWithVoice("Tipo desconocido: " + type + ". Use line, equipment, component, stream o instrument", true);
+        return true;
+    }
+
+    function infoLine(tag) {
+        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return true; }
+        const line = _core.findObjectByTag(tag);
+        if (!line || !_core.getLines().includes(line)) { notifyWithVoice("Línea " + tag + " no encontrada", true); return true; }
+        const pts = getPoints(line);
+        let totalLen = 0;
+        for (let i = 0; i < pts.length - 1; i++) totalLen += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z);
+        let compInfo = '';
+        if (line.components && line.components.length) {
+            const sorted = line.components.slice().sort((a,b) => (a.param || 0) - (b.param || 0));
+            compInfo = '\n🔩 Componentes (' + sorted.length + '):';
+            sorted.forEach(c => compInfo += '\n   ' + (c.type || '?') + ' @' + (c.param ? c.param.toFixed(3) : '?') + ' [' + (c.tag || '') + ']');
+        }
+        const msg = "📋 Línea " + tag + " | ⌀" + (line.diameter || '?') + "\" | " + (line.material || 'N/D') + " | Spec: " + (line.spec || 'N/D') + " | Long: " + (totalLen/1000).toFixed(2) + "m | Componentes: " + (line.components ? line.components.length : 0) + compInfo;
+        notifyWithVoice(msg, false);
+        return true;
+    }
+
+    function infoEquipment(tag) {
+        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return true; }
+        const eq = _core.findObjectByTag(tag);
+        if (!eq || !_core.getEquipos().includes(eq)) { notifyWithVoice("Equipo " + tag + " no encontrado", true); return true; }
+        const tipo = eq.tipo || 'Desconocido';
+        const material = eq.material || 'N/D';
+        const spec = eq.spec || 'N/D';
+        const pos = getBasePosition(eq);
+        const altura = eq.altura || 0;
+        const diametro = eq.diametro || 0;
+        const baseElevation = pos.y - (altura / 2);
+        const topElevation = pos.y + (altura / 2);
+        let msg = '═══════════════════════════════════\n📋 ' + tag + ' — ' + getEquipmentTypeName(tipo) + '\n═══════════════════════════════════\n\n';
+        msg += '📐 DIMENSIONES:\n';
+        if (diametro > 0) msg += '   Diámetro: ' + diametro.toFixed(0) + ' mm\n';
+        if (altura > 0) msg += '   Altura: ' + altura.toFixed(0) + ' mm\n';
+        if (eq.largo) msg += '   Largo: ' + eq.largo.toFixed(0) + ' mm\n';
+        if (eq.ancho) msg += '   Ancho: ' + eq.ancho.toFixed(0) + ' mm\n';
+        msg += '\n📏 ELEVACIONES:\n   Centro: ' + pos.y.toFixed(0) + ' mm\n   Base: EL ' + (baseElevation/1000 >= 0 ? '+' : '') + (baseElevation/1000).toFixed(3) + ' m\n   Tope: EL ' + (topElevation/1000 >= 0 ? '+' : '') + (topElevation/1000).toFixed(3) + ' m\n\n';
+        msg += '🔩 ESPECIFICACIONES:\n   Material: ' + material + '\n   Spec: ' + spec + '\n\n';
+        msg += '🔌 PUERTOS:\n';
+        if (eq.puertos && eq.puertos.length) {
+            eq.puertos.forEach(p => {
+                const portElevation = pos.y + (p.relY || 0);
+                const status = p.status === 'open' ? 'DISPONIBLE' : (p.connectedTo ? 'CONECTADO a ' + p.connectedTo.tag : 'CONECTADO');
+                msg += '   ' + p.id + ': ⌀' + (p.diametro || '?') + '" | EL ' + (portElevation/1000 >= 0 ? '+' : '') + (portElevation/1000).toFixed(3) + 'm | ' + status + '\n';
+            });
+        } else msg += '   Sin puertos definidos\n';
+        msg += '\n═══════════════════════════════════';
+        notifyWithVoice(msg, false);
+        return true;
+    }
+
+    function infoComponent(tag) {
+        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return true; }
+        let foundComp = null, foundLine = null;
+        const lines = _core.getLines();
+        for (let line of lines) {
+            if (line.components) {
+                const comp = line.components.find(c => c.tag === tag);
+                if (comp) { foundComp = comp; foundLine = line; break; }
+            }
+        }
+        if (!foundComp) { notifyWithVoice("Componente " + tag + " no encontrado", true); return true; }
+        const msg = "📋 Componente " + tag + " | Tipo: " + foundComp.type + " | Línea: " + foundLine.tag + " | Posición: " + (foundComp.param ? foundComp.param.toFixed(2) : 'N/D');
+        notifyWithVoice(msg, false);
+        return true;
+    }
+
+    // ============================================================
+    // NODOS - COMANDOS
+    // ============================================================
+    
+    function parseNodes(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'nodes' && parts[0] !== 'nodos') return false;
+        if (parts.length < 2) { notifyWithVoice('Uso: nodos TAG | nodos TAG free', true); return true; }
+        const tag = parts[1];
+        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return true; }
+        const obj = _core.findObjectByTag(tag);
+        if (!obj) { notifyWithVoice('❌ "' + tag + '" no encontrado', true); return true; }
+        const isEquipment = obj.posX !== undefined || (obj.pos && obj.pos.x !== undefined);
+        let msg = '═══════════════════════════════════\n🔌 NODOS DE ' + tag + '\n═══════════════════════════════════\n';
+        if (isEquipment) {
+            msg += 'Tipo: EQUIPO | Puertos: ' + (obj.puertos ? obj.puertos.length : 0) + '\n\n';
+            let freeCount = 0, totalCount = 0;
+            if (obj.puertos && obj.puertos.length) {
+                obj.puertos.forEach(p => {
+                    totalCount++;
+                    const isFree = !p.connectedTo || p.status === 'open';
+                    if (isFree) freeCount++;
+                    const icon = isFree ? '🟢' : '🔴';
+                    const posX = (obj.posX || 0) + (p.relX || 0);
+                    const posY = (obj.posY || 0) + (p.relY || 0);
+                    const posZ = (obj.posZ || 0) + (p.relZ || 0);
+                    const fullName = tag + '.' + p.id;
+                    msg += icon + ' ' + fullName + ': ⌀' + (p.diametro || '?') + '" | (' + posX.toFixed(0) + ', ' + posY.toFixed(0) + ', ' + posZ.toFixed(0) + ')';
+                    if (isFree) msg += ' → DISPONIBLE';
+                    else if (p.connectedTo) msg += ' → ' + (p.connectedTo.tag || 'Conectado');
+                    msg += '\n';
+                });
+            } else msg += '⚠️ Sin puertos definidos\n';
+            msg += '\n📊 Total: ' + totalCount + ' | 🟢 ' + freeCount + ' libres | 🔴 ' + (totalCount - freeCount) + ' conectados';
+        } else {
+            const pts = getPoints(obj);
+            if (pts.length < 2) msg += '⚠️ Línea sin geometría\n';
+            else {
+                let totalLen = 0, lengths = [];
+                for (let i = 0; i < pts.length - 1; i++) {
+                    const d = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z);
+                    lengths.push(d); totalLen += d;
+                }
+                msg += 'Tipo: LÍNEA | Long: ' + (totalLen/1000).toFixed(2) + ' m | Componentes: ' + (obj.components ? obj.components.length : 0) + '\n\n';
+                let freeCount = 0, totalCount = 0;
+                totalCount++;
+                const p0 = obj.puertos ? obj.puertos.find(p => p.id === '0') : null;
+                const isFree0 = p0 ? (p0.status === 'open') : false;
+                if (isFree0) freeCount++;
+                const icon0 = isFree0 ? '🟢' : '🔴';
+                msg += icon0 + ' ' + tag + '.0 (START): (' + pts[0].x.toFixed(0) + ', ' + pts[0].y.toFixed(0) + ', ' + pts[0].z.toFixed(0) + ')';
+                if (isFree0) msg += ' → DISPONIBLE';
+                else if (obj.origin) msg += ' → ' + (obj.origin.equipTag || '?') + ':' + (obj.origin.portId || '?');
+                msg += '\n';
+                if (obj.components && obj.puertos) {
+                    const sortedComps = obj.components.slice().sort((a,b) => (a.param || 0) - (b.param || 0));
+                    sortedComps.forEach(comp => {
+                        const compType = (comp.type || '').toUpperCase();
+                        const generaPuertos = compType.indexOf('TEE') !== -1 || compType.indexOf('CROSS') !== -1;
+                        if (generaPuertos && obj.puertos) {
+                            obj.puertos.forEach(p => {
+                                if (p.id === '0' || p.id === '1') return;
+                                if (p.id.indexOf('S1') !== -1 || p.id.indexOf('S2') !== -1) return;
+                                totalCount++;
+                                const isFree = !p.connectedTo || p.status === 'open';
+                                if (isFree) freeCount++;
+                                const icon = isFree ? '🟢' : '🔴';
+                                const param = comp.param || 0.5;
+                                const targetLen = totalLen * param;
+                                let accum = 0, segIdx = 0, t = 0;
+                                for (let j = 0; j < lengths.length; j++) {
+                                    if (accum + lengths[j] >= targetLen || j === lengths.length - 1) { segIdx = j; t = (targetLen - accum) / (lengths[j] || 1); break; }
+                                    accum += lengths[j];
+                                }
+                                const pA = pts[segIdx], pB = pts[segIdx + 1];
+                                const portPoint = { x: pA.x + (pB.x - pA.x) * t + (p.relX || 0), y: pA.y + (pB.y - pA.y) * t + (p.relY || 0), z: pA.z + (pB.z - pA.z) * t + (p.relZ || 0) };
+                                const fullName = tag + '.' + p.id;
+                                msg += icon + ' ' + fullName + ' @' + (comp.param ? comp.param.toFixed(3) : '?') + ' | (' + portPoint.x.toFixed(0) + ', ' + portPoint.y.toFixed(0) + ', ' + portPoint.z.toFixed(0) + ')';
+                                if (isFree) { msg += ' → DISPONIBLE'; if (p.diametro) msg += ' | ⌀' + p.diametro + '"'; }
+                                else if (p.connectedTo) msg += ' → ' + (p.connectedTo.tag || 'Conectado');
+                                msg += '\n';
+                            });
+                        }
+                    });
+                }
+                totalCount++;
+                const p1 = obj.puertos ? obj.puertos.find(p => p.id === '1') : null;
+                const isFree1 = p1 ? (p1.status === 'open') : false;
+                if (isFree1) freeCount++;
+                const lastIdx = pts.length - 1;
+                const icon1 = isFree1 ? '🟢' : '🔴';
+                msg += icon1 + ' ' + tag + '.1 (END): (' + pts[lastIdx].x.toFixed(0) + ', ' + pts[lastIdx].y.toFixed(0) + ', ' + pts[lastIdx].z.toFixed(0) + ')';
+                if (isFree1) msg += ' → DISPONIBLE';
+                else if (obj.destination) msg += ' → ' + (obj.destination.equipTag || '?') + ':' + (obj.destination.portId || '?');
+                msg += '\n';
+                msg += '\n📊 Total: ' + totalCount + ' | 🟢 ' + freeCount + ' libres | 🔴 ' + (totalCount - freeCount) + ' conectados';
+            }
+        }
+        msg += '\n═══════════════════════════════════';
+        notifyWithVoice(msg, false);
+        return true;
+    }
+
+    function parseNodosAbiertos(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'nodes' && parts[0] !== 'nodos') return false;
+        if (parts[1] !== 'abiertos' && parts[1] !== 'open' && parts[1] !== 'libres') return false;
+        let tag;
+        if (parts[2] === 'de') { tag = parts[3]; }
+        else { tag = parts[2]; }
+        if (!tag) { notifyWithVoice("Uso: nodos abiertos [TAG] | nodos abiertos de [TAG]", true); return true; }
+        if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
+        const obj = _core.findObjectByTag(tag);
+        if (!obj) { notifyWithVoice('❌ "' + tag + '" no encontrado', true); return true; }
+        const isEquipment = obj.posX !== undefined || (obj.pos && obj.pos.x !== undefined);
+        let msg = '═══════════════════════════════════\n🟢 NODOS ABIERTOS DE ' + tag + '\n═══════════════════════════════════\n';
+        let openCount = 0;
+        if (isEquipment) {
+            if (obj.puertos && obj.puertos.length > 0) {
+                obj.puertos.forEach(p => {
+                    const isOpen = !p.connectedTo || p.status === 'open';
+                    if (isOpen) {
+                        openCount++;
+                        const posX = (obj.posX || 0) + (p.relX || 0);
+                        const posY = (obj.posY || 0) + (p.relY || 0);
+                        const posZ = (obj.posZ || 0) + (p.relZ || 0);
+                        const fullName = tag + '.' + p.id;
+                        msg += '• ' + fullName + ': ⌀' + (p.diametro || '?') + '" | (' + posX.toFixed(0) + ', ' + posY.toFixed(0) + ', ' + posZ.toFixed(0) + ')';
+                        if (p.orientacion) {
+                            msg += ' | Dir: (' + (p.orientacion.dx || 0).toFixed(1) + ', ' + (p.orientacion.dy || 0).toFixed(1) + ', ' + (p.orientacion.dz || 0).toFixed(1) + ')';
+                        }
+                        msg += '\n';
+                    }
+                });
+            }
+        } else {
+            const pts = getPoints(obj);
+            if (pts.length < 2) { msg += '⚠️ Línea sin geometría\n'; }
+            else {
+                let totalLen = 0, lengths = [];
+                for (let i = 0; i < pts.length - 1; i++) {
+                    const d = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z);
+                    lengths.push(d); totalLen += d;
+                }
+                const p0 = obj.puertos ? obj.puertos.find(p => p.id === '0') : null;
+                if (p0 && p0.status === 'open') {
+                    openCount++;
+                    msg += '• ' + tag + '.0 (START): (' + pts[0].x.toFixed(0) + ', ' + pts[0].y.toFixed(0) + ', ' + pts[0].z.toFixed(0) + ')';
+                    if (p0.diametro) msg += ' | ⌀' + p0.diametro + '"';
+                    msg += '\n';
+                }
+                if (obj.components && obj.puertos) {
+                    obj.puertos.forEach(p => {
+                        if (p.id === '0' || p.id === '1') return;
+                        if (p.id.indexOf('S1') !== -1 || p.id.indexOf('S2') !== -1) return;
+                        const isOpen = !p.connectedTo || p.status === 'open';
+                        if (isOpen) {
+                            openCount++;
+                            let compParam = 0.5;
+                            if (obj.components) {
+                                for (let c = 0; c < obj.components.length; c++) {
+                                    if (p.id.indexOf(obj.components[c].tag) !== -1) { compParam = obj.components[c].param || 0.5; break; }
+                                }
+                            }
+                            const targetLen = totalLen * compParam;
+                            let accum = 0, segIdx = 0, t = 0;
+                            for (let j = 0; j < lengths.length; j++) {
+                                if (accum + lengths[j] >= targetLen || j === lengths.length - 1) { segIdx = j; t = (targetLen - accum) / (lengths[j] || 1); break; }
+                                accum += lengths[j];
+                            }
+                            const pA = pts[segIdx], pB = pts[segIdx + 1];
+                            const portPoint = {
+                                x: pA.x + (pB.x - pA.x) * t + (p.relX || 0),
+                                y: pA.y + (pB.y - pA.y) * t + (p.relY || 0),
+                                z: pA.z + (pB.z - pA.z) * t + (p.relZ || 0)
+                            };
+                            const fullName = tag + '.' + p.id;
+                            msg += '• ' + fullName + ' @' + compParam.toFixed(3) + ': (' + portPoint.x.toFixed(0) + ', ' + portPoint.y.toFixed(0) + ', ' + portPoint.z.toFixed(0) + ')';
+                            if (p.diametro) msg += ' | ⌀' + p.diametro + '"';
+                            msg += '\n';
+                        }
+                    });
+                }
+                const p1 = obj.puertos ? obj.puertos.find(p => p.id === '1') : null;
+                if (p1 && p1.status === 'open') {
+                    openCount++;
+                    const lastIdx = pts.length - 1;
+                    msg += '• ' + tag + '.1 (END): (' + pts[lastIdx].x.toFixed(0) + ', ' + pts[lastIdx].y.toFixed(0) + ', ' + pts[lastIdx].z.toFixed(0) + ')';
+                    if (p1.diametro) msg += ' | ⌀' + p1.diametro + '"';
+                    msg += '\n';
+                }
+            }
+        }
+        if (openCount === 0) { msg += '⚠️ No hay nodos disponibles. Todos están conectados.\n'; }
+        msg += '\n📊 ' + openCount + ' nodo(s) disponible(s)';
+        msg += '\n═══════════════════════════════════';
+        msg += '\n💡 Copia el nombre completo (ej: L-1.TEE_xyz_P3) para usar en:\n   connect L-1.TEE_xyz_P3 to EQUIPO PUERTO';
+        notifyWithVoice(msg, false);
+        return true;
+    }
+
+    // ============================================================
+    // POINT - COMANDO
+    // ============================================================
+    
+    function parsePoint(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'point' && parts[0] !== 'coordenadas') return false;
+        try {
+            let tag = null, subCommand = null, subId = null;
+            if (parts.length >= 3 && parts[1] && parts[1].toLowerCase() === 'de') {
+                tag = parts[2];
+                if (parts.length >= 5) { subCommand = parts[3] ? parts[3].toLowerCase() : null; subId = parts[4]; }
+            } else if (parts.length >= 2) {
+                let ref = parts[1];
+                const atIdx = ref.indexOf('@');
+                if (atIdx > 0) {
+                    tag = ref.substring(0, atIdx);
+                    subId = ref.substring(atIdx + 1);
+                    const numVal = parseFloat(subId);
+                    if (!isNaN(numVal) && numVal >= 0 && numVal <= 1) subCommand = 'param';
+                    else if (subId.toUpperCase() === 'START' || subId === '0') { subCommand = 'punto'; subId = '0'; }
+                    else if (subId.toUpperCase() === 'END' || subId === '1') { subCommand = 'punto'; subId = 'end'; }
+                    else subCommand = 'puerto';
+                } else if (ref.indexOf('.') > 0) {
+                    tag = ref.substring(0, ref.indexOf('.'));
+                    subId = ref.substring(ref.indexOf('.') + 1);
+                    subCommand = 'puerto';
+                } else { tag = ref; }
+            } else { notifyWithVoice('Uso: coordenadas de TAG [puerto|punto ID]', true); return true; }
+            if (!tag) { notifyWithVoice('❌ Tag no especificado', true); return true; }
+            if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return true; }
+            const obj = _core.findObjectByTag(tag);
+            if (!obj) { notifyWithVoice('❌ "' + tag + '" no encontrado', true); return true; }
+            const basePos = getBasePosition(obj);
+            const isEq = obj.posX !== undefined || (obj.pos && obj.pos.x !== undefined);
+            let response = '📍 ' + tag;
+            if (!subCommand) {
+                if (isEq) {
+                    response += ' → (X=' + basePos.x.toFixed(0) + ', Y=' + basePos.y.toFixed(0) + ', Z=' + basePos.z.toFixed(0) + ')';
+                    if (obj.diametro) response += ' | ⌀' + obj.diametro + 'mm';
+                    if (obj.altura) response += ' | H=' + obj.altura + 'mm';
+                }
+                if (obj.puertos && obj.puertos.length) {
+                    response += '\n🔌 Puertos:';
+                    obj.puertos.forEach(p => {
+                        const px = basePos.x + (p.relX || 0);
+                        const py = basePos.y + (p.relY || 0);
+                        const pz = basePos.z + (p.relZ || 0);
+                        response += '\n  • ' + p.id + ' (' + px.toFixed(0) + ',' + py.toFixed(0) + ',' + pz.toFixed(0) + ') | ' + (p.diametro || '?') + '"';
+                    });
+                }
+                const pts = getPoints(obj);
+                if (pts.length > 0) {
+                    response += '\n📏 ' + pts.length + ' puntos:';
+                    pts.forEach(function(p, i) { response += '\n  P0' + i + ': (' + p.x.toFixed(0) + ',' + p.y.toFixed(0) + ',' + p.z.toFixed(0) + ')'; });
+                    let len = 0;
+                    for (let i = 0; i < pts.length - 1; i++) len += Math.hypot(pts[i+1].x-pts[i].x, pts[i+1].y-pts[i].y, pts[i+1].z-pts[i].z);
+                    response += '\n📐 Long: ' + (len/1000).toFixed(2) + ' m';
+                }
+                notifyWithVoice(response, false);
+                return true;
+            }
+            if (subCommand === 'puerto' && subId) {
+                const puerto = obj.puertos && obj.puertos.find(p => p.id === subId || (p.id && p.id.toUpperCase() === subId.toUpperCase()));
+                if (!puerto) { notifyWithVoice('❌ Puerto "' + subId + '" no encontrado', true); return true; }
+                const px = basePos.x + (puerto.relX || 0), py = basePos.y + (puerto.relY || 0), pz = basePos.z + (puerto.relZ || 0);
+                response += ' → ' + puerto.id + ' (' + px.toFixed(0) + ',' + py.toFixed(0) + ',' + pz.toFixed(0) + ') | ' + (puerto.diametro || '?') + '" | ' + (puerto.status || 'open');
+                notifyWithVoice(response, false);
+                return true;
+            }
+            if (subCommand === 'punto' && subId !== undefined) {
+                const pts = getPoints(obj);
+                if (!pts.length) { notifyWithVoice('⚠️ ' + tag + ' sin geometría', true); return true; }
+                const idx = subId === 'end' ? pts.length - 1 : parseInt(subId);
+                if (isNaN(idx) || idx < 0 || idx >= pts.length) { notifyWithVoice('❌ Índice inválido (0-' + (pts.length-1) + ')', true); return true; }
+                response += ' → P' + idx + ': (' + pts[idx].x.toFixed(0) + ',' + pts[idx].y.toFixed(0) + ',' + pts[idx].z.toFixed(0) + ')';
+                notifyWithVoice(response, false);
+                return true;
+            }
+            if (subCommand === 'param' && subId !== undefined) {
+                const coords = calcularPuntoParametrico(obj, parseFloat(subId));
+                if (!coords) { notifyWithVoice('⚠️ ' + tag + ' sin geometría', true); return true; }
+                response += ' @' + subId + ': (' + coords.x.toFixed(0) + ',' + coords.y.toFixed(0) + ',' + coords.z.toFixed(0) + ')';
+                notifyWithVoice(response, false);
+                return true;
+            }
+            notifyWithVoice('Comando no reconocido', true);
+            return true;
+        } catch (e) { notifyWithVoice('❌ Error: ' + e.message, true); return true; }
+    }
+
+    // ============================================================
+    // MEASURE - COMANDO
+    // ============================================================
+    
+    function parseMeasure(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'measure' && parts[0] !== 'medir' && parts[0] !== 'distancia' && parts[0] !== 'distance') return false;
+        if (!_core) { notifyWithVoice("Core no inicializado", true); return true; }
+        let tag1, tag2, port1 = null, port2 = null;
+        if (parts[1] === 'between' || parts[1] === 'entre') {
+            tag1 = parts[2];
+            const andIdx = parts.indexOf('and') !== -1 ? parts.indexOf('and') : parts.indexOf('y');
+            if (andIdx === -1) { notifyWithVoice("Uso: measure between TAG1 and TAG2", true); return true; }
+            tag2 = parts[andIdx + 1];
+        } else {
+            tag1 = parts[1];
+            const toIdx = parts.indexOf('to') !== -1 ? parts.indexOf('to') : parts.indexOf('a');
+            if (toIdx === -1) { notifyWithVoice("Uso: measure TAG1 to TAG2", true); return true; }
+            tag2 = parts[toIdx + 1];
+        }
+        if (tag1 && tag1.indexOf(':') > 0) { var sp = tag1.split(':'); tag1 = sp[0]; port1 = sp[1]; }
+        if (tag2 && tag2.indexOf(':') > 0) { var sp = tag2.split(':'); tag2 = sp[0]; port2 = sp[1]; }
+        const obj1 = _core.findObjectByTag(tag1);
+        const obj2 = _core.findObjectByTag(tag2);
+        if (!obj1 || !obj2) { notifyWithVoice("Objeto(s) no encontrado(s)", true); return true; }
+        const pos1 = port1 ? getPortPosition(tag1, port1) : getBasePosition(obj1);
+        const pos2 = port2 ? getPortPosition(tag2, port2) : getBasePosition(obj2);
+        const dx = pos2.x - pos1.x, dy = pos2.y - pos1.y, dz = pos2.z - pos1.z;
+        const dist = Math.hypot(dx, dy, dz);
+        const distH = Math.hypot(dx, dz);
+        let msg = '📏 Distancia ' + tag1;
+        if (port1) msg += ':' + port1;
+        msg += ' → ' + tag2;
+        if (port2) msg += ':' + port2;
+        msg += ':\n  3D: ' + (dist/1000).toFixed(3) + ' m (' + dist.toFixed(0) + ' mm)\n  Horizontal: ' + (distH/1000).toFixed(3) + ' m\n  ΔX: ' + dx.toFixed(0) + ' mm | ΔY: ' + dy.toFixed(0) + ' mm | ΔZ: ' + dz.toFixed(0) + ' mm';
+        notifyWithVoice(msg, false);
+        return true;
+    }
+
+    // ============================================================
+    // VIEW - COMANDO
+    // ============================================================
+    
+    function parseViewCommand(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'view' && parts[0] !== 'vista' && parts[0] !== 'zoom' && parts[0] !== 'camara' && parts[0] !== 'cámara') return false;
+        const sub = parts[1] ? parts[1].toLowerCase() : null;
+        if (sub === 'top' || sub === 'planta') { if (_renderer && _renderer.setView) _renderer.setView('top'); notifyWithVoice("🔭 Vista: Planta (TOP)", false); return true; }
+        if (sub === 'front' || sub === 'frente') { if (_renderer && _renderer.setView) _renderer.setView('front'); notifyWithVoice("🔭 Vista: Frontal", false); return true; }
+        if (sub === 'iso' || sub === 'isometrico' || sub === 'isométrico') { if (_renderer && _renderer.setView) _renderer.setView('iso'); notifyWithVoice("🔭 Vista: Isométrica", false); return true; }
+        if (sub === 'extents' || sub === 'todo' || sub === 'fit' || sub === 'extender') { if (_renderer && _renderer.zoomToFit) _renderer.zoomToFit(); notifyWithVoice("🔭 Zoom: Extender", false); return true; }
+        if (sub && ['top','front','iso','extents','fit','todo','extender','reset'].indexOf(sub) === -1) {
+            const obj = _core ? _core.findObjectByTag(sub) : null;
+            if (obj) { const pos = getBasePosition(obj); if (_renderer && _renderer.focusOn) _renderer.focusOn(pos); notifyWithVoice("🔭 Centrando en " + sub, false); return true; }
+        }
+        notifyWithVoice("Vistas: top | front | iso | extents | [TAG]", true);
+        return true;
+    }
+
+    // ============================================================
+    // LIST - COMANDO
+    // ============================================================
+    
+    function parseList(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'list' && parts[0] !== 'listar') return false;
+        const sub = parts[1] ? parts[1].toLowerCase() : null;
+        if (sub === 'equipos') { listEquipos(); return true; }
+        if (sub === 'lineas' || sub === 'líneas') { listLineas(); return true; }
+        if (sub === 'componentes') { const types = _catalog ? _catalog.listComponentTypes() : []; notifyWithVoice('🔩 Componentes: ' + types.sort().join(', '), false); return true; }
+        if (sub === 'especificaciones') { const specs = _catalog ? _catalog.listSpecs() : []; notifyWithVoice('📋 Especificaciones: ' + specs.sort().join(', '), false); return true; }
+        if (sub === 'streams') { return parseListStreams(cmd); }
+        if (sub === 'instruments') { return parseListInstruments(cmd); }
+        if (sub === 'loops') { return parseListLoops(cmd); }
+        if (sub === 'instrument types') { return parseListInstrumentTypes(cmd); }
+        notifyWithVoice('Use: list equipos | lineas | componentes | especificaciones | streams | instruments | loops | instrument types');
+        return true;
+    }
+
+    function listEquipos() { 
+        const eqs = _core.getDb().equipos; 
+        notifyWithVoice(eqs.length ? '📦 Equipos (' + eqs.length + '): ' + eqs.map(e => e.tag).join(', ') : 'No hay equipos'); 
+    }
+    
+    function listLineas() { 
+        const ls = _core.getDb().lines; 
+        notifyWithVoice(ls.length ? '📏 Líneas (' + ls.length + '): ' + ls.map(l => l.tag + '(' + (l.diameter || '?') + '" ' + (l.material || '?') + ')').join(', ') : 'No hay líneas'); 
+    }
+
+    // ============================================================
+    // BOM - COMANDO
+    // ============================================================
+    
+    function parseBOM(cmd) { 
+        const t = cmd.trim().toLowerCase(); 
+        if (t === 'bom' || t === 'mto' || t === 'generate bom' || t === 'generar bom') { generateBOM(); return true; } 
+        return false; 
+    }
+    
+    function generateBOM() {
+        if (typeof SmartFlowIO !== 'undefined' && SmartFlowIO.downloadMTO) { SmartFlowIO.downloadMTO(); return; }
+        if (!_core) { notifyWithVoice("Error: Core no inicializado", true); return; }
+        const db = _core.getDb(); const lines = db.lines || []; const equipos = db.equipos || []; let items = [];
+        equipos.forEach(eq => { if (eq.tipo !== 'colector') items.push({ tipo: 'EQUIPO', tag: eq.tag, descripcion: (eq.tipo || 'Equipo') + ' ' + (eq.material || ''), cantidad: 1, unidad: 'Und' }); });
+        const pipeMap = new Map();
+        lines.forEach(line => {
+            const pts = getPoints(line); if (!pts || pts.length < 2) return;
+            let length = 0; for (let i = 0; i < pts.length - 1; i++) length += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y, pts[i+1].z - pts[i].z);
+            const lengthM = length / 1000; const key = (line.diameter || '?') + '"-' + (line.material || 'PPR') + '-' + (line.spec || 'STD');
+            if (pipeMap.has(key)) pipeMap.get(key).length += lengthM;
+            else pipeMap.set(key, { diametro: line.diameter, material: line.material || 'PPR', spec: line.spec || 'STD', length: lengthM });
+        });
+        pipeMap.forEach(data => items.push({ tipo: 'TUBERIA', tag: '', descripcion: 'Tubo ' + data.material + ' ' + data.diametro + '" ' + data.spec, cantidad: data.length.toFixed(2), unidad: 'm' }));
+        const compMap = new Map();
+        lines.forEach(line => { if (line.components) line.components.forEach(comp => { const key = (comp.type || '?') + '-' + (line.diameter || '?') + '"'; compMap.set(key, (compMap.get(key) || 0) + 1); }); });
+        compMap.forEach((count, key) => { const parts = key.split('-'); items.push({ tipo: 'COMPONENTE', tag: '', descripcion: parts[0] + ' ' + parts[1], cantidad: count, unidad: 'Und' }); });
+        let csv = 'Tipo,Tag,Descripción,Cantidad,Unidad\n';
+        items.forEach(item => csv += item.tipo + ',' + item.tag + ',' + item.descripcion + ',' + item.cantidad + ',' + item.unidad + '\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = 'BOM_' + (window.currentProjectName || 'Proyecto') + '_' + Date.now() + '.csv'; a.click();
+        notifyWithVoice('✅ BOM generado con ' + items.length + ' líneas.', false);
+    }
+
+    // ============================================================
+    // AUDIT - COMANDO
+    // ============================================================
+    
+    function parseAudit(cmd) { 
+        const t = cmd.trim().toLowerCase(); 
+        if (t === 'audit' || t === 'auditar') { if (_core && _core.auditModel) _core.auditModel(); else notifyWithVoice("Auditoría no disponible.", true); return true; } 
+        return false; 
+    }
+
+    // ============================================================
+    // EXPORT - COMANDO
+    // ============================================================
+    
+    function parseExportCommand(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'export' && parts[0] !== 'exportar') return false;
+        const format = parts[1] ? parts[1].toLowerCase() : null;
+        if (format === 'pcf') {
+            if (typeof SmartFlowIO !== 'undefined' && SmartFlowIO.downloadPCF) { SmartFlowIO.downloadPCF(); return true; }
+            if (typeof SmartFlowRenderer !== 'undefined' && SmartFlowRenderer.exportPCF) { SmartFlowRenderer.exportPCF(); return true; }
+            notifyWithVoice('❌ Exportación PCF no disponible', true); return true;
+        }
+        if (format === 'mto' || format === 'csv') {
+            if (typeof SmartFlowIO !== 'undefined' && SmartFlowIO.downloadMTO) { SmartFlowIO.downloadMTO(); return true; }
+            generateBOM(); return true;
+        }
+        if (format === 'json') {
+            if (typeof SmartFlowIO !== 'undefined' && SmartFlowIO.downloadJSON) { SmartFlowIO.downloadJSON(); return true; }
+            if (_core && _core.exportProject) {
+                const json = _core.exportProject();
+                const blob = new Blob([json], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'SmartFlow_' + new Date().toISOString().slice(0,10) + '.json';
+                a.click();
+                notifyWithVoice("📁 Proyecto exportado", false);
+            }
+            return true;
+        }
+        if (format === 'db' || format === 'excel' || format === 'database') {
+            if (typeof SmartFlowDBExport !== 'undefined') { SmartFlowDBExport.exportDatabase(); return true; }
+            notifyWithVoice('❌ Módulo DB Export no disponible', true);
+            return true;
+        }
+        notifyWithVoice("Formatos: export pcf | export mto | export json | export db", true);
+        return true;
+    }
+
+    // ============================================================
+    // IMPORT - COMANDO
+    // ============================================================
+    
+    function parseImportCommand(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'import' && parts[0] !== 'importar') return false;
+        const format = parts[1] ? parts[1].toLowerCase() : null;
+        if (format === 'pcf') {
+            if (typeof SmartFlowIO !== 'undefined') { SmartFlowIO.uploadAndImportPCF(); return true; }
+            notifyWithVoice('❌ Módulo I/O no disponible', true); return true;
+        }
+        if (format === 'json') {
+            if (typeof SmartFlowIO !== 'undefined') { SmartFlowIO.uploadAndImportJSON(); return true; }
+            notifyWithVoice('❌ Módulo I/O no disponible', true); return true;
+        }
+        notifyWithVoice("Formatos: import pcf | import json", true);
+        return true;
+    }
+
+    // ============================================================
+    // VALIDATE ALL - COMANDO
+    // ============================================================
+    
+    function parseValidateAll(cmd) {
+        const trimmed = cmd.trim().toLowerCase();
+        if (trimmed === 'validate all' || trimmed === 'validar todo' || trimmed === 'validar proyecto') {
+            if (typeof SmartFlowIntegrity !== 'undefined') { SmartFlowIntegrity.validateAll(); return true; }
+        }
+        return false;
+    }
+
+    // ============================================================
+    // PROJECT SUMMARY - COMANDO
+    // ============================================================
+    
+    function parseProjectSummary(cmd) {
+        const trimmed = cmd.trim().toLowerCase();
+        if (trimmed === 'project summary' || trimmed === 'resumen proyecto') {
+            if (typeof SmartFlowIntegrity !== 'undefined') { SmartFlowIntegrity.quickSummary(); return true; }
+        }
+        return false;
+    }
+
+    // ============================================================
+    // AUTOFIX - COMANDO
+    // ============================================================
+    
+    function parseAutoFix(cmd) {
+        const trimmed = cmd.trim().toLowerCase();
+        if (trimmed === 'autofix' || trimmed === 'auto fix' || trimmed === 'auto corregir') {
+            if (typeof SmartFlowIntegrity !== 'undefined') { SmartFlowIntegrity.autoFix(); return true; }
+        }
+        return false;
+    }
+
+    // ============================================================
+    // SET PROJECT - COMANDO
+    // ============================================================
+    
+    function parseSetProject(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'set' || parts[1] !== 'project') return false;
+        if (parts[2] === 'defaults' || parts[2] === 'default') {
+            notifyWithVoice("📐 Defaults del proyecto: Material=" + _projectDefaults.material + " | Spec=" + _projectDefaults.spec + "\nPara cambiar: set project material <MATERIAL> spec <SPEC>", false);
+            return true;
+        }
+        let material = null, spec = null;
+        for (let i = 2; i < parts.length; i++) {
+            if (parts[i] === 'material' && i + 1 < parts.length) material = parts[++i].toUpperCase();
+            else if (parts[i] === 'spec' && i + 1 < parts.length) spec = parts[++i];
+        }
+        if (material || spec) setProjectDefaults(material, spec);
+        else notifyWithVoice("Uso: set project material <MATERIAL> spec <SPEC>", true);
+        return true;
+    }
+
+    // ============================================================
+    // MACRO - COMANDO
+    // ============================================================
+    
+    function parseMacro(cmd) {
+        const parts = cmd.trim().split(/\s+/);
+        if (parts[0] !== 'macro' && parts[0] !== 'script') return false;
+        const action = parts[1] ? parts[1].toLowerCase() : null;
+        if (action === 'save' || action === 'guardar') {
+            const name = parts[2];
+            if (!name) { notifyWithVoice("Uso: macro save NOMBRE", true); return true; }
+            const history = window._commandHistory.slice();
+            _macros.set(name, history);
+            notifyWithVoice("💾 Macro \"" + name + "\" guardada (" + history.length + " comandos)", false);
+            return true;
+        }
+        if (action === 'run' || action === 'ejecutar') {
+            const name = parts[2];
+            if (!name || !_macros.has(name)) { notifyWithVoice("Macro \"" + name + "\" no encontrada. Use macro list.", true); return true; }
+            const commands = _macros.get(name);
+            let count = 0;
+            commands.forEach(function(c) { if (executeCommand(c)) count++; });
+            notifyWithVoice("▶️ Macro \"" + name + "\": " + count + "/" + commands.length + " comandos ejecutados", false);
+            return true;
+        }
+        if (action === 'list' || action === 'lista') {
+            if (_macros.size === 0) { notifyWithVoice("No hay macros guardadas.", false); }
+            else { let msg = "📋 Macros guardadas:\n"; _macros.forEach(function(cmds, name) { msg += "  • " + name + " (" + cmds.length + " comandos)\n"; }); notifyWithVoice(msg, false); }
+            return true;
+        }
+        if (action === 'delete' || action === 'eliminar') {
+            const name = parts[2];
+            if (_macros.delete(name)) { notifyWithVoice("🗑️ Macro \"" + name + "\" eliminada", false); }
+            else { notifyWithVoice("Macro \"" + name + "\" no encontrada", true); }
+            return true;
+        }
+        notifyWithVoice("Uso: macro save|run|list|delete [nombre]", true);
+        return true;
+    }
+
+    // ============================================================
+    // HELP - COMANDO
+    // ============================================================
+    
     function parseHelp(cmd) {
         const lower = cmd.toLowerCase();
         if (lower !== 'help' && lower !== 'ayuda') return false;
         let ayuda = "═══════════════════════════════════════════════════════════\n";
-        ayuda += "              SMARTFLOW PRO v4.0 - COMANDOS\n";
+        ayuda += "              SMARTFLOW PRO v4.1 - TODOS LOS COMANDOS\n";
         ayuda += "═══════════════════════════════════════════════════════════\n\n";
-        ayuda += "📊 DIAGRAMA DE FLUJO (PFD):\n";
+        ayuda += "📊 DIAGRAMA DE FLUJO (PFD) - ISO 10628:\n";
         ayuda += "  create equipo TIPO TAG                  ← Crea equipo lógico\n";
-        ayuda += "  create stream TAG from EQUIPO to EQUIPO fluid X flow Y\n";
+        ayuda += "  create stream TAG from EQUIPO to EQUIPO fluid X flow Y [flowUnit UNIDAD]\n";
+        ayuda += "  [pressure X] [pressureUnit UNIDAD] [temperature X] [temperatureUnit UNIDAD]\n";
+        ayuda += "  [phase FASE] [service SERVICIO] [designCase CASO]\n";
         ayuda += "  info stream TAG | list streams [FILTRO]\n";
         ayuda += "  link stream TAG to LINEA               ← Vincular PFD→3D\n";
-        ayuda += "  balance masa EQUIPO                    ← Balance de masa\n\n";
-        ayuda += "🔧 DIAGRAMA TUBERÍA E INSTRUMENTACIÓN (DTI):\n";
-        ayuda += "  create instrument TAG type TIPO on LINEA at POS range RANGO\n";
+        ayuda += "  balance masa EQUIPO                    ← Balance de masa\n";
+        ayuda += "  validate pfd                           ← Validar PFD\n\n";
+        ayuda += "🔧 DIAGRAMA TUBERÍA E INSTRUMENTACIÓN (DTI) - ISA-5.1:\n";
+        ayuda += "  create instrument TAG type TIPO on LINEA at POS [range RANGO]\n";
+        ayuda += "  [signal SEÑAL] [location UBICACION] [manufacturer FABRICANTE]\n";
+        ayuda += "  [model MODELO] [criticality CRITICALIDAD]\n";
         ayuda += "  create loop TAG sensor X controller Y valve Z type TIPO\n";
         ayuda += "  info instrument TAG | list instruments [FILTRO]\n";
-        ayuda += "  list loops | list instrument types\n\n";
-        ayuda += "🧊 ISOMÉTRICO 3D:\n";
-        ayuda += "  create [tipo] [tag] at (x,y,z) [diam X] [height X]\n";
-        ayuda += "  update equipment TAG posX X posY Y posZ Z [diametro D]\n";
+        ayuda += "  list loops | list instrument types\n";
+        ayuda += "  validate dti                           ← Validar DTI\n\n";
+        ayuda += "🧊 ISOMÉTRICO 3D (25 COMANDOS) - ASME B31.3:\n";
+        ayuda += "  create [tipo] [tag] at (x,y,z) [diam X] [height X] [material X]\n";
+        ayuda += "  create line [tag] route (x,y,z)... [diameter X] [material X]\n";
+        ayuda += "  line TAG from EQUIPO PUERTO to EQUIPO PUERTO [diameter X]\n";
+        ayuda += "  update equipment TAG posX X posY Y posZ Z [diametro D] [altura H] [material M] ← ⭐ POSICIONAR\n";
         ayuda += "  connect [origen] [puerto] to [destino] [puerto] [diameter X]\n";
         ayuda += "  route from [origen] [puerto] via (x,y,z)... to [destino]\n";
-        ayuda += "  tap [origen] [puerto] to [linea] [0.0-1.0]\n";
-        ayuda += "  accessories [linea] add TIPO@pos | auto TIPO... at POS\n\n";
-        ayuda += "🔍 VALIDACIÓN:\n";
-        ayuda += "  validate all / validar proyecto         ← Validación completa\n";
-        ayuda += "  validate pfd | validate dti             ← Validar por módulo\n";
-        ayuda += "  project summary / resumen proyecto      ← Resumen rápido\n";
-        ayuda += "  autofix                                  ← Auto-corregir\n\n";
-        ayuda += "📁 EXPORTACIÓN:\n";
+        ayuda += "  tap [origen] [puerto] to [linea] [0.0-1.0] [material X] [diameter X]\n";
+        ayuda += "  split [línea] at (x,y,z) [type TEE_EQUAL]\n";
+        ayuda += "  delete equipment|line [tag]\n";
+        ayuda += "  move [tag] to (x,y,z) | move [tag] by (dx,dy,dz)\n";
+        ayuda += "  edit line [tag] set material|diameter|spec [valor]\n";
+        ayuda += "  extend line TAG to EQUIPO PUERTO [via (x,y,z)...]\n";
+        ayuda += "  optimize route TAG                     ← Elimina puntos colineales\n";
+        ayuda += "  reroute line TAG [mode smart|orthogonal] [elevation N]\n";
+        ayuda += "  accessories [linea] add TIPO@pos... | auto TIPO... at POS | transition from MAT1 to MAT2\n";
+        ayuda += "  place EQUIPO on SUPERFICIE | ground    ← Apoya equipo sobre superficie\n";
+        ayuda += "  rotate [tag] [angulo] [around X|Y|Z]\n";
+        ayuda += "  duplicate [tag] as [nuevo_tag] [offset (dx,dy,dz)]\n";
+        ayuda += "  align TAG1 TAG2 [TAG3...] on X|Y|Z     ← Alinea equipos\n\n";
+        ayuda += "🔍 CONSULTAS Y VISUALIZACIÓN:\n";
+        ayuda += "  info line|equipment|component|stream|instrument [tag]\n";
+        ayuda += "  nodos [tag]                            ← Todos los puertos\n";
+        ayuda += "  nodos abiertos [tag]                   ← Solo puertos DISPONIBLES\n";
+        ayuda += "  point de [tag] [puerto|@0.5|punto N]  ← Coordenadas de punto\n";
+        ayuda += "  measure [tag1] to [tag2]              ← Distancia entre elementos\n";
+        ayuda += "  list equipos|lineas|componentes|especificaciones|streams|instruments|loops\n";
+        ayuda += "  view top|front|iso|extents|[TAG]      ← Cambiar vista\n\n";
+        ayuda += "📁 EXPORTACIÓN E IMPORTACIÓN:\n";
         ayuda += "  export pcf | export mto | export json | export db\n";
         ayuda += "  import pcf | import json\n\n";
         ayuda += "⚙️ GENERAL:\n";
-        ayuda += "  set project material X spec Y | undo | redo | audit\n";
-        ayuda += "  info line/equipment/component TAG | nodos TAG\n";
-        ayuda += "  list equipos | list lineas | list streams\n";
-        ayuda += "  macro save/run/list/delete NOMBRE\n";
+        ayuda += "  set project material X spec Y | undo | redo\n";
+        ayuda += "  validate all | project summary | autofix\n";
+        ayuda += "  bom | mto | audit | macro save|run|list|delete NOMBRE\n";
         ayuda += "═══════════════════════════════════════════════════════════\n";
+        ayuda += "📊 TOTAL: 50+ COMANDOS | PFD:8 | DTI:7 | ISO:25 | GENERAL:10\n";
         notifyWithVoice(ayuda, false);
         return true;
     }
 
-    let _macros = new Map();
-    window._commandHistory = window._commandHistory || [];
-
-    function recordCommand(cmd) {
-        if (cmd && !cmd.startsWith('//') && cmd.trim()) {
-            window._commandHistory.push(cmd.trim());
-            if (window._commandHistory.length > 200) window._commandHistory.shift();
-        }
-    }
-
+    // ============================================================
+    // EJECUCIÓN PRINCIPAL
+    // ============================================================
+    
     function executeCommand(cmd) {
         if (!cmd || cmd.startsWith('//')) return false;
         const normalized = normalizeCommand(cmd);
@@ -1556,52 +2436,61 @@ const SmartFlowCommands = (function() {
         
         if (trimmed === 'undo' || trimmed === 'deshacer') { if (_core) _core.undo(); recordCommand(cmd); return true; }
         if (trimmed === 'redo' || trimmed === 'rehacer') { if (_core) _core.redo(); recordCommand(cmd); return true; }
+        
         if (parseHelp(trimmed)) { recordCommand(cmd); return true; }
+        if (parseSetProject(trimmed)) { recordCommand(cmd); return true; }
+        if (parseValidateAll(trimmed)) { recordCommand(cmd); return true; }
+        if (parseProjectSummary(trimmed)) { recordCommand(cmd); return true; }
+        if (parseAutoFix(trimmed)) { recordCommand(cmd); return true; }
+        if (parseExportCommand(trimmed)) { recordCommand(cmd); return true; }
+        if (parseImportCommand(trimmed)) { recordCommand(cmd); return true; }
+        if (parseBOM(trimmed)) { recordCommand(cmd); return true; }
+        if (parseAudit(trimmed)) { recordCommand(cmd); return true; }
+        if (parseMacro(trimmed)) { recordCommand(cmd); return true; }
         
-        if (parseCreateEquipoPFD(trimmed))   { recordCommand(cmd); return true; }
-        if (parseCreateStream(trimmed))       { recordCommand(cmd); return true; }
-        if (parseStreamInfo(trimmed))         { recordCommand(cmd); return true; }
-        if (parseListStreams(trimmed))        { recordCommand(cmd); return true; }
-        if (parseLinkStream(trimmed))         { recordCommand(cmd); return true; }
-        if (parseBalance(trimmed))            { recordCommand(cmd); return true; }
+        if (parseCreateEquipoPFD(trimmed)) { recordCommand(cmd); return true; }
+        if (parseCreateStream(trimmed)) { recordCommand(cmd); return true; }
+        if (parseStreamInfo(trimmed)) { recordCommand(cmd); return true; }
+        if (parseListStreams(trimmed)) { recordCommand(cmd); return true; }
+        if (parseLinkStream(trimmed)) { recordCommand(cmd); return true; }
+        if (parseBalance(trimmed)) { recordCommand(cmd); return true; }
+        if (parseValidatePFD(trimmed)) { recordCommand(cmd); return true; }
         
-        if (parseCreateInstrument(trimmed))   { recordCommand(cmd); return true; }
-        if (parseCreateLoop(trimmed))         { recordCommand(cmd); return true; }
-        if (parseInstrumentInfo(trimmed))     { recordCommand(cmd); return true; }
-        if (parseListInstruments(trimmed))    { recordCommand(cmd); return true; }
-        if (parseListLoops(trimmed))          { recordCommand(cmd); return true; }
-        if (parseListInstrumentTypes(trimmed)){ recordCommand(cmd); return true; }
+        if (parseCreateInstrument(trimmed)) { recordCommand(cmd); return true; }
+        if (parseCreateLoop(trimmed)) { recordCommand(cmd); return true; }
+        if (parseInstrumentInfo(trimmed)) { recordCommand(cmd); return true; }
+        if (parseListInstruments(trimmed)) { recordCommand(cmd); return true; }
+        if (parseListLoops(trimmed)) { recordCommand(cmd); return true; }
+        if (parseListInstrumentTypes(trimmed)) { recordCommand(cmd); return true; }
+        if (parseValidateDTI(trimmed)) { recordCommand(cmd); return true; }
         
-        if (parseValidateAll(trimmed))        { recordCommand(cmd); return true; }
-        if (parseValidatePFD(trimmed))        { recordCommand(cmd); return true; }
-        if (parseValidateDTI(trimmed))        { recordCommand(cmd); return true; }
-        if (parseProjectSummary(trimmed))     { recordCommand(cmd); return true; }
-        if (parseAutoFix(trimmed))            { recordCommand(cmd); return true; }
+        if (parseCreate(trimmed)) { recordCommand(cmd); return true; }
+        if (parseCreateLine(trimmed)) { recordCommand(cmd); return true; }
+        if (parseLineFromTo(trimmed)) { recordCommand(cmd); return true; }
+        if (parseUpdateEquipment(trimmed)) { recordCommand(cmd); return true; }
+        if (parseConnect(trimmed)) { recordCommand(cmd); return true; }
+        if (parseRoute(trimmed)) { recordCommand(cmd); return true; }
+        if (parseTap(trimmed)) { recordCommand(cmd); return true; }
+        if (parseSplit(trimmed)) { recordCommand(cmd); return true; }
+        if (parseDelete(trimmed)) { recordCommand(cmd); return true; }
+        if (parseMoveCommand(trimmed)) { recordCommand(cmd); return true; }
+        if (parseEditCommand(trimmed)) { recordCommand(cmd); return true; }
+        if (parseExtendLine(trimmed)) { recordCommand(cmd); return true; }
+        if (parseOptimizeRoute(trimmed)) { recordCommand(cmd); return true; }
+        if (parseRerouteLine(trimmed)) { recordCommand(cmd); return true; }
+        if (parseAccessoriesCommand(trimmed)) { recordCommand(cmd); return true; }
+        if (parsePlace(trimmed)) { recordCommand(cmd); return true; }
+        if (parseRotate(trimmed)) { recordCommand(cmd); return true; }
+        if (parseDuplicate(trimmed)) { recordCommand(cmd); return true; }
+        if (parseAlign(trimmed)) { recordCommand(cmd); return true; }
+        if (parseViewCommand(trimmed)) { recordCommand(cmd); return true; }
         
-        if (parseExportCommand(trimmed))      { recordCommand(cmd); return true; }
-        if (parseImportCommand(trimmed))      { recordCommand(cmd); return true; }
-        
-        if (parseUpdateEquipment(trimmed))    { recordCommand(cmd); return true; }
-        
-        if (parseLineFromTo(trimmed))         { recordCommand(cmd); return true; }
-        if (parseExtendLine(trimmed))         { recordCommand(cmd); return true; }
-        if (parseOptimizeRoute(trimmed))      { recordCommand(cmd); return true; }
-        if (parseRerouteLine(trimmed))        { recordCommand(cmd); return true; }
-        if (parseCreate(trimmed))             { recordCommand(cmd); return true; }
-        if (parseCreateLine(trimmed))         { recordCommand(cmd); return true; }
-        if (parseConnect(trimmed))            { recordCommand(cmd); return true; }
-        if (parseRoute(trimmed))              { recordCommand(cmd); return true; }
-        if (parseDelete(trimmed))             { recordCommand(cmd); return true; }
-        if (parseTap(trimmed))                { recordCommand(cmd); return true; }
-        if (parseSplit(trimmed))              { recordCommand(cmd); return true; }
-        if (parseMoveCommand(trimmed))        { recordCommand(cmd); return true; }
-        if (parseEditCommand(trimmed))        { recordCommand(cmd); return true; }
-        if (parseInfo(trimmed))               { recordCommand(cmd); return true; }
-        if (parseList(trimmed))               { recordCommand(cmd); return true; }
-        if (parseNodes(trimmed))              { recordCommand(cmd); return true; }
-        if (parseBOM(trimmed))                { recordCommand(cmd); return true; }
-        if (parseAudit(trimmed))              { recordCommand(cmd); return true; }
-        if (parseSetProject(trimmed))         { recordCommand(cmd); return true; }
+        if (parseInfo(trimmed)) { recordCommand(cmd); return true; }
+        if (parseNodes(trimmed)) { recordCommand(cmd); return true; }
+        if (parseNodosAbiertos(trimmed)) { recordCommand(cmd); return true; }
+        if (parsePoint(trimmed)) { recordCommand(cmd); return true; }
+        if (parseMeasure(trimmed)) { recordCommand(cmd); return true; }
+        if (parseList(trimmed)) { recordCommand(cmd); return true; }
         
         return false;
     }
@@ -1642,3 +2531,7 @@ const SmartFlowCommands = (function() {
         runFittingInjection: runFittingInjection
     };
 })();
+
+if (typeof window !== 'undefined') {
+    window.SmartFlowCommands = SmartFlowCommands;
+}
