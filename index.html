@@ -1,6 +1,4 @@
 
-
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -288,14 +286,13 @@
         </div>
     </div>
 
-    <!-- COMMAND PANEL (INTEGRADO: TEXTO + ASISTENTE) -->
+    <!-- COMMAND PANEL -->
     <div id="commandPanel" class="command-panel">
         <div class="command-header">
             <strong>🤖 COMANDOS SMARTENGP</strong>
             <button class="close-btn" id="closeCommand" aria-label="Cerrar panel de comandos">✖</button>
         </div>
         
-        <!-- SECCIÓN: CONSOLA DE TEXTO (TRADICIONAL) -->
         <div style="margin-bottom:6px;">
             <label style="font-size:9px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">📝 CONSOLA DE TEXTO</label>
             <textarea id="commandText" class="command-textarea" rows="3" placeholder="Escriba comandos aquí..."></textarea>
@@ -307,7 +304,6 @@
             </div>
         </div>
         
-        <!-- SECCIÓN: ASISTENTE PASO A PASO (GUI) -->
         <div class="assistant-container" id="adaptive-assistant-container">
             <div class="assistant-title">
                 <span>🧭 ASISTENTE PASO A PASO</span>
@@ -358,48 +354,46 @@
     </div>
 
     <!-- ============================================================
-         SCRIPTS - ORDEN CORRECTO DE CARGA (SIN DUPLICADOS)
+         SCRIPTS - SOLO LOS NECESARIOS
          ============================================================ -->
     
-    <!-- 1. CORE Y CATÁLOGO -->
+    <!-- CORE Y CATÁLOGO -->
     <script src="js/core.js"></script>
     <script src="js/catalog.js"></script>
     
-    <!-- 2. SISTEMA DE COMANDOS (TEXTO + ADAPTATIVO) -->
+    <!-- SISTEMA DE COMANDOS -->
     <script src="js/commands.js"></script>
     <script src="js/adaptiveCommands.js"></script>
     <script src="js/adaptiveCommandsUI.js"></script>
     
-    <!-- 3. ROUTER Y RENDERIZADORES BASE -->
+    <!-- ROUTER Y RENDERIZADORES BASE -->
     <script src="js/router.js"></script>
     <script src="js/renderer.js"></script>
     
-    <!-- 4. MÓDULOS PFD -->
+    <!-- MÓDULOS PFD -->
     <script src="js/modules/pfd_engine.js"></script>
     <script src="js/modules/pfd_renderer.js"></script>
     
-    <!-- 5. MÓDULOS DTI -->
+    <!-- MÓDULOS DTI -->
     <script src="js/modules/dti_engine.js"></script>
     <script src="js/modules/dti_renderer.js"></script>
     
-    <!-- 6. INTEGRIDAD -->
+    <!-- INTEGRIDAD -->
     <script src="js/modules/integrity.js"></script>
     
-    <!-- 7. IMPORTACIÓN/EXPORTACIÓN -->
+    <!-- IMPORTACIÓN/EXPORTACIÓN -->
     <script src="js/modules/smartflow_io.js"></script>
     <script src="js/modules/smartflow_db_export.js"></script>
     
-    <!-- 8. THREE.JS Y VISOR 3D -->
+    <!-- THREE.JS Y VISOR 3D -->
     <script type="module" src="js/ThreeJsEngine.js"></script>
     <script type="module" src="js/render.js"></script>
     <script type="module" src="js/SmartFlowLabels3D.js"></script>
     
-    <!-- 9. MAIN (PUNTO DE ENTRADA) -->
+    <!-- MAIN -->
     <script src="js/main.js"></script>
     
-    <!-- ============================================================
-         SCRIPTS INLINE
-         ============================================================ -->
+    <!-- INLINE -->
     <script>
         window.voiceEnabled = true;
         window.currentProjectName = 'Proyecto_SmartEngp';
@@ -408,21 +402,15 @@
 
         document.addEventListener("DOMContentLoaded", function() {
             
-            var btnClosePanel = document.getElementById('btnClosePanel');
-            if (btnClosePanel) {
-                btnClosePanel.addEventListener('click', function() { 
-                    if (typeof togglePanel === 'function') togglePanel(false); 
-                });
-            }
+            document.getElementById('btnClosePanel')?.addEventListener('click', function() { 
+                if (typeof togglePanel === 'function') togglePanel(false); 
+            });
 
             ['btnElev0', 'btnElev2500', 'btnElev5000'].forEach(function(id) {
-                var btn = document.getElementById(id);
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var level = parseInt(this.getAttribute('data-level'), 10);
-                        if (typeof setElevation === 'function') setElevation(level);
-                    });
-                }
+                document.getElementById(id)?.addEventListener('click', function() {
+                    var level = parseInt(this.getAttribute('data-level'), 10);
+                    if (typeof setElevation === 'function') setElevation(level);
+                });
             });
 
             window.togglePanel = function(show) {
@@ -441,30 +429,21 @@
                 if (elevInput) elevInput.value = level;
             };
 
-            var cmdBtn = document.getElementById('btnCommand');
-            if (cmdBtn && typeof AdaptiveCommandsUI !== 'undefined') {
-                cmdBtn.addEventListener('click', function() {
-                    if (typeof AdaptiveCommandsUI !== 'undefined') {
-                        AdaptiveCommandsUI.toggle();
-                    }
-                });
-            }
+            document.getElementById('btnCommand')?.addEventListener('click', function() {
+                if (typeof AdaptiveCommandsUI !== 'undefined') {
+                    AdaptiveCommandsUI.toggle();
+                }
+            });
 
             setTimeout(function() {
                 var splash = document.getElementById('splash-screen');
                 if (splash) {
                     splash.classList.add('splash-hidden');
-                    setTimeout(function() {
-                        splash.style.display = 'none';
-                    }, 800);
+                    setTimeout(function() { splash.style.display = 'none'; }, 800);
                 }
             }, 4500);
 
             console.log('✅ SmartEngp v3.4 cargado correctamente.');
-            console.log('💡 Sistema de comandos integrado:');
-            console.log('   📝 Consola de texto (arriba)');
-            console.log('   🧭 Asistente paso a paso (abajo)');
-            console.log('💡 Presiona 🤖 Cmd o Ctrl+Shift+C para abrir/cerrar');
         });
     </script>
 
