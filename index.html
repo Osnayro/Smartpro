@@ -1,4 +1,6 @@
 
+
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -99,11 +101,54 @@
         #side-panel{position:absolute;top:10px;right:10px;width:280px;max-width:85vw;max-height:60vh;background:rgba(15,23,42,0.85);backdrop-filter:blur(12px);border:1px solid rgba(0,242,255,0.3);border-radius:8px;padding:12px;z-index:100;overflow-y:auto;transition:transform .3s ease}
         #side-panel.hidden{transform:translateX(320px)}
         #panel-content{max-height:calc(60vh - 50px);overflow-y:auto}
-        #commandPanel{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);width:90%;max-width:560px;background:rgba(15,23,42,0.95);border-radius:12px;border:1px solid var(--accent-cyan);z-index:1000;display:none;backdrop-filter:blur(10px);padding:10px}
-        .command-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:var(--accent-cyan)}
-        textarea{width:100%;margin:0;background:#0f0f17;color:#eee;border:1px solid #3a3a4a;border-radius:8px;padding:10px;font-family:'Courier New',monospace;font-size:12px;resize:vertical}
-        .command-buttons{display:flex;gap:8px;margin-top:8px}
-        .history-indicator{font-size:10px;color:#64748b;margin-top:4px;text-align:right}
+        #commandPanel{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);width:90%;max-width:620px;max-height:80vh;background:rgba(15,23,42,0.95);border-radius:12px;border:1px solid var(--accent-cyan);z-index:1000;backdrop-filter:blur(10px);padding:12px 16px;display:none;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.6)}
+        #commandPanel::-webkit-scrollbar{width:4px}
+        #commandPanel::-webkit-scrollbar-track{background:rgba(255,255,255,0.05)}
+        #commandPanel::-webkit-scrollbar-thumb{background:rgba(0,242,255,0.3);border-radius:4px}
+        .command-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:var(--accent-cyan);font-weight:700;font-size:14px;letter-spacing:0.5px}
+        .command-header .close-btn{background:none;border:none;color:#fff;font-size:20px;padding:0 8px;cursor:pointer;min-height:36px;min-width:36px;border-radius:50%;transition:all .2s}
+        .command-header .close-btn:hover{background:rgba(239,68,68,0.2);color:#ef4444}
+        .command-textarea{width:100%;margin:4px 0;background:#0f0f17;color:#eee;border:1px solid #3a3a4a;border-radius:8px;padding:8px 10px;font-family:'Courier New',monospace;font-size:12px;resize:vertical;min-height:60px}
+        .command-textarea:focus{border-color:var(--accent-cyan);outline:none}
+        .command-buttons{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+        .command-buttons button{padding:4px 14px;border-radius:4px;border:none;font-size:11px;font-weight:600;cursor:pointer;min-height:32px;transition:all .2s}
+        .btn-run{background:var(--accent-blue);color:#fff}
+        .btn-run:hover{background:#2563eb}
+        .btn-clear{background:#334155;color:#fff}
+        .btn-clear:hover{background:#475569}
+        .history-indicator{font-size:9px;color:#64748b;text-align:right;min-height:16px}
+        .assistant-container{border-top:1px solid rgba(0,242,255,0.15);padding-top:10px;margin-top:4px}
+        .assistant-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:var(--accent-cyan);font-weight:700;font-size:12px;letter-spacing:0.3px}
+        .assistant-title .module-badge{font-size:9px;color:#64748b;font-weight:400}
+        .assistant-module-tabs{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+        .assistant-tab{padding:3px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#94a3b8;font-size:10px;font-weight:600;cursor:pointer;transition:all .2s;min-height:28px}
+        .assistant-tab:hover{border-color:rgba(255,255,255,0.2);color:#e0e6ed}
+        .assistant-tab.active-pfd{border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.12);color:#10b981}
+        .assistant-tab.active-dti{border-color:rgba(139,92,246,0.3);background:rgba(139,92,246,0.12);color:#8b5cf6}
+        .assistant-tab.active-iso{border-color:rgba(0,242,255,0.3);background:rgba(0,242,255,0.12);color:#00f2ff}
+        .assistant-body{max-height:250px;overflow-y:auto;padding:4px 0;-webkit-overflow-scrolling:touch}
+        .assistant-body::-webkit-scrollbar{width:3px}
+        .assistant-body::-webkit-scrollbar-thumb{background:rgba(0,242,255,0.2);border-radius:4px}
+        .assistant-cmd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}
+        .assistant-cmd-card{background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.04);border-radius:8px;padding:8px 6px;cursor:pointer;text-align:center;transition:all .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:56px}
+        .assistant-cmd-card:hover{border-color:rgba(0,242,255,0.3);background:rgba(30,41,59,0.7);transform:translateY(-1px)}
+        .assistant-cmd-card .cmd-icon{font-size:1.4em;line-height:1.2}
+        .assistant-cmd-card .cmd-name{font-size:0.6em;font-weight:600;color:#e0e6ed;margin-top:2px;line-height:1.2}
+        .assistant-footer{display:none;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.06)}
+        .assistant-btn{padding:4px 12px;border-radius:4px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:#94a3b8;font-size:0.65em;font-weight:600;cursor:pointer;min-height:28px;transition:all .2s}
+        .assistant-btn:hover:not(:disabled){border-color:rgba(255,255,255,0.2);color:#e0e6ed}
+        .assistant-btn:disabled{opacity:0.4;cursor:not-allowed}
+        .assistant-btn-primary{background:#1e4eb8;border:none;color:#fff}
+        .assistant-btn-primary:hover:not(:disabled){background:#2563eb}
+        .assistant-btn-success{background:#238636;border:none;color:#fff}
+        .assistant-btn-success:hover:not(:disabled){background:#2ea043}
+        .assistant-btn-danger{border-color:rgba(248,113,113,0.2);color:#f87171}
+        .assistant-btn-danger:hover:not(:disabled){background:rgba(248,113,113,0.1)}
+        .adaptive-toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);padding:8px 20px;border-radius:8px;z-index:10001;font-size:0.8em;font-weight:600;pointer-events:none;max-width:90vw;text-align:center;animation:toastSlideUp 0.3s ease}
+        .adaptive-toast.ok{background:#1a3a2a;color:#3fb950;border:1px solid #3fb950}
+        .adaptive-toast.err{background:#3a1a1a;color:#f85149;border:1px solid #f85149}
+        .adaptive-toast.info{background:#1a2a3a;color:#58a6ff;border:1px solid #58a6ff}
+        @keyframes toastSlideUp{from{transform:translate(-50%,20px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
         .notification{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#238636;padding:8px 16px;border-radius:8px;z-index:2000;display:none;font-weight:700;font-size:13px;pointer-events:none}
         .status-bar{position:fixed;bottom:8px;left:12px;z-index:300;background:rgba(2,6,23,0.7);padding:4px 12px;font-size:10px;border-radius:4px;color:var(--accent-cyan);pointer-events:none;backdrop-filter:blur(4px);border:1px solid rgba(0,242,255,0.2)}
         .tools-panel{position:fixed;left:10px;top:110px;background:rgba(15,23,42,0.9);border-radius:10px;padding:6px;z-index:400;border:1px solid rgba(0,242,255,0.3);backdrop-filter:blur(6px);display:flex;flex-direction:column;gap:4px;transition:all .3s}
@@ -118,11 +163,14 @@
         body.fullscreen-mode .toolbar,body.fullscreen-mode .module-tabs,body.fullscreen-mode #side-panel,body.fullscreen-mode #commandPanel,body.fullscreen-mode .status-bar,body.fullscreen-mode .tools-panel,body.fullscreen-mode #notification{display:none!important}
         body.fullscreen-mode .canvas-container{position:fixed;top:0;left:0;width:100%;height:100%;z-index:10}
         body.fullscreen-mode #fullscreen-controls{display:flex!important}
-        @media(max-width:768px){.toolbar button{font-size:9px;padding:4px 6px}.toolbar-title{font-size:13px}.module-tab{font-size:10px;padding:6px 10px}#side-panel{width:240px;right:5px}.tools-panel{top:100px;left:4px}}
+        @media(max-width:768px){.toolbar button{font-size:9px;padding:4px 6px}.toolbar-title{font-size:13px}.module-tab{font-size:10px;padding:6px 10px}#side-panel{width:240px;right:5px}.tools-panel{top:100px;left:4px}#commandPanel{width:95%;max-width:100%;bottom:10px;padding:10px 12px;max-height:85vh}.assistant-cmd-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}.assistant-cmd-card{min-height:48px;padding:6px 4px}.assistant-cmd-card .cmd-icon{font-size:1.2em}.assistant-cmd-card .cmd-name{font-size:0.55em}.command-header{font-size:12px}.command-textarea{font-size:11px;min-height:50px}.command-buttons button{font-size:10px;padding:3px 10px;min-height:28px}}
+        @media(max-width:480px){#commandPanel{padding:8px 10px;max-height:90vh}.assistant-cmd-grid{grid-template-columns:repeat(2,1fr);gap:4px}.assistant-module-tabs{gap:3px}.assistant-tab{font-size:9px;padding:2px 8px;min-height:24px}.assistant-body{max-height:180px}}
+        @media(prefers-reduced-motion:reduce){#splash-screen{transition:none}.loading-bar-fill{animation:none}.adaptive-toast{animation:none}}
     </style>
 </head>
 <body>
 
+    <!-- SPLASH SCREEN -->
     <div id="splash-screen">
         <div class="splash-content">
             <div class="corporate-header">
@@ -143,6 +191,7 @@
         </div>
     </div>
 
+    <!-- WELCOME PANEL -->
     <div id="welcome-panel">
         <div class="welcome-container">
             <div class="home-logo-wrapper">
@@ -159,6 +208,7 @@
         </div>
     </div>
 
+    <!-- PROJECT NAME MODAL -->
     <div id="project-name-modal">
         <div class="modal-content">
             <h3>Nuevo Proyecto</h3>
@@ -170,6 +220,7 @@
         </div>
     </div>
 
+    <!-- TOOLBAR -->
     <div class="toolbar" role="toolbar">
         <div class="toolbar-logo">
             <img src="img/logo.PNG" alt="Logo" style="height:24px" onerror="this.style.display='none'">
@@ -215,12 +266,14 @@
         </div>
     </div>
 
+    <!-- MODULE TABS -->
     <div class="module-tabs" id="moduleTabs">
         <button class="module-tab pfd-tab active" data-module="pfd">📊 PFD — Diagrama de Flujo</button>
         <button class="module-tab dti-tab" data-module="dti">🔧 DTI — Tubería e Instrumentación</button>
         <button class="module-tab iso-tab" data-module="iso">🧊 ISO — Isométrico 3D</button>
     </div>
 
+    <!-- CANVAS CONTAINER -->
     <div class="canvas-container" id="canvas-container">
         <canvas id="pfd-canvas" style="display:block"></canvas>
         <canvas id="dti-canvas" style="display:none"></canvas>
@@ -235,22 +288,48 @@
         </div>
     </div>
 
+    <!-- COMMAND PANEL (INTEGRADO: TEXTO + ASISTENTE) -->
     <div id="commandPanel" class="command-panel">
         <div class="command-header">
-            <strong>🤖 Comandos IA — SmartEngp v3.4</strong>
-            <button id="closeCommand" style="background:none;border:none;color:#fff;font-size:20px;padding:0;width:30px">✖</button>
+            <strong>🤖 COMANDOS SMARTENGP</strong>
+            <button class="close-btn" id="closeCommand" aria-label="Cerrar panel de comandos">✖</button>
         </div>
-        <textarea id="commandText" rows="4" placeholder="PFD: create stream S1 from TK-01 to B-01 fluid WATER flow 50&#10;DTI: create instrument PI-101 type PRESSURE_GAUGE on L-1 at 0.3&#10;3D:  connect TK-01 N1 to B-01 SUC diametro 6&#10;VAL: validate all | project summary | export db"></textarea>
-        <div class="history-indicator" id="historyIndicator"></div>
-        <div class="command-buttons">
-            <button id="runCommands">▶ Ejecutar</button>
-            <button id="clearCommand">🗑️ Limpiar</button>
+        
+        <!-- SECCIÓN: CONSOLA DE TEXTO (TRADICIONAL) -->
+        <div style="margin-bottom:6px;">
+            <label style="font-size:9px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">📝 CONSOLA DE TEXTO</label>
+            <textarea id="commandText" class="command-textarea" rows="3" placeholder="Escriba comandos aquí..."></textarea>
+            <div id="historyIndicator" class="history-indicator"></div>
+            <div class="command-buttons">
+                <button class="btn-run" id="runCommands">▶ Ejecutar</button>
+                <button class="btn-clear" id="clearCommand">🗑️ Limpiar</button>
+                <span style="font-size:9px;color:#64748b;display:flex;align-items:center;margin-left:4px;">⬆⬇ Historial | Ctrl+Enter</span>
+            </div>
+        </div>
+        
+        <!-- SECCIÓN: ASISTENTE PASO A PASO (GUI) -->
+        <div class="assistant-container" id="adaptive-assistant-container">
+            <div class="assistant-title">
+                <span>🧭 ASISTENTE PASO A PASO</span>
+                <span class="module-badge">Módulo: <span id="assistant-module-badge">PFD</span></span>
+            </div>
+            <div class="assistant-module-tabs" id="assistant-tabs">
+                <button class="assistant-tab active-pfd" data-module="pfd">📊 PFD</button>
+                <button class="assistant-tab" data-module="dti">🔧 DTI</button>
+                <button class="assistant-tab" data-module="iso">🧊 ISO</button>
+            </div>
+            <div class="assistant-body" id="assistant-body">
+                <p style="color:#64748b;font-size:11px;text-align:center;padding:15px 0;">Seleccione un comando para comenzar el asistente</p>
+            </div>
+            <div class="assistant-footer" id="assistant-footer"></div>
         </div>
     </div>
 
+    <!-- NOTIFICATION -->
     <div id="notification" class="notification"></div>
     <div class="status-bar" id="statusMsg">SISTEMA LISTO | SmartEngp v3.4</div>
 
+    <!-- TOOLS PANEL -->
     <div class="tools-panel" id="toolsPanel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <span style="font-size:10px;color:var(--accent-cyan)">HERRAMIENTAS</span>
@@ -272,40 +351,55 @@
         </div>
     </div>
 
+    <!-- FULLSCREEN CONTROLS -->
     <div id="fullscreen-controls">
         <button id="btnFullscreenCenter" style="padding:12px 20px;border-radius:30px;background:var(--accent-cyan);color:#000;font-weight:700;border:none">🔄 Centrar</button>
         <button id="btnFullscreenExit" style="padding:12px 20px;border-radius:30px;background:#ef4444;color:#fff;font-weight:700;border:none">✕ Salir</button>
     </div>
 
+    <!-- ============================================================
+         SCRIPTS - ORDEN CORRECTO DE CARGA (SIN DUPLICADOS)
+         ============================================================ -->
+    
+    <!-- 1. CORE Y CATÁLOGO -->
     <script src="js/core.js"></script>
     <script src="js/catalog.js"></script>
-    <script src="js/router.js"></script>
     
+    <!-- 2. SISTEMA DE COMANDOS (TEXTO + ADAPTATIVO) -->
+    <script src="js/commands.js"></script>
+    <script src="js/adaptiveCommands.js"></script>
+    <script src="js/adaptiveCommandsUI.js"></script>
+    
+    <!-- 3. ROUTER Y RENDERIZADORES BASE -->
+    <script src="js/router.js"></script>
+    <script src="js/renderer.js"></script>
+    
+    <!-- 4. MÓDULOS PFD -->
     <script src="js/modules/pfd_engine.js"></script>
     <script src="js/modules/pfd_renderer.js"></script>
+    
+    <!-- 5. MÓDULOS DTI -->
     <script src="js/modules/dti_engine.js"></script>
     <script src="js/modules/dti_renderer.js"></script>
+    
+    <!-- 6. INTEGRIDAD -->
     <script src="js/modules/integrity.js"></script>
     
+    <!-- 7. IMPORTACIÓN/EXPORTACIÓN -->
     <script src="js/modules/smartflow_io.js"></script>
     <script src="js/modules/smartflow_db_export.js"></script>
     
-    <script src="js/renderer.js"></script>
-    <script src="js/commands.js"></script>
-
-    <script src="js/adaptiveCommands.js"></script>
-    <script src="js/modules/adaptive_iso_update_flows.js"></script>
-    <script src="js/modules/adaptive_pfd_dti_flows.js"></script>
-    <script src="js/adaptiveCommandsUI.js"></script>
-    
-    <script src="js/modules/adaptive_bridge.js"></script>
-
+    <!-- 8. THREE.JS Y VISOR 3D -->
     <script type="module" src="js/ThreeJsEngine.js"></script>
     <script type="module" src="js/render.js"></script>
     <script type="module" src="js/SmartFlowLabels3D.js"></script>
-
+    
+    <!-- 9. MAIN (PUNTO DE ENTRADA) -->
     <script src="js/main.js"></script>
-
+    
+    <!-- ============================================================
+         SCRIPTS INLINE
+         ============================================================ -->
     <script>
         window.voiceEnabled = true;
         window.currentProjectName = 'Proyecto_SmartEngp';
@@ -331,51 +425,48 @@
                 }
             });
 
-            document.querySelectorAll('.module-tab').forEach(function(tab) {
-                tab.addEventListener('click', function() {
-                    var module = this.getAttribute('data-module');
-                    if (typeof window.switchModule === 'function') {
-                        window.switchModule(module);
+            window.togglePanel = function(show) {
+                var panel = document.getElementById('side-panel');
+                if (panel) {
+                    if (show) panel.classList.remove('hidden');
+                    else panel.classList.add('hidden');
+                }
+            };
+
+            window.setElevation = function(level) {
+                if (typeof SmartFlowCore !== 'undefined' && SmartFlowCore.setElevation) {
+                    SmartFlowCore.setElevation(level);
+                }
+                var elevInput = document.getElementById('customElev');
+                if (elevInput) elevInput.value = level;
+            };
+
+            var cmdBtn = document.getElementById('btnCommand');
+            if (cmdBtn && typeof AdaptiveCommandsUI !== 'undefined') {
+                cmdBtn.addEventListener('click', function() {
+                    if (typeof AdaptiveCommandsUI !== 'undefined') {
+                        AdaptiveCommandsUI.toggle();
                     }
                 });
-            });
-            
-            var btnPFD = document.getElementById('btn-mode-pfd');
-            var btnDTI = document.getElementById('btn-mode-dti');
-            var btnISO = document.getElementById('btn-mode-iso');
-            if (btnPFD) btnPFD.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('pfd'); });
-            if (btnDTI) btnDTI.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('dti'); });
-            if (btnISO) btnISO.addEventListener('click', function() { if (typeof window.switchModule === 'function') window.switchModule('iso'); });
+            }
 
-            window.addEventListener('resize', function() {
-                var m = window.currentModule || 'pfd';
-                if (m === 'pfd' && typeof SmartFlowPFDRenderer !== 'undefined') {
-                    SmartFlowPFDRenderer.resizeCanvas();
-                    SmartFlowPFDRenderer.render();
-                } else if (m === 'dti' && typeof SmartFlowDTIRenderer !== 'undefined') {
-                    SmartFlowDTIRenderer.resizeCanvas();
-                    SmartFlowDTIRenderer.render();
-                } else if (m === 'iso' && typeof SmartFlowRenderer !== 'undefined') {
-                    SmartFlowRenderer.resizeCanvas();
+            setTimeout(function() {
+                var splash = document.getElementById('splash-screen');
+                if (splash) {
+                    splash.classList.add('splash-hidden');
+                    setTimeout(function() {
+                        splash.style.display = 'none';
+                    }, 800);
                 }
-            });
+            }, 4500);
+
+            console.log('✅ SmartEngp v3.4 cargado correctamente.');
+            console.log('💡 Sistema de comandos integrado:');
+            console.log('   📝 Consola de texto (arriba)');
+            console.log('   🧭 Asistente paso a paso (abajo)');
+            console.log('💡 Presiona 🤖 Cmd o Ctrl+Shift+C para abrir/cerrar');
         });
-
-        function setElevation(level) {
-            if (typeof SmartFlowCore !== 'undefined' && SmartFlowCore.setElevation) {
-                SmartFlowCore.setElevation(level);
-            }
-            var elevInput = document.getElementById('customElev');
-            if (elevInput) elevInput.value = level;
-        }
-
-        function togglePanel(show) {
-            var panel = document.getElementById('side-panel');
-            if (panel) {
-                if (show) panel.classList.remove('hidden');
-                else panel.classList.add('hidden');
-            }
-        }
     </script>
+
 </body>
 </html>
